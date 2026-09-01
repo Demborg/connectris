@@ -111,11 +111,24 @@ rather than one flash. Each tile ends on exactly the colour the solved row uses,
 consolidating into a single bar is a swap the eye doesn't catch. Bars in a multi-row clear
 land in sequence rather than all on one frame.
 
+**The press causes the wave.** Hitting check sends two light rails up the side of the board
+from button height, arriving at the top just as the clear starts rolling down. Without it
+the wave simply appeared at the top with no connection to the thing the player touched.
+It also buys an anticipation beat before the payoff, which is the oldest trick in animation.
+
 **The wave crashes into the row that stopped it.** When it runs out of correct rows it slams
 into the first row that isn't one — which is, by definition, the row the player got wrong.
-The impact squashes that row and the shock travels a couple of rows further down at a
-fraction of the amplitude. This is not decoration: the crash _is_ the feedback, pointing at
-where the run broke, and it's information the top-down rule otherwise has to state in words.
+The impact squashes that row and the shock travels further down at a decaying amplitude.
+This is not decoration: the crash _is_ the feedback, pointing at where the run broke, and
+it's information the top-down rule otherwise has to state in words.
+
+**A miss is the same motion, not a different one.** Nothing clearing means row 1 is wrong,
+so the wave has no correct rows to travel through and slams straight into it — the
+degenerate case where the run has length zero, and the crash still lands on the row that
+stopped it. There is one impact vocabulary rather than a clear animation plus an unrelated
+board shake. Only two things separate them: the impact flashes red instead of neutral, and
+a miss rings much further down the stack, because a clear is absorbed by the rows that took
+it and a miss was absorbed by nothing.
 
 **A bigger clear hits harder.** Two rows or more gets a Tetris-style callout — DOUBLE,
 TRIPLE, CONNECTRIS — in the slack below the well, and the clear glows brighter and lands

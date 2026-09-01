@@ -18,6 +18,17 @@ const SETTLE = 120;
 export const CRASH_MS = 460;
 export const RIPPLE_STEP = 60;
 
+/**
+ * Anticipation. The press runs up the board from the button before anything resolves,
+ * so the wave is visibly caused by the thing the player just touched rather than simply
+ * appearing at the top. The wave starts slightly before the sweep finishes.
+ */
+export const SWEEP_MS = 260;
+const SWEEP_LEAD = 200;
+
+/** A miss hits harder than a single-row clear and rings further down the stack. */
+const MISS_AMP = 1.35;
+
 /** How long the wave takes to cross `rows` rows before they consolidate. */
 export const lockDuration = (rows: number) =>
 	(rows - 1) * ROW_STAGGER + (COLS - 1) * TILE_STAGGER + POP + SETTLE;
@@ -44,12 +55,14 @@ export class Session {
 	feedback = $state('');
 	/** Rows currently lifting off. Drives the clear animation. */
 	locking = $state(0);
-	/** Bumped on a failed check so the board can shake. */
-	shake = $state(0);
+	/** True while the press is travelling up the board. */
+	sweeping = $state(false);
 	/** Rows taken by the last multi-row clear, while its flourish is on screen. */
 	combo = $state(0);
 	/** Strength of the wave's impact on the top remaining row, 0 when nothing is playing. */
 	crash = $state(0);
+	/** Whether that impact was a failed check rather than a clear landing. */
+	crashMiss = $state(false);
 	best = $state<Best | undefined>(undefined);
 
 	startedAt = 0;
@@ -156,6 +169,10 @@ export class Session {
 		// Drop the previous verdict now, so it isn't left standing over the clear animation.
 		this.feedback = '';
 
+		this.sweeping = true;
+		setTimeout(() => (this.sweeping = false), SWEEP_MS);
+		await wait(SWEEP_LEAD);
+
 		if (result.locked > 0) {
 			this.locking = result.locked;
 			await wait(lockDuration(result.locked));
@@ -175,16 +192,18 @@ export class Session {
 			// definition, the one that stopped the run — so it takes the hit. A bigger
 			// clear carries more momentum into it.
 			if (this.rows.length > 0) {
-				this.crash = Math.min(1.6, 1 + (result.locked - 1) * 0.2);
-				setTimeout(() => (this.crash = 0), CRASH_MS + 2 * RIPPLE_STEP);
+				this.impact(Math.min(1.6, 1 + (result.locked - 1) * 0.2), false);
 			}
 			if (result.locked >= 2) {
 				this.combo = result.locked;
 				setTimeout(() => (this.combo = 0), 1200);
 			}
 		} else {
+			// Nothing cleared means row 1 is wrong, so the wave has nowhere to go and slams
+			// straight into it. Same motion as a clear landing — a miss is just the
+			// degenerate case where the run of correct rows has length zero.
 			this.lives--;
-			this.shake++;
+			this.impact(MISS_AMP, true);
 		}
 
 		this.record({
@@ -213,6 +232,13 @@ export class Session {
 		}
 
 		this.busy = false;
+	}
+
+	/** Land the wave on the top remaining row. A miss rings further down the stack. */
+	private impact(amp: number, miss: boolean): void {
+		this.crashMiss = miss;
+		this.crash = amp;
+		setTimeout(() => (this.crash = 0), CRASH_MS + (miss ? 4 : 2) * RIPPLE_STEP);
 	}
 
 	private finish(outcome: 'won' | 'lost'): void {

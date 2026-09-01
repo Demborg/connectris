@@ -43,6 +43,8 @@
 	--row-h: clamp(58px, 12vh, 84px);
 	/* Scaled up by the board while a multi-row clear is playing. */
 	--boost: 1;
+	/* Colour of the wave's impact: neutral when a clear lands, red when a check misses. */
+	--jolt: var(--accent);
 
 	--ease: cubic-bezier(0.22, 1, 0.36, 1);
 	--snap: cubic-bezier(0.34, 1.56, 0.64, 1);

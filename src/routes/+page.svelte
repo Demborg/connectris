@@ -77,21 +77,34 @@
 		</section>
 	{/if}
 
-	<main class="well">
-		<Board {session} />
-	</main>
+	<!-- Well and callout share a stage so the press can sweep up across both, starting
+	     level with the button rather than appearing at the top of the board. -->
+	<div class="stage">
+		<main class="well">
+			<Board {session} />
+		</main>
 
-	<!-- The slack between the well and the thumb. It grows as rows clear, which is
-	     exactly when there is something to shout about. -->
-	<div class="callout">
-		{#if session.combo}
-			<ComboFlash rows={session.combo} />
+		<!-- The slack between the well and the thumb. It grows as rows clear, which is
+		     exactly when there is something to shout about. -->
+		<div class="callout">
+			{#if session.combo}
+				<ComboFlash rows={session.combo} />
+			{/if}
+		</div>
+
+		{#if session.sweeping}
+			<div class="sweep" aria-hidden="true"></div>
 		{/if}
 	</div>
 
 	<footer>
 		<p class="feedback" aria-live="polite">{session.feedback || ' '}</p>
-		<button class="check" disabled={session.over} onclick={() => session.check()}>
+		<button
+			class="check"
+			class:firing={session.sweeping}
+			disabled={session.over}
+			onclick={() => session.check()}
+		>
 			Check{session.rows.length > 0 && session.rows.length < 5
 				? ` ${session.rows.length} rows`
 				: ''}
@@ -205,10 +218,64 @@
 		font-weight: 600;
 	}
 
+	.stage {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		gap: 10px;
+	}
+
 	.callout {
 		position: relative;
 		flex: 1;
 		min-height: 44px;
+	}
+
+	/* Anticipation: two light rails run up the side of the stage from button height to
+	   the top of the well, arriving just as the clearing wave starts down. */
+	.sweep {
+		position: absolute;
+		inset: 0;
+		pointer-events: none;
+		/* Confined to the stage, so the rails enter at button height and leave at the top
+		   of the well rather than streaking past the header. Clipping here rather than on
+		   .stage keeps it away from the tiles, whose glow needs to overflow. */
+		overflow: hidden;
+	}
+
+	.sweep::before,
+	.sweep::after {
+		content: '';
+		position: absolute;
+		top: 0;
+		width: 3px;
+		height: 34%;
+		border-radius: 2px;
+		background: linear-gradient(180deg, transparent, var(--accent), transparent);
+		animation: sweep-up 260ms cubic-bezier(0.3, 0, 0.25, 1) both;
+	}
+
+	.sweep::before {
+		left: 0;
+	}
+
+	.sweep::after {
+		right: 0;
+	}
+
+	@keyframes sweep-up {
+		from {
+			opacity: 0;
+			transform: translateY(300%);
+		}
+		30% {
+			opacity: 0.85;
+		}
+		to {
+			opacity: 0;
+			transform: translateY(-115%);
+		}
 	}
 
 	/* The well holds five row slots for the whole game — solved rows keep a full row's
@@ -254,6 +321,22 @@
 
 	.check:active:not(:disabled) {
 		transform: scale(0.985);
+	}
+
+	/* Roots the sweep in the button, so the light looks like it left from here. */
+	.check.firing {
+		animation: fire 260ms var(--ease) both;
+	}
+
+	@keyframes fire {
+		0% {
+			background: linear-gradient(180deg, #39465a, #2a3547);
+			box-shadow: 0 0 0 6px rgb(238 243 250 / 8%);
+		}
+		100% {
+			background: linear-gradient(180deg, #232c39, #19212c);
+			box-shadow: 0 0 0 0 transparent;
+		}
 	}
 
 	.check:disabled {

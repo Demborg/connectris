@@ -163,10 +163,10 @@
 				0 1px 2px rgb(0 0 0 / 45%);
 		}
 		18% {
-			outline-color: color-mix(in oklab, var(--accent) 55%, var(--tile-edge));
+			outline-color: color-mix(in oklab, var(--jolt) 62%, var(--tile-edge));
 			box-shadow:
 				inset 0 1px 0 rgb(255 255 255 / 5%),
-				0 0 0 5px rgb(238 243 250 / 9%);
+				0 0 0 5px color-mix(in oklab, var(--jolt) 14%, transparent);
 		}
 	}
 </style>

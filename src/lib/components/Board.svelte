@@ -47,24 +47,22 @@
 		])
 	]);
 
-	// The impact lands on the top remaining row and loses most of its strength each row
-	// further down, so the shock visibly travels rather than shaking the whole board.
-	const DECAY = 0.45;
-	const crashAmp = (row: number) => Math.max(0, session.crash * (1 - row * DECAY));
+	// The impact lands on the top remaining row and loses strength each row further down,
+	// so the shock visibly travels rather than shaking the whole board. A clear is absorbed
+	// quickly by the rows that took it; a miss was absorbed by nothing, so it rings all the
+	// way down the stack.
+	let decay = $derived(session.crashMiss ? 0.22 : 0.45);
+	const crashAmp = (row: number) => Math.max(0, session.crash * (1 - row * decay));
 
 	// A bigger clear hits harder and glows brighter.
 	let boost = $derived(session.locking > 1 ? Math.min(1.6, 1 + (session.locking - 1) * 0.2) : 1);
-
-	let shaking = $state(false);
-	$effect(() => {
-		if (session.shake === 0) return;
-		shaking = true;
-		const id = setTimeout(() => (shaking = false), 420);
-		return () => clearTimeout(id);
-	});
 </script>
 
-<div class="grid" class:shaking style:--boost={boost}>
+<div
+	class="grid"
+	style:--boost={boost}
+	style:--jolt={session.crashMiss ? 'var(--danger)' : 'var(--accent)'}
+>
 	{#each cells as cell (cell.key)}
 		<!-- Only tiles ever need to travel. The rank rail stays put on a row swap and simply
 		     re-labels once rows clear, so animating it would just drag numbers across the board. -->
@@ -117,10 +115,6 @@
 		align-items: stretch;
 	}
 
-	.shaking {
-		animation: shake 400ms ease;
-	}
-
 	.slot {
 		display: grid;
 		/* Lets a tile size its own type against the column it actually got. */
@@ -158,24 +152,5 @@
 	.rail.locking {
 		color: var(--text);
 		background: rgb(255 255 255 / 8%);
-	}
-
-	@keyframes shake {
-		0%,
-		100% {
-			transform: translateX(0);
-		}
-		15% {
-			transform: translateX(-7px);
-		}
-		35% {
-			transform: translateX(6px);
-		}
-		55% {
-			transform: translateX(-4px);
-		}
-		78% {
-			transform: translateX(2px);
-		}
 	}
 </style>
