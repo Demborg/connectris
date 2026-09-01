@@ -108,7 +108,20 @@ board look accidental.
 **The clear rolls top-down.** Tiles within a row light in quick succession and each row
 starts well after the one above, so a multi-row clear reads as a wave rolling down the board
 rather than one flash. Each tile ends on exactly the colour the solved row uses, so the row
-consolidating into a single bar is a swap the eye doesn't catch.
+consolidating into a single bar is a swap the eye doesn't catch. Bars in a multi-row clear
+land in sequence rather than all on one frame.
+
+**The wave crashes into the row that stopped it.** When it runs out of correct rows it slams
+into the first row that isn't one — which is, by definition, the row the player got wrong.
+The impact squashes that row and the shock travels a couple of rows further down at a
+fraction of the amplitude. This is not decoration: the crash _is_ the feedback, pointing at
+where the run broke, and it's information the top-down rule otherwise has to state in words.
+
+**A bigger clear hits harder.** Two rows or more gets a Tetris-style callout — DOUBLE,
+TRIPLE, CONNECTRIS — in the slack below the well, and the clear glows brighter and lands
+heavier as the count goes up. The end card is held back while a callout is on screen: the
+winning move is the one clear most worth celebrating, and it's exactly the one the card
+would otherwise cover.
 
 ### Deliberately dropped
 

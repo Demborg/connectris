@@ -2,7 +2,7 @@
 	import { flip } from 'svelte/animate';
 	import SolvedRow from './SolvedRow.svelte';
 	import Tile from './Tile.svelte';
-	import { ROW_STAGGER, TILE_STAGGER } from '$lib/game/session.svelte';
+	import { RIPPLE_STEP, ROW_STAGGER, TILE_STAGGER } from '$lib/game/session.svelte';
 	import type { Session } from '$lib/game/session.svelte';
 	import type { Group, Tile as TileData } from '$lib/game/types';
 
@@ -13,7 +13,7 @@
 		COLOURS[session.puzzle.groups.findIndex((g) => g.id === group)] ?? 'var(--accent)';
 
 	type Cell =
-		| { key: string; kind: 'solved'; group: Group; missed: boolean }
+		| { key: string; kind: 'solved'; group: Group; missed: boolean; order: number }
 		| { key: string; kind: 'rail'; row: number }
 		| { key: string; kind: 'tile'; row: number; col: number; tile: TileData };
 
@@ -25,13 +25,15 @@
 			key: `done-${s.group.id}`,
 			kind: 'solved',
 			group: s.group,
-			missed: false
+			missed: false,
+			order: s.order
 		})),
-		...session.missed.map((g): Cell => ({
+		...session.missed.map((g, i): Cell => ({
 			key: `done-${g.id}`,
 			kind: 'solved',
 			group: g,
-			missed: true
+			missed: true,
+			order: i
 		})),
 		...session.rows.flatMap((row, r): Cell[] => [
 			{ key: `rail-${r}`, kind: 'rail', row: r },
@@ -45,6 +47,14 @@
 		])
 	]);
 
+	// The impact lands on the top remaining row and loses most of its strength each row
+	// further down, so the shock visibly travels rather than shaking the whole board.
+	const DECAY = 0.45;
+	const crashAmp = (row: number) => Math.max(0, session.crash * (1 - row * DECAY));
+
+	// A bigger clear hits harder and glows brighter.
+	let boost = $derived(session.locking > 1 ? Math.min(1.6, 1 + (session.locking - 1) * 0.2) : 1);
+
 	let shaking = $state(false);
 	$effect(() => {
 		if (session.shake === 0) return;
@@ -54,7 +64,7 @@
 	});
 </script>
 
-<div class="grid" class:shaking>
+<div class="grid" class:shaking style:--boost={boost}>
 	{#each cells as cell (cell.key)}
 		<!-- Only tiles ever need to travel. The rank rail stays put on a row swap and simply
 		     re-labels once rows clear, so animating it would just drag numbers across the board. -->
@@ -64,7 +74,12 @@
 			animate:flip={{ duration: cell.kind === 'tile' ? 300 : 0 }}
 		>
 			{#if cell.kind === 'solved'}
-				<SolvedRow group={cell.group} colour={colourOf(cell.group.id)} missed={cell.missed} />
+				<SolvedRow
+					group={cell.group}
+					colour={colourOf(cell.group.id)}
+					missed={cell.missed}
+					enterDelay={cell.order * 90}
+				/>
 			{:else if cell.kind === 'rail'}
 				<button
 					class="rail"
@@ -82,6 +97,9 @@
 					selected={session.tile?.row === cell.row && session.tile?.col === cell.col}
 					locking={cell.row < session.locking}
 					delay={cell.row * ROW_STAGGER + cell.col * TILE_STAGGER}
+					crash={crashAmp(cell.row)}
+					crashDelay={cell.row * RIPPLE_STEP}
+					impact={cell.row === 0}
 					colour={colourOf(cell.tile.group)}
 					disabled={session.over}
 					onpick={() => session.pickTile({ row: cell.row, col: cell.col })}

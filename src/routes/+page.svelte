@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Board from '$lib/components/Board.svelte';
+	import ComboFlash from '$lib/components/ComboFlash.svelte';
 	import EndCard from '$lib/components/EndCard.svelte';
 	import Lives from '$lib/components/Lives.svelte';
 	import puzzles from '$lib/data/puzzles.json';
@@ -80,14 +81,26 @@
 		<Board {session} />
 	</main>
 
+	<!-- The slack between the well and the thumb. It grows as rows clear, which is
+	     exactly when there is something to shout about. -->
+	<div class="callout">
+		{#if session.combo}
+			<ComboFlash rows={session.combo} />
+		{/if}
+	</div>
+
 	<footer>
 		<p class="feedback" aria-live="polite">{session.feedback || ' '}</p>
 		<button class="check" disabled={session.over} onclick={() => session.check()}>
-			Check{session.rows.length < 5 ? ` ${session.rows.length} rows` : ''}
+			Check{session.rows.length > 0 && session.rows.length < 5
+				? ` ${session.rows.length} rows`
+				: ''}
 		</button>
 	</footer>
 
-	{#if session.over}
+	<!-- Hold the card back while a combo is on screen. The winning move is the one clear
+	     worth celebrating, and it is exactly the one the card would otherwise cover. -->
+	{#if session.over && !session.combo}
 		<EndCard {session} onnext={() => load(index + 1)} />
 	{/if}
 </div>
@@ -192,11 +205,16 @@
 		font-weight: 600;
 	}
 
+	.callout {
+		position: relative;
+		flex: 1;
+		min-height: 44px;
+	}
+
 	/* The well holds five row slots for the whole game — solved rows keep a full row's
 	   height — so the board never resizes under the player. */
 	.well {
 		flex: 0 0 auto;
-		margin-bottom: auto;
 		padding: 10px;
 		border-radius: 18px;
 		background:

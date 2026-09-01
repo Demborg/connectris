@@ -4,11 +4,12 @@
 	let {
 		group,
 		colour,
-		missed = false
-	}: { group: Group; colour: string; missed?: boolean } = $props();
+		missed = false,
+		enterDelay = 0
+	}: { group: Group; colour: string; missed?: boolean; enterDelay?: number } = $props();
 </script>
 
-<div class="row" class:missed style:--colour={colour}>
+<div class="row" class:missed style:--colour={colour} style:--enter="{enterDelay}ms">
 	<span class="chip"></span>
 	<div class="text">
 		<span class="label">{group.label}</span>
@@ -36,7 +37,9 @@
 		);
 		outline: 1px solid color-mix(in oklab, var(--colour) 62%, var(--ink));
 		outline-offset: -1px;
-		animation: consolidate 300ms var(--ease) both;
+		/* Delayed per row within a batch, so a multi-row clear settles top to bottom
+		   instead of every bar landing on the same frame. */
+		animation: consolidate 320ms var(--ease) var(--enter) both;
 	}
 
 	.chip {
@@ -52,7 +55,7 @@
 		display: grid;
 		gap: 3px;
 		min-width: 0;
-		animation: surface 260ms var(--ease) 80ms both;
+		animation: surface 260ms var(--ease) calc(var(--enter) + 90ms) both;
 	}
 
 	.label {

@@ -12,7 +12,11 @@ export type Status = 'idle' | 'playing' | 'won' | 'lost';
 export const ROW_STAGGER = 170;
 export const TILE_STAGGER = 45;
 const POP = 260;
-const SETTLE = 180;
+const SETTLE = 120;
+
+/** How long the wave's impact takes to play out, and how fast it travels on downward. */
+export const CRASH_MS = 460;
+export const RIPPLE_STEP = 60;
 
 /** How long the wave takes to cross `rows` rows before they consolidate. */
 export const lockDuration = (rows: number) =>
@@ -42,6 +46,10 @@ export class Session {
 	locking = $state(0);
 	/** Bumped on a failed check so the board can shake. */
 	shake = $state(0);
+	/** Rows taken by the last multi-row clear, while its flourish is on screen. */
+	combo = $state(0);
+	/** Strength of the wave's impact on the top remaining row, 0 when nothing is playing. */
+	crash = $state(0);
 	best = $state<Best | undefined>(undefined);
 
 	startedAt = 0;
@@ -155,12 +163,25 @@ export class Session {
 			this.rows = this.rows.slice(result.locked);
 			this.solved = [
 				...this.solved,
-				...cleared.map((r) => ({
+				...cleared.map((r, order) => ({
 					group: this.puzzle.groups.find((g) => g.id === r[0].group)!,
-					check: this.checks
+					check: this.checks,
+					order
 				}))
 			];
 			this.locking = 0;
+
+			// The wave rolls on into whatever is left. The top remaining row is, by
+			// definition, the one that stopped the run — so it takes the hit. A bigger
+			// clear carries more momentum into it.
+			if (this.rows.length > 0) {
+				this.crash = Math.min(1.6, 1 + (result.locked - 1) * 0.2);
+				setTimeout(() => (this.crash = 0), CRASH_MS + 2 * RIPPLE_STEP);
+			}
+			if (result.locked >= 2) {
+				this.combo = result.locked;
+				setTimeout(() => (this.combo = 0), 1200);
+			}
 		} else {
 			this.lives--;
 			this.shake++;

@@ -31,6 +31,8 @@ export type SolvedRow = {
 	group: Group;
 	/** Which check number cleared it, for the replay log. */
 	check: number;
+	/** Position within its clearing batch, so a multi-row clear lands in sequence. */
+	order: number;
 };
 
 export type CheckResult = {
