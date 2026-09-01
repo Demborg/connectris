@@ -1,0 +1,82 @@
+[
+	{
+		"id": "demo-01",
+		"name": "Warm-up",
+		"language": "en",
+		"groups": [
+			{ "id": "planets", "label": "Planets", "words": ["MARS", "VENUS", "SATURN", "NEPTUNE"] },
+			{ "id": "fruit", "label": "Fruit", "words": ["APPLE", "MANGO", "PEACH", "PLUM"] },
+			{
+				"id": "suits",
+				"label": "Card suits",
+				"words": ["HEARTS", "SPADES", "CLUBS", "DIAMONDS"]
+			},
+			{
+				"id": "tech",
+				"label": "Tech companies",
+				"words": ["ORACLE", "AMAZON", "META", "ADOBE"]
+			},
+			{ "id": "colours", "label": "Colours", "words": ["SCARLET", "AMBER", "OLIVE", "JADE"] }
+		]
+	},
+	{
+		"id": "demo-02",
+		"name": "All in",
+		"language": "en",
+		"groups": [
+			{ "id": "board", "label": "___ BOARD", "words": ["CHESS", "SURF", "DASH", "SCORE"] },
+			{ "id": "poker", "label": "Poker terms", "words": ["FLOP", "RIVER", "BLIND", "ANTE"] },
+			{
+				"id": "rivers",
+				"label": "Major rivers",
+				"words": ["NILE", "THAMES", "DANUBE", "INDUS"]
+			},
+			{
+				"id": "phone",
+				"label": "Things you do to a phone",
+				"words": ["CALL", "TEXT", "DIAL", "RING"]
+			},
+			{ "id": "way", "label": "___ WAY", "words": ["HALL", "DRIVE", "SUB", "HIGH"] }
+		]
+	},
+	{
+		"id": "demo-03",
+		"name": "Order up",
+		"language": "en",
+		"groups": [
+			{
+				"id": "espresso",
+				"label": "Espresso drinks",
+				"words": ["LATTE", "MOCHA", "CORTADO", "AMERICANO"]
+			},
+			{ "id": "chess", "label": "Chess pieces", "words": ["KING", "BISHOP", "ROOK", "PAWN"] },
+			{ "id": "bees", "label": "Beehive words", "words": ["QUEEN", "DRONE", "HIVE", "COMB"] },
+			{ "id": "birds", "label": "Birds", "words": ["CRANE", "SWIFT", "KITE", "RAVEN"] },
+			{ "id": "black", "label": "BLACK ___", "words": ["BOARD", "BIRD", "SMITH", "MAIL"] }
+		]
+	},
+	{
+		"id": "demo-04",
+		"name": "Last dance",
+		"language": "en",
+		"groups": [
+			{ "id": "light", "label": "___ LIGHT", "words": ["FLASH", "SPOT", "MOON", "DAY"] },
+			{
+				"id": "dances",
+				"label": "Ballroom dances",
+				"words": ["TANGO", "WALTZ", "RUMBA", "MAMBO"]
+			},
+			{ "id": "dips", "label": "Dips", "words": ["SALSA", "HUMMUS", "QUESO", "RANCH"] },
+			{
+				"id": "nato",
+				"label": "NATO alphabet",
+				"words": ["ROMEO", "VICTOR", "ECHO", "SIERRA"]
+			},
+			{
+				"id": "playground",
+				"label": "Playground",
+				"words": ["SWING", "SLIDE", "SEESAW", "SANDBOX"]
+			}
+		]
+	}
+]
