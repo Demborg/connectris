@@ -31,8 +31,8 @@ decoration and this is just Connections with extra steps. With it, "which of my 
 I surest about" becomes a separate skill from "what are the groups", and you're betting on
 your own confidence ranking every time you check.
 
-It also makes the tetris framing literal — rows clear off the top of the well and the stack
-below shifts up.
+It also makes the tetris framing literal — cleared rows light up and lock off the top of the
+well.
 
 **3. A check that clears nothing costs a life. Progress is free.**
 Four lives. This is the direct analogue of Connections not charging you for a correct group.
@@ -85,6 +85,30 @@ Charging four would tax the exact strategy the mechanic demands.
 Every move and check, with timings, kept locally. Whether move-counting is fun or just
 makes people anxious about experimenting is genuinely unknown, and logging means old runs
 can be retro-scored against metrics we haven't committed to.
+
+### Feel
+
+The game lives or dies on this, so these are decisions, not styling.
+
+**The board never resizes.** Five row slots for the whole game. A solved row keeps a full
+row's height, and since only leading runs clear, cleared rows are always the topmost ones —
+so they convert in place and nothing below them moves. Shrinking solved rows into slim
+banners made the whole layout shuffle on every clear, which was the single worst thing about
+the first build.
+
+**Colour means category and nothing else.** Selection, buttons, life pips and chrome are all
+neutral, so a lit-up row is the only saturated thing on screen. The palette is the tetromino
+set — cyan, amber, purple, green, red — darkened toward near-black rather than mixed with
+the tile grey, because mixing toward a desaturated blue turns amber to olive.
+
+**One type size.** Every word that fits gets the same size; only words too long for the
+column shrink, and only as far as the column demands. A visible ladder of sizes made the
+board look accidental.
+
+**The clear rolls top-down.** Tiles within a row light in quick succession and each row
+starts well after the one above, so a multi-row clear reads as a wave rolling down the board
+rather than one flash. Each tile ends on exactly the colour the solved row uses, so the row
+consolidating into a single bar is a swap the eye doesn't catch.
 
 ### Deliberately dropped
 

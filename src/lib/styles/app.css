@@ -3,30 +3,44 @@
 :root {
 	color-scheme: dark;
 
-	--bg: #0a0c10;
-	--bg-glow: #131a26;
-	--well: #0d1118;
-	--well-edge: #1b2331;
+	--bg: #090b0f;
+	--bg-glow: #121826;
+	--well: #0c1016;
+	--well-edge: #1a2231;
 
-	--tile: #191f29;
-	--tile-hi: #212936;
-	--tile-edge: #2b3542;
-	--tile-text: #e8edf5;
+	--tile: #1a212c;
+	--tile-hi: #222a37;
+	--tile-edge: #2c3646;
+	--text: #eaeff7;
+	--muted: #808c9e;
+	--dim: #4a5464;
 
-	--muted: #7c8798;
-	--dim: #4e5865;
-	--accent: #7dd3fc;
-	--danger: #fb7185;
+	/* Colour means category, and nothing else. Selection and chrome stay neutral so a
+	   lit-up row is the only saturated thing on screen. */
+	--accent: #eef3fa;
+	--danger: #e8596c;
 
-	--g1: #f0b429;
-	--g2: #34d399;
-	--g3: #a78bfa;
-	--g4: #fb7185;
-	--g5: #60a5fa;
+	/* Category colours are darkened toward this rather than mixed with the tile grey —
+	   mixing toward a desaturated blue turns amber to olive and cyan to slate. */
+	--ink: #05070a;
+
+	/* Tetromino palette, deepened to sit on a dark ground: I, O, T, S, Z. */
+	--g1: #35c9d8;
+	--g2: #eeb63c;
+	--g3: #a37ce8;
+	--g4: #4cbe80;
+	--g5: #e8596c;
+
+	/* Four sizes, no more. */
+	--fs-xs: 0.7rem;
+	--fs-sm: 0.8rem;
+	--fs-md: 0.95rem;
+	--fs-lg: 1.35rem;
 
 	--radius: 13px;
 	--gap: 7px;
 	--rail: 26px;
+	--row-h: clamp(58px, 12vh, 84px);
 
 	--ease: cubic-bezier(0.22, 1, 0.36, 1);
 	--snap: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -48,7 +62,7 @@ body {
 
 body {
 	background: radial-gradient(120% 60% at 50% -10%, var(--bg-glow) 0%, transparent 60%), var(--bg);
-	color: var(--tile-text);
+	color: var(--text);
 	font-family:
 		ui-sans-serif,
 		system-ui,

@@ -5,26 +5,22 @@
 		tile: Tile;
 		selected: boolean;
 		locking: boolean;
+		/** Position in the clearing wave, in ms. */
+		delay: number;
 		colour: string;
 		disabled: boolean;
 		onpick: () => void;
 	};
 
-	let { tile, selected, locking, colour, disabled, onpick }: Props = $props();
-
-	// Four columns on a phone leaves roughly 70px a tile, so long words have to shrink.
-	// The rem value is an upper bound for short words; the real fit is done in CSS off
-	// the container width, which is the only thing that actually knows how wide a tile is.
-	const cap = [1.05, 1.05, 1.05, 1.05, 1.05, 1.05, 1, 0.94, 0.86, 0.8, 0.74, 0.68, 0.64];
-	let size = $derived(cap[Math.min(tile.word.length, cap.length - 1)]);
+	let { tile, selected, locking, delay, colour, disabled, onpick }: Props = $props();
 </script>
 
 <button
 	class="tile"
 	class:selected
 	class:locking
-	style:--fs="{size}rem"
 	style:--len={tile.word.length}
+	style:--delay="{delay}ms"
 	style:--colour={colour}
 	{disabled}
 	aria-pressed={selected}
@@ -37,7 +33,7 @@
 	.tile {
 		display: grid;
 		place-items: center;
-		min-height: clamp(58px, 12vh, 84px);
+		min-height: var(--row-h);
 		padding: 2px 3px;
 		border-radius: var(--radius);
 		background: linear-gradient(180deg, var(--tile-hi), var(--tile));
@@ -46,9 +42,9 @@
 			0 1px 2px rgb(0 0 0 / 45%);
 		outline: 1px solid var(--tile-edge);
 		outline-offset: -1px;
-		/* Whichever is smaller: the per-length cap, or what actually fits the column.
-		   0.64em is about the advance of a bold uppercase glyph plus its letter-spacing. */
-		font-size: min(var(--fs), calc((100cqw - 12px) / (var(--len) * 0.64)));
+		/* One size for every word that fits, shrinking only when the column demands it.
+		   0.62em is about the advance of a bold uppercase glyph plus its letter-spacing. */
+		font-size: min(var(--fs-md), calc((100cqw - 12px) / (var(--len) * 0.62)));
 		font-weight: 600;
 		letter-spacing: 0.02em;
 		line-height: 1.05;
@@ -66,11 +62,11 @@
 	}
 
 	.selected {
-		background: linear-gradient(180deg, #24303e, #1b2431);
+		background: linear-gradient(180deg, #2a3442, #202836);
 		outline: 2px solid var(--accent);
 		outline-offset: -2px;
 		box-shadow:
-			0 0 0 4px rgb(125 211 252 / 12%),
+			0 0 0 4px rgb(238 243 250 / 10%),
 			0 6px 14px rgb(0 0 0 / 45%);
 		transform: translateY(-3px) scale(1.04);
 	}
@@ -79,43 +75,31 @@
 		transform: translateY(-3px) scale(1);
 	}
 
+	/* Each tile fires on its own delay, so a clear rolls left-to-right, top-to-bottom.
+	   It ends on exactly the colour the solved row uses, so the row consolidating into
+	   a single bar is a swap the eye doesn't catch. */
 	.locking {
-		animation: lift 620ms linear forwards;
+		animation: settle 260ms var(--ease) var(--delay) both;
 	}
 
-	/* Every stop sets every animated property: with implicit keyframes the browser
-	   interpolates the missing ones across the *whole* animation, which made the fade
-	   start immediately instead of at the end. */
-	@keyframes lift {
+	@keyframes settle {
 		0% {
 			background: linear-gradient(180deg, var(--tile-hi), var(--tile));
 			outline-color: var(--tile-edge);
+			box-shadow: 0 1px 2px rgb(0 0 0 / 45%);
 			transform: none;
-			opacity: 1;
-			animation-timing-function: var(--snap);
 		}
-		18% {
-			background: color-mix(in oklab, var(--colour) 36%, var(--tile));
-			outline-color: var(--colour);
-			box-shadow: 0 0 0 5px color-mix(in oklab, var(--colour) 20%, transparent);
-			transform: scale(1.035);
-			opacity: 1;
-			animation-timing-function: ease-out;
-		}
-		58% {
-			background: color-mix(in oklab, var(--colour) 36%, var(--tile));
-			outline-color: var(--colour);
-			box-shadow: 0 0 0 5px color-mix(in oklab, var(--colour) 20%, transparent);
-			transform: translateY(-3px) scale(1.035);
-			opacity: 1;
-			animation-timing-function: cubic-bezier(0.55, 0, 0.9, 0.35);
+		45% {
+			background: color-mix(in oklab, var(--colour) 82%, var(--ink));
+			outline-color: color-mix(in oklab, var(--colour) 92%, white);
+			box-shadow: 0 0 0 7px color-mix(in oklab, var(--colour) 26%, transparent);
+			transform: scale(1.06);
 		}
 		100% {
-			background: color-mix(in oklab, var(--colour) 36%, var(--tile));
-			outline-color: transparent;
-			box-shadow: none;
-			transform: translateY(-34px) scale(0.9);
-			opacity: 0;
+			background: color-mix(in oklab, var(--colour) 50%, var(--ink));
+			outline-color: color-mix(in oklab, var(--colour) 62%, var(--ink));
+			box-shadow: 0 0 0 0 transparent;
+			transform: none;
 		}
 	}
 </style>

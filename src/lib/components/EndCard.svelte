@@ -6,13 +6,16 @@
 
 	let won = $derived(session.status === 'won');
 	let best = $derived(session.best);
-	// The three axes stay separate on purpose — there is no combined score.
-	let stats = $derived([
-		{ label: 'Time', value: formatTime(session.elapsedMs), best: best && formatTime(best.timeMs) },
-		{ label: 'Lives left', value: `${session.lives}`, best: best && `${best.livesLeft}` },
-		{ label: 'Moves', value: `${session.moves}`, best: best && `${best.moves}` },
-		{ label: 'Checks', value: `${session.checks}`, best: best && `${best.checks}` }
-	]);
+	// The axes stay separate on purpose — there is no combined score. A previous best is
+	// only worth showing when it differs from this run, otherwise it just reads as noise.
+	let stats = $derived(
+		[
+			{ label: 'Time', value: formatTime(session.elapsedMs), was: best && formatTime(best.timeMs) },
+			{ label: 'Lives left', value: `${session.lives}`, was: best && `${best.livesLeft}` },
+			{ label: 'Moves', value: `${session.moves}`, was: best && `${best.moves}` },
+			{ label: 'Checks', value: `${session.checks}`, was: best && `${best.checks}` }
+		].map((s) => ({ ...s, was: won && s.was !== s.value ? s.was : undefined }))
+	);
 </script>
 
 <div class="scrim">
@@ -29,7 +32,7 @@
 				<div>
 					<dt>{s.label}</dt>
 					<dd>{s.value}</dd>
-					{#if won && s.best}<dd class="best">best {s.best}</dd>{/if}
+					{#if s.was}<dd class="best">best {s.was}</dd>{/if}
 				</div>
 			{/each}
 		</dl>
@@ -66,10 +69,10 @@
 
 	.verdict {
 		margin: 0;
-		font-size: 1.4rem;
+		font-size: var(--fs-lg);
 		font-weight: 700;
 		letter-spacing: -0.01em;
-		color: var(--g2);
+		color: var(--g4);
 	}
 
 	.lost .verdict {
@@ -77,8 +80,8 @@
 	}
 
 	.sub {
-		margin: 4px 0 16px;
-		font-size: 0.84rem;
+		margin: 4px 0 18px;
+		font-size: var(--fs-sm);
 		color: var(--muted);
 	}
 
@@ -90,34 +93,35 @@
 	}
 
 	dt {
-		font-size: 0.62rem;
+		font-size: var(--fs-xs);
 		font-weight: 600;
-		letter-spacing: 0.07em;
+		letter-spacing: 0.06em;
 		text-transform: uppercase;
 		color: var(--dim);
 	}
 
 	dd {
-		margin: 2px 0 0;
-		font-size: 1.15rem;
+		margin: 3px 0 0;
+		font-size: var(--fs-lg);
 		font-weight: 700;
 		font-variant-numeric: tabular-nums;
 	}
 
 	dd.best {
-		font-size: 0.66rem;
+		font-size: var(--fs-xs);
 		font-weight: 500;
 		color: var(--muted);
 	}
 
 	.next {
 		width: 100%;
-		padding: 13px;
+		padding: 14px;
 		border-radius: 12px;
 		background: var(--accent);
-		color: #08111a;
+		color: #0d131c;
+		font-size: var(--fs-sm);
 		font-weight: 700;
-		letter-spacing: 0.01em;
+		letter-spacing: 0.03em;
 		transition: transform 140ms var(--snap);
 	}
 

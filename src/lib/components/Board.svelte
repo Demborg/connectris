@@ -1,8 +1,10 @@
 <script lang="ts">
 	import { flip } from 'svelte/animate';
+	import SolvedRow from './SolvedRow.svelte';
 	import Tile from './Tile.svelte';
+	import { ROW_STAGGER, TILE_STAGGER } from '$lib/game/session.svelte';
 	import type { Session } from '$lib/game/session.svelte';
-	import type { Tile as TileData } from '$lib/game/types';
+	import type { Group, Tile as TileData } from '$lib/game/types';
 
 	let { session }: { session: Session } = $props();
 
@@ -11,13 +13,27 @@
 		COLOURS[session.puzzle.groups.findIndex((g) => g.id === group)] ?? 'var(--accent)';
 
 	type Cell =
+		| { key: string; kind: 'solved'; group: Group; missed: boolean }
 		| { key: string; kind: 'rail'; row: number }
 		| { key: string; kind: 'tile'; row: number; col: number; tile: TileData };
 
-	// One flat grid rather than a container per row: tiles move *between* rows, and
-	// `animate:flip` only animates within a single keyed block.
-	let cells = $derived(
-		session.rows.flatMap((row, r): Cell[] => [
+	// One flat grid for the whole board: solved rows, then revealed misses, then the rows
+	// still in play. Cleared rows are always the topmost ones, so they turn into solved
+	// rows exactly where they already sit — nothing below them has to move.
+	let cells = $derived([
+		...session.solved.map((s): Cell => ({
+			key: `done-${s.group.id}`,
+			kind: 'solved',
+			group: s.group,
+			missed: false
+		})),
+		...session.missed.map((g): Cell => ({
+			key: `done-${g.id}`,
+			kind: 'solved',
+			group: g,
+			missed: true
+		})),
+		...session.rows.flatMap((row, r): Cell[] => [
 			{ key: `rail-${r}`, kind: 'rail', row: r },
 			...row.map((tile, c): Cell => ({
 				key: `tile-${tile.id}`,
@@ -27,7 +43,7 @@
 				tile
 			}))
 		])
-	);
+	]);
 
 	let shaking = $state(false);
 	$effect(() => {
@@ -40,8 +56,16 @@
 
 <div class="grid" class:shaking>
 	{#each cells as cell (cell.key)}
-		<div class="slot" animate:flip={{ duration: 320 }}>
-			{#if cell.kind === 'rail'}
+		<!-- Only tiles ever need to travel. The rank rail stays put on a row swap and simply
+		     re-labels once rows clear, so animating it would just drag numbers across the board. -->
+		<div
+			class="slot"
+			class:full={cell.kind === 'solved'}
+			animate:flip={{ duration: cell.kind === 'tile' ? 300 : 0 }}
+		>
+			{#if cell.kind === 'solved'}
+				<SolvedRow group={cell.group} colour={colourOf(cell.group.id)} missed={cell.missed} />
+			{:else if cell.kind === 'rail'}
 				<button
 					class="rail"
 					class:held={session.row === cell.row}
@@ -57,6 +81,7 @@
 					tile={cell.tile}
 					selected={session.tile?.row === cell.row && session.tile?.col === cell.col}
 					locking={cell.row < session.locking}
+					delay={cell.row * ROW_STAGGER + cell.col * TILE_STAGGER}
 					colour={colourOf(cell.tile.group)}
 					disabled={session.over}
 					onpick={() => session.pickTile({ row: cell.row, col: cell.col })}
@@ -84,13 +109,18 @@
 		container-type: inline-size;
 	}
 
+	.slot.full {
+		grid-column: 1 / -1;
+		container-type: normal;
+	}
+
 	/* The rank rail doubles as the row handle. Showing the ranking is the point: the
 	   player is ordering rows by confidence, so the order has to be legible. */
 	.rail {
 		display: grid;
 		place-items: center;
 		border-radius: 9px;
-		font-size: 0.72rem;
+		font-size: var(--fs-xs);
 		font-weight: 700;
 		font-variant-numeric: tabular-nums;
 		color: var(--dim);
@@ -102,13 +132,13 @@
 	}
 
 	.rail.held {
-		color: var(--bg);
+		color: #0d131c;
 		background: var(--accent);
-		box-shadow: 0 0 0 4px rgb(125 211 252 / 14%);
+		box-shadow: 0 0 0 4px rgb(238 243 250 / 12%);
 	}
 
 	.rail.locking {
-		color: var(--tile-text);
+		color: var(--text);
 		background: rgb(255 255 255 / 8%);
 	}
 

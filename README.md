@@ -4,8 +4,9 @@ A word-grouping puzzle where **the order of your rows is part of the answer**.
 
 Twenty words, five rows of four. Every row is a category. Hit _Check_ and only the leading
 run of correct rows clears — a correct row sitting below a wrong one doesn't count. So you
-rank your rows by how sure you are, and bet. Rows lift off the top of the well and the stack
-shifts up; a check that clears nothing costs a life, a check that makes progress is free.
+rank your rows by how sure you are, and bet. Clearing rows light up in a wave rolling down
+the board and lock in place; a check that clears nothing costs a life, one that makes
+progress is free.
 
 **Play it:** https://demborg.se/connectris/
 

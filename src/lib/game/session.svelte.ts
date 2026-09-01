@@ -1,11 +1,22 @@
-import { LIVES, check, deal, swapRows, swapTiles } from './engine';
+import { COLS, LIVES, check, deal, swapRows, swapTiles } from './engine';
 import { recordBest, saveRun, type Best, type EventInput, type GameEvent } from './log';
-import type { Position, Puzzle, Row, SolvedRow } from './types';
+import type { Group, Position, Puzzle, Row, SolvedRow } from './types';
 
 export type Status = 'idle' | 'playing' | 'won' | 'lost';
 
-/** How long a cleared row spends lifting off before it lands in the solved stack. */
-export const LOCK_MS = 620;
+/**
+ * The clearing wave. Tiles within a row light up in quick succession, and each row
+ * starts well after the one above it — so the clear reads as rolling down the board
+ * row by row rather than as one undifferentiated flash.
+ */
+export const ROW_STAGGER = 170;
+export const TILE_STAGGER = 45;
+const POP = 260;
+const SETTLE = 180;
+
+/** How long the wave takes to cross `rows` rows before they consolidate. */
+export const lockDuration = (rows: number) =>
+	(rows - 1) * ROW_STAGGER + (COLS - 1) * TILE_STAGGER + POP + SETTLE;
 
 const reducedMotion = () =>
 	typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -50,6 +61,12 @@ export class Session {
 
 	get over(): boolean {
 		return this.status === 'won' || this.status === 'lost';
+	}
+
+	/** Categories never found, revealed once the run is lost. */
+	get missed(): Group[] {
+		if (this.status !== 'lost') return [];
+		return this.puzzle.groups.filter((g) => !this.solved.some((s) => s.group.id === g.id));
 	}
 
 	private begin(): void {
@@ -133,7 +150,7 @@ export class Session {
 
 		if (result.locked > 0) {
 			this.locking = result.locked;
-			await wait(LOCK_MS);
+			await wait(lockDuration(result.locked));
 			const cleared = this.rows.slice(0, result.locked);
 			this.rows = this.rows.slice(result.locked);
 			this.solved = [

@@ -2,13 +2,11 @@
 	import Board from '$lib/components/Board.svelte';
 	import EndCard from '$lib/components/EndCard.svelte';
 	import Lives from '$lib/components/Lives.svelte';
-	import SolvedBanner from '$lib/components/SolvedBanner.svelte';
 	import puzzles from '$lib/data/puzzles.json';
 	import { formatTime } from '$lib/format';
 	import { Session } from '$lib/game/session.svelte';
 	import type { Puzzle } from '$lib/game/types';
 
-	const COLOURS = ['var(--g1)', 'var(--g2)', 'var(--g3)', 'var(--g4)', 'var(--g5)'];
 	const all = puzzles as Puzzle[];
 
 	let index = $state(0);
@@ -30,13 +28,6 @@
 		session = new Session(all[index]);
 		rulesOpen = false;
 	}
-
-	const colourOf = (id: string) => COLOURS[session.puzzle.groups.findIndex((g) => g.id === id)];
-	let missed = $derived(
-		session.status === 'lost'
-			? session.puzzle.groups.filter((g) => !session.solved.some((s) => s.group.id === g.id))
-			: []
-	);
 </script>
 
 <svelte:head>
@@ -45,7 +36,7 @@
 
 <div class="app">
 	<header>
-		<div class="titles">
+		<div>
 			<h1>CONNECTRIS</h1>
 			<p class="puzzle">{session.puzzle.name} · {index + 1}/{all.length}</p>
 		</div>
@@ -86,22 +77,11 @@
 	{/if}
 
 	<main class="well">
-		{#if session.solved.length || missed.length}
-			<div class="solved">
-				{#each session.solved as s (s.group.id)}
-					<SolvedBanner group={s.group} colour={colourOf(s.group.id)} />
-				{/each}
-				{#each missed as g (g.id)}
-					<SolvedBanner group={g} colour={colourOf(g.id)} missed />
-				{/each}
-			</div>
-		{/if}
-
 		<Board {session} />
 	</main>
 
 	<footer>
-		<p class="feedback" aria-live="polite">{session.feedback || ' '}</p>
+		<p class="feedback" aria-live="polite">{session.feedback || ' '}</p>
 		<button class="check" disabled={session.over} onclick={() => session.check()}>
 			Check{session.rows.length < 5 ? ` ${session.rows.length} rows` : ''}
 		</button>
@@ -132,15 +112,14 @@
 
 	h1 {
 		margin: 0;
-		font-size: 0.86rem;
+		font-size: var(--fs-sm);
 		font-weight: 800;
 		letter-spacing: 0.22em;
-		color: var(--tile-text);
 	}
 
 	.puzzle {
-		margin: 1px 0 0;
-		font-size: 0.72rem;
+		margin: 2px 0 0;
+		font-size: var(--fs-xs);
 		color: var(--muted);
 	}
 
@@ -148,13 +127,13 @@
 		display: flex;
 		align-items: center;
 		gap: 6px;
-		font-size: 0.72rem;
+		font-size: var(--fs-xs);
 		font-variant-numeric: tabular-nums;
 		color: var(--muted);
 	}
 
 	.clock {
-		color: var(--tile-text);
+		color: var(--text);
 		font-weight: 600;
 	}
 
@@ -164,8 +143,11 @@
 
 	.help {
 		margin-left: auto;
-		font-size: 0.72rem;
-		color: var(--accent);
+		font-size: var(--fs-xs);
+		color: var(--muted);
+		text-decoration: underline;
+		text-underline-offset: 3px;
+		text-decoration-color: var(--dim);
 	}
 
 	.rules {
@@ -180,13 +162,13 @@
 	.rules ol {
 		margin: 0;
 		padding-left: 18px;
-		font-size: 0.78rem;
+		font-size: var(--fs-sm);
 		line-height: 1.5;
 		color: var(--muted);
 	}
 
 	.rules strong {
-		color: var(--tile-text);
+		color: var(--text);
 	}
 
 	.picker {
@@ -199,26 +181,22 @@
 	.picker button {
 		padding: 5px 10px;
 		border-radius: 999px;
-		font-size: 0.72rem;
+		font-size: var(--fs-xs);
 		color: var(--muted);
 		background: rgb(255 255 255 / 5%);
 	}
 
 	.picker button.current {
-		color: var(--bg);
+		color: #0d131c;
 		background: var(--accent);
 		font-weight: 600;
 	}
 
-	/* The well: a shallow inset the rows sit in, so clears read as lines lifting out.
-	   It hugs its contents and the slack sits below, so the stack visibly shortens as
-	   rows clear while the check button stays under the thumb. */
+	/* The well holds five row slots for the whole game — solved rows keep a full row's
+	   height — so the board never resizes under the player. */
 	.well {
 		flex: 0 0 auto;
 		margin-bottom: auto;
-		display: flex;
-		flex-direction: column;
-		gap: 8px;
 		padding: 10px;
 		border-radius: 18px;
 		background:
@@ -226,12 +204,6 @@
 			linear-gradient(270deg, rgb(255 255 255 / 3.5%), transparent 12px), var(--well);
 		outline: 1px solid var(--well-edge);
 		outline-offset: -1px;
-	}
-
-	.solved {
-		display: flex;
-		flex-direction: column;
-		gap: 5px;
 	}
 
 	footer {
@@ -243,7 +215,7 @@
 	.feedback {
 		margin: 0;
 		min-height: 1.1rem;
-		font-size: 0.78rem;
+		font-size: var(--fs-sm);
 		text-align: center;
 		color: var(--muted);
 		animation: reveal 240ms var(--ease);
@@ -255,10 +227,10 @@
 		background: linear-gradient(180deg, #232c39, #19212c);
 		outline: 1px solid var(--tile-edge);
 		outline-offset: -1px;
+		font-size: var(--fs-sm);
 		font-weight: 700;
 		letter-spacing: 0.05em;
 		text-transform: uppercase;
-		font-size: 0.8rem;
 		transition: transform 140ms var(--snap);
 	}
 
