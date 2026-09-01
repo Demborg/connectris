@@ -1,4 +1,4 @@
-import { COLS, LIVES, check, deal, swapRows, swapTiles } from './engine';
+import { COLS, LIVES, check, deal, swapTiles } from './engine';
 import { recordBest, saveRun, type Best, type EventInput, type GameEvent } from './log';
 import type { Group, Position, Puzzle, Row, SolvedRow } from './types';
 
@@ -48,9 +48,8 @@ export class Session {
 	checks = $state(0);
 	status = $state<Status>('idle');
 
-	/** Selected tile, or selected row rank — never both. */
+	/** Tile held by a tap, waiting for a second tap to swap with. */
 	tile = $state<Position | null>(null);
-	row = $state<number | null>(null);
 
 	feedback = $state('');
 	/** Rows currently lifting off. Drives the clear animation. */
@@ -105,10 +104,26 @@ export class Session {
 	/* Input                                                                   */
 	/* ---------------------------------------------------------------------- */
 
-	/** Tap a tile: first tap selects, second tap swaps. */
+	/** Whether input is accepted right now. Drag needs to ask before it starts. */
+	get live(): boolean {
+		return !this.over && !this.busy;
+	}
+
+	/** Exchange two tiles. The one verb the game has. */
+	swap(a: Position, b: Position): void {
+		if (!this.live) return;
+		if (a.row === b.row && a.col === b.col) return;
+
+		this.begin();
+		this.rows = swapTiles(this.rows, a, b);
+		this.moves++;
+		this.record({ type: 'swapTiles', a: [a.row, a.col], b: [b.row, b.col] });
+		this.tile = null;
+	}
+
+	/** Tap a tile: first tap holds it, second tap swaps. The keyboard-reachable path. */
 	pickTile(pos: Position): void {
-		if (this.over || this.busy) return;
-		this.row = null;
+		if (!this.live) return;
 
 		const held = this.tile;
 		if (!held) {
@@ -119,39 +134,11 @@ export class Session {
 			this.tile = null;
 			return;
 		}
-
-		this.begin();
-		this.rows = swapTiles(this.rows, held, pos);
-		this.moves++;
-		this.record({ type: 'swapTiles', a: [held.row, held.col], b: [pos.row, pos.col] });
-		this.tile = null;
-	}
-
-	/** Tap a rank: first tap selects the row, second tap swaps the two rows. One move. */
-	pickRow(index: number): void {
-		if (this.over || this.busy) return;
-		this.tile = null;
-
-		const held = this.row;
-		if (held === null) {
-			this.row = index;
-			return;
-		}
-		if (held === index) {
-			this.row = null;
-			return;
-		}
-
-		this.begin();
-		this.rows = swapRows(this.rows, held, index);
-		this.moves++;
-		this.record({ type: 'swapRows', a: held, b: index });
-		this.row = null;
+		this.swap(held, pos);
 	}
 
 	clearSelection(): void {
 		this.tile = null;
-		this.row = null;
 	}
 
 	/* ---------------------------------------------------------------------- */

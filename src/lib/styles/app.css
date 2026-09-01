@@ -39,7 +39,6 @@
 
 	--radius: 13px;
 	--gap: 7px;
-	--rail: 26px;
 	--row-h: clamp(58px, 12vh, 84px);
 	/* Scaled up by the board while a multi-row clear is playing. */
 	--boost: 1;

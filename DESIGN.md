@@ -72,23 +72,38 @@ Four columns on a 375px screen is ~70px a tile, so **word length is a hard const
 puzzle data, not a style note**: capped at 12 characters and enforced by a unit test. This
 will bite if puzzles go Swedish — compound words will blow the tile out.
 
-**8. Three scoring axes, never combined.**
-Time, lives remaining, moves (plus checks, logged). Zachtronics' real insight isn't the
-histograms, it's that incomparable axes mean there's no single "best" and everyone can be
-proud of something. A failed run scores nothing for the day; your parents being able to
-actually lose is a feature.
+**8. Scoring axes stay separate, and nothing counts up while you play.**
+Time and lives remaining are shown when the run ends. Moves and checks are recorded but
+never displayed — see pin 11. Zachtronics' real insight isn't the histograms, it's that
+incomparable axes mean there's no single "best" and everyone can be proud of something. A
+failed run scores nothing for the day; your parents being able to actually lose is a
+feature.
 
-**9. Swapping two whole rows costs one move, not four.**
-Charging four would tax the exact strategy the mechanic demands.
+**9. One verb: swap two tiles.**
+Drag a word onto another, or tap the two in turn. There is no row-level move and no second
+tool to learn. Rows are reordered by moving their contents — four swaps to exchange two
+rows, and since nothing is counted, that costs patience rather than score.
 
 **10. Everything is logged from the first prototype.**
-Every move and check, with timings, kept locally. Whether move-counting is fun or just
-makes people anxious about experimenting is genuinely unknown, and logging means old runs
-can be retro-scored against metrics we haven't committed to.
+Every move and check, with timings, kept locally. Logging means old runs can be retro-scored
+against metrics we haven't committed to — which is exactly what saved us when pin 11
+removed a metric from the UI.
+
+**11. The game is about finding groups, so nothing on screen may suggest otherwise.**
+_Set by the first playtest._ A visible move counter turned it into an optimisation problem:
+the tester started playing to minimise moves rather than to find categories, and every added
+flourish read as a distraction rather than a reward. So the timer, move counter, check
+counter and row-rank column are all gone from play. This is the general rule, not just a
+list of deletions: anything that counts upward while you think changes what the game feels
+like it is about.
 
 ### Feel
 
 The game lives or dies on this, so these are decisions, not styling.
+
+**Nothing on screen counts upward.** The header carries the wordmark, the lives, and a way
+to the rules. That is all. See pin 11 — this is the rule the first playtest bought us, and
+it is worth defending against every future addition that wants a corner of the screen.
 
 **The board never resizes.** Five row slots for the whole game. A solved row keeps a full
 row's height, and since only leading runs clear, cleared rows are always the topmost ones —
@@ -144,19 +159,25 @@ would otherwise cover.
   drags turn out to annoy, that's a hit-target problem, not a new mechanic.
 - **"One away" feedback.** Far too strong here — with full-partition commits it would
   effectively point at the row to attack. The count in pin 4 is the calibrated version.
-- **Drag and drop, for now.** Tap-to-select / tap-to-swap works on touch, is
-  keyboard-accessible for free, and animates identically. Pointer-drag is an enhancement,
-  not a requirement for the game to be fun.
+- **The rank column.** It numbered the rows down the left edge and doubled as the handle
+  for swapping whole rows. The numbers were redundant — the top row is visibly the top row
+  — and the handle was a second verb for a rare action. Both went in the declutter.
+- **On-screen counters.** Timer, moves, checks. All still logged. See pin 11.
+
+Un-dropped: **drag and drop**, which was deferred as an enhancement and turned out to be
+the thing that lets the tap-and-rank scaffolding go away. Tap-to-swap is kept alongside it —
+it costs nothing, and it is what keeps the board reachable from a keyboard.
 
 ### Open
 
 - **Language.** English dummy data for now. Swedish is likely (see the word-length note, and
   expect noticeably weaker LLM generation for Swedish idiom and wordplay — human review
   stays in the loop longer).
-- **Does the move count ship, or just get logged?** Currently displayed. Decide after ~20
-  real runs.
-- **Row reordering is a swap.** Promote-to-top (pushing the others down) is the other
-  plausible verb and may match intent better. Both are one move.
+- **Is four swaps too much friction to promote a row?** Reordering rows by confidence is the
+  core mechanic, and it now costs four swaps rather than one move. The first playtest was
+  against a build that had the shortcut, so this is untested. If it bites, the drag-native
+  fix is a long-press on a row to pick the whole row up — a gesture rather than a returning
+  column of numbers.
 - **Number of lives.** Four is genre muscle memory, not a measured number.
 - **Is the count feedback too generous?** It's the most reversible of the pinned rules.
 - **Grid size.** 4×5 is hardcoded in `engine.ts` as `COLS`/`ROWS`. A 5×5 hard mode is not a

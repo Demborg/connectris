@@ -24,7 +24,7 @@
 	.row {
 		grid-column: 1 / -1;
 		display: grid;
-		grid-template-columns: var(--rail) 1fr;
+		grid-template-columns: 26px 1fr;
 		align-items: center;
 		gap: var(--gap);
 		min-height: var(--row-h);

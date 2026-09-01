@@ -6,14 +6,14 @@
 
 	let won = $derived(session.status === 'won');
 	let best = $derived(session.best);
-	// The axes stay separate on purpose — there is no combined score. A previous best is
-	// only worth showing when it differs from this run, otherwise it just reads as noise.
+	// Time is a score once the run is over; it was only corrosive as a clock ticking while
+	// you think. Moves and checks stay in the log and off the card — showing them is what
+	// made the game read as a move-optimisation puzzle. A previous best is only worth
+	// showing when it differs from this run, otherwise it just reads as noise.
 	let stats = $derived(
 		[
 			{ label: 'Time', value: formatTime(session.elapsedMs), was: best && formatTime(best.timeMs) },
-			{ label: 'Lives left', value: `${session.lives}`, was: best && `${best.livesLeft}` },
-			{ label: 'Moves', value: `${session.moves}`, was: best && `${best.moves}` },
-			{ label: 'Checks', value: `${session.checks}`, was: best && `${best.checks}` }
+			{ label: 'Lives left', value: `${session.lives}`, was: best && `${best.livesLeft}` }
 		].map((s) => ({ ...s, was: won && s.was !== s.value ? s.was : undefined }))
 	);
 </script>
@@ -101,7 +101,7 @@
 
 	.stats {
 		display: grid;
-		grid-template-columns: repeat(4, 1fr);
+		grid-template-columns: repeat(2, 1fr);
 		gap: 8px;
 		margin: 0 0 18px;
 	}

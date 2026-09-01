@@ -3,7 +3,15 @@
 
 	type Props = {
 		tile: Tile;
+		row: number;
+		col: number;
+		/** Held by a tap, waiting for a second tap. */
 		selected: boolean;
+		/** Currently under the finger. */
+		dragging: boolean;
+		/** The tile a drag is hovering over, and would swap with. */
+		target: boolean;
+		offset: { x: number; y: number };
 		locking: boolean;
 		/** Position in the clearing wave, in ms. */
 		delay: number;
@@ -14,12 +22,21 @@
 		impact: boolean;
 		colour: string;
 		disabled: boolean;
+		onpointerdown: (event: PointerEvent) => void;
+		onpointermove: (event: PointerEvent) => void;
+		onpointerup: (event: PointerEvent) => void;
+		onpointercancel: () => void;
 		onpick: () => void;
 	};
 
 	let {
 		tile,
+		row,
+		col,
 		selected,
+		dragging,
+		target,
+		offset,
 		locking,
 		delay,
 		crash,
@@ -27,6 +44,10 @@
 		impact,
 		colour,
 		disabled,
+		onpointerdown,
+		onpointermove,
+		onpointerup,
+		onpointercancel,
 		onpick
 	}: Props = $props();
 </script>
@@ -34,16 +55,26 @@
 <button
 	class="tile"
 	class:selected
+	class:dragging
+	class:target
 	class:locking
 	class:crashing={crash > 0}
 	class:impact={impact && crash > 0}
+	data-row={row}
+	data-col={col}
 	style:--len={tile.word.length}
+	style:--dx="{offset.x}px"
+	style:--dy="{offset.y}px"
 	style:--delay="{delay}ms"
 	style:--crash-delay="{crashDelay}ms"
 	style:--amp={crash}
 	style:--colour={colour}
 	{disabled}
 	aria-pressed={selected}
+	{onpointerdown}
+	{onpointermove}
+	{onpointerup}
+	{onpointercancel}
 	onclick={onpick}
 >
 	{tile.word}
@@ -51,6 +82,7 @@
 
 <style>
 	.tile {
+		position: relative;
 		display: grid;
 		place-items: center;
 		min-height: var(--row-h);
@@ -70,6 +102,8 @@
 		line-height: 1.05;
 		text-align: center;
 		white-space: nowrap;
+		/* The board owns vertical gestures — dragging a tile must not scroll the page. */
+		touch-action: none;
 		transition:
 			transform 160ms var(--snap),
 			outline-color 160ms ease,
@@ -93,6 +127,26 @@
 
 	.selected:active:not(:disabled) {
 		transform: translateY(-3px) scale(1);
+	}
+
+	/* Where a drop would land. The held tile is lifted clear of it, so the ring and the
+	   brighter fill stay visible underneath rather than being covered exactly. */
+	.target {
+		background: linear-gradient(180deg, #33405180, #26303f);
+		outline: 2px solid color-mix(in oklab, var(--accent) 60%, transparent);
+		outline-offset: -2px;
+		box-shadow: 0 0 0 3px rgb(238 243 250 / 12%);
+	}
+
+	/* Tracks the finger exactly: no transition, or it lags behind. Held above the pointer
+	   so a thumb doesn't sit on top of the thing being aimed at. */
+	.dragging,
+	.dragging:active:not(:disabled) {
+		transform: translate(var(--dx), calc(var(--dy) - 16px)) scale(1.04);
+		outline: 2px solid var(--accent);
+		outline-offset: -2px;
+		box-shadow: 0 16px 30px rgb(0 0 0 / 60%);
+		transition: none;
 	}
 
 	/* Each tile fires on its own delay, so a clear rolls left-to-right, top-to-bottom.

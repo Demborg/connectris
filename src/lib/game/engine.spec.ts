@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import puzzles from '../data/puzzles.json';
-import { COLS, ROWS, check, deal, isComplete, leadingRun, swapRows, swapTiles } from './engine';
+import { COLS, ROWS, check, deal, isComplete, leadingRun, swapTiles } from './engine';
 import type { Puzzle, Row } from './types';
 
 const all = puzzles as Puzzle[];
@@ -107,10 +107,17 @@ describe('moves', () => {
 		expect(rows[0][0]).not.toBe(next[0][0]); // original untouched
 	});
 
-	it('swapRows promotes a row without disturbing its contents', () => {
-		const rows = deal(puzzle);
-		const next = swapRows(rows, 0, 3);
-		expect(next[0]).toBe(rows[3]);
-		expect(next[3]).toBe(rows[0]);
+	it('can reach any row order through tile swaps alone', () => {
+		// There is no row-level move any more, so the confidence ordering has to be
+		// reachable by moving tiles. Swapping four pairs exchanges two whole rows.
+		let rows = solvedRows(puzzle);
+		for (let col = 0; col < COLS; col++) {
+			rows = swapTiles(rows, { row: 0, col }, { row: 3, col });
+		}
+		expect(rows[0].map((t) => t.word)).toEqual(puzzle.groups[3].words);
+		expect(rows[3].map((t) => t.word)).toEqual(puzzle.groups[0].words);
+		// And the reordering costs nothing: rows are sets, so a board of complete rows in a
+		// different order is still complete.
+		expect(check(rows).locked).toBe(ROWS);
 	});
 });

@@ -102,18 +102,14 @@ export function check(rows: Row[]): CheckResult {
 /* Moves                                                                       */
 /* -------------------------------------------------------------------------- */
 
-/** Swap two tiles. One move, wherever they are. */
+/**
+ * Swap two tiles. The only move in the game — rows are reordered by moving their
+ * contents, so there is one verb to learn and nothing to optimise.
+ */
 export function swapTiles(rows: Row[], a: Position, b: Position): Row[] {
 	const next = rows.map((r) => r.slice());
 	const tmp = next[a.row][a.col];
 	next[a.row][a.col] = next[b.row][b.col];
 	next[b.row][b.col] = tmp;
-	return next;
-}
-
-/** Swap two whole rows. Also one move — reordering is the mechanic, not a tax. */
-export function swapRows(rows: Row[], a: number, b: number): Row[] {
-	const next = rows.slice();
-	[next[a], next[b]] = [next[b], next[a]];
 	return next;
 }

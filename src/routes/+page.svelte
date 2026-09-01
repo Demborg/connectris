@@ -4,7 +4,6 @@
 	import EndCard from '$lib/components/EndCard.svelte';
 	import Lives from '$lib/components/Lives.svelte';
 	import puzzles from '$lib/data/puzzles.json';
-	import { formatTime } from '$lib/format';
 	import { Session } from '$lib/game/session.svelte';
 	import type { Puzzle } from '$lib/game/types';
 
@@ -14,15 +13,9 @@
 	let session = $state(new Session(all[0]));
 	let rulesOpen = $state(false);
 
-	// `elapsedMs` reads Date.now(), which is not reactive, so the clock is pulled on a
-	// timer while a run is live and re-read once when the run ends.
-	let elapsed = $state(0);
-	$effect(() => {
-		elapsed = session.elapsedMs;
-		if (session.status !== 'playing') return;
-		const id = setInterval(() => (elapsed = session.elapsedMs), 250);
-		return () => clearInterval(id);
-	});
+	// Nothing counts up on screen while you play. Time, moves and checks are all still
+	// recorded — see the run log — they just aren't shown, because a visible counter turns
+	// the game into an optimisation problem instead of a grouping one.
 
 	function load(i: number) {
 		index = ((i % all.length) + all.length) % all.length;
@@ -37,31 +30,18 @@
 
 <div class="app">
 	<header>
-		<div>
-			<h1>CONNECTRIS</h1>
-			<p class="puzzle">{session.puzzle.name} · {index + 1}/{all.length}</p>
-		</div>
+		<h1>CONNECTRIS</h1>
 		<Lives lives={session.lives} />
-	</header>
-
-	<div class="meters">
-		<span class="clock">{formatTime(elapsed)}</span>
-		<span class="dot">·</span>
-		<span>{session.moves} {session.moves === 1 ? 'move' : 'moves'}</span>
-		<span class="dot">·</span>
-		<span>{session.checks} {session.checks === 1 ? 'check' : 'checks'}</span>
 		<button class="help" onclick={() => (rulesOpen = !rulesOpen)}>
 			{rulesOpen ? 'Close' : 'How to play'}
 		</button>
-	</div>
+	</header>
 
 	{#if rulesOpen}
 		<section class="rules">
 			<ol>
 				<li>Sort all 20 words into 5 rows of four. Order <em>inside</em> a row doesn't matter.</li>
-				<li>
-					Tap two words to swap them. Tap two rank numbers to swap whole rows — also one move.
-				</li>
+				<li>Drag a word onto another to swap them, or tap the two of them in turn.</li>
 				<li>
 					<strong>Check clears from the top down only.</strong> A correct row sitting below a wrong one
 					doesn't clear. Put the row you're surest about first.
@@ -105,9 +85,7 @@
 			disabled={session.over}
 			onclick={() => session.check()}
 		>
-			Check{session.rows.length > 0 && session.rows.length < 5
-				? ` ${session.rows.length} rows`
-				: ''}
+			Check
 		</button>
 	</footer>
 
@@ -129,46 +107,22 @@
 		padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
 	}
 
+	/* Wordmark, lives, and a way to the rules. Nothing else earns a place up here —
+	   anything that counts upward while you play changes what the game feels like it is. */
 	header {
 		display: flex;
 		align-items: center;
-		justify-content: space-between;
 		gap: 12px;
 	}
 
 	h1 {
-		margin: 0;
+		margin: 0 auto 0 0;
 		font-size: var(--fs-sm);
 		font-weight: 800;
 		letter-spacing: 0.22em;
 	}
 
-	.puzzle {
-		margin: 2px 0 0;
-		font-size: var(--fs-xs);
-		color: var(--muted);
-	}
-
-	.meters {
-		display: flex;
-		align-items: center;
-		gap: 6px;
-		font-size: var(--fs-xs);
-		font-variant-numeric: tabular-nums;
-		color: var(--muted);
-	}
-
-	.clock {
-		color: var(--text);
-		font-weight: 600;
-	}
-
-	.dot {
-		color: var(--dim);
-	}
-
 	.help {
-		margin-left: auto;
 		font-size: var(--fs-xs);
 		color: var(--muted);
 		text-decoration: underline;

@@ -35,7 +35,7 @@ pnpm dev
 
 ```
 src/lib/game/engine.ts          Pure rules: dealing, checking, moves. No UI, no state.
-src/lib/game/session.svelte.ts  Runtime state for one run — lives, moves, clock, feedback.
+src/lib/game/session.svelte.ts  Runtime state for one run — lives, feedback, animation beats.
 src/lib/game/log.ts             Local play log and personal bests.
 src/lib/data/puzzles.json       Demo puzzles.
 src/lib/components/             Board, tiles, solved rows, end card.
