@@ -105,6 +105,14 @@ The game lives or dies on this, so these are decisions, not styling.
 to the rules. That is all. See pin 11 — this is the rule the first playtest bought us, and
 it is worth defending against every future addition that wants a corner of the screen.
 
+**A check says one thing, and only when it has something to say.** The count of correct rows
+is the single piece of information the board cannot show by itself (pin 4), so it is the
+only thing written in words — set as a number that matters rather than a status line. That a
+row cleared, that the board is solved, that the lives ran out: the clear animation, the
+crash and the end card already say all of that, and repeating it in small grey type
+undercut them. A check that clears cleanly and leaves nothing else right says nothing at
+all.
+
 **The board never resizes.** Five row slots for the whole game. A solved row keeps a full
 row's height, and since only leading runs clear, cleared rows are always the topmost ones —
 so they convert in place and nothing below them moves. Shrinking solved rows into slim

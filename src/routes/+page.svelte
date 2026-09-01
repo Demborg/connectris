@@ -3,6 +3,7 @@
 	import ComboFlash from '$lib/components/ComboFlash.svelte';
 	import EndCard from '$lib/components/EndCard.svelte';
 	import Lives from '$lib/components/Lives.svelte';
+	import Verdict from '$lib/components/Verdict.svelte';
 	import puzzles from '$lib/data/puzzles.json';
 	import { Session } from '$lib/game/session.svelte';
 	import type { Puzzle } from '$lib/game/types';
@@ -65,10 +66,14 @@
 		</main>
 
 		<!-- The slack between the well and the thumb. It grows as rows clear, which is
-		     exactly when there is something to shout about. -->
-		<div class="callout">
+		     exactly when there is something to shout about. The combo shouts from the
+		     middle of it; the verdict sits at the bottom, nearest the button that asked. -->
+		<div class="callout" aria-live="polite">
 			{#if session.combo}
 				<ComboFlash rows={session.combo} />
+			{/if}
+			{#if session.verdict}
+				<Verdict verdict={session.verdict} />
 			{/if}
 		</div>
 
@@ -78,7 +83,6 @@
 	</div>
 
 	<footer>
-		<p class="feedback" aria-live="polite">{session.feedback || ' '}</p>
 		<button
 			class="check"
 			class:firing={session.sweeping}
@@ -182,8 +186,11 @@
 
 	.callout {
 		position: relative;
+		display: grid;
+		align-items: end;
 		flex: 1;
 		min-height: 44px;
+		padding-bottom: 4px;
 	}
 
 	/* Anticipation: two light rails run up the side of the stage from button height to
@@ -248,16 +255,6 @@
 	footer {
 		display: flex;
 		flex-direction: column;
-		gap: 8px;
-	}
-
-	.feedback {
-		margin: 0;
-		min-height: 1.1rem;
-		font-size: var(--fs-sm);
-		text-align: center;
-		color: var(--muted);
-		animation: reveal 240ms var(--ease);
 	}
 
 	.check {

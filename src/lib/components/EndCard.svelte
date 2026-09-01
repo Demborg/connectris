@@ -25,7 +25,7 @@
 
 <div class="sheet">
 	<div class="card" class:lost={!won}>
-		<p class="verdict">{won ? 'Solved' : 'Out of lives'}</p>
+		<p class="outcome">{won ? 'Solved' : 'Out of lives'}</p>
 		<p class="sub">
 			{won
 				? 'Every row cleared from the top.'
@@ -81,7 +81,7 @@
 		animation: rise 420ms var(--snap) both;
 	}
 
-	.verdict {
+	.outcome {
 		margin: 0;
 		font-size: var(--fs-lg);
 		font-weight: 700;
@@ -89,7 +89,7 @@
 		color: var(--g4);
 	}
 
-	.lost .verdict {
+	.lost .outcome {
 		color: var(--danger);
 	}
 

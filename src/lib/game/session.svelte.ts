@@ -4,6 +4,9 @@ import type { Group, Position, Puzzle, Row, SolvedRow } from './types';
 
 export type Status = 'idle' | 'playing' | 'won' | 'lost';
 
+/** The one thing a check says out loud: a count, and what it counts. */
+export type Verdict = { count: number; note: string };
+
 /**
  * The clearing wave. Tiles within a row light up in quick succession, and each row
  * starts well after the one above it — so the clear reads as rolling down the board
@@ -51,7 +54,8 @@ export class Session {
 	/** Tile held by a tap, waiting for a second tap to swap with. */
 	tile = $state<Position | null>(null);
 
-	feedback = $state('');
+	/** What the last check revealed: how many rows are right, never which. Pin 4. */
+	verdict = $state<Verdict | null>(null);
 	/** Rows currently lifting off. Drives the clear animation. */
 	locking = $state(0);
 	/** True while the press is travelling up the board. */
@@ -154,7 +158,7 @@ export class Session {
 		const result = check(this.rows);
 		this.checks++;
 		// Drop the previous verdict now, so it isn't left standing over the clear animation.
-		this.feedback = '';
+		this.verdict = null;
 
 		this.sweeping = true;
 		setTimeout(() => (this.sweeping = false), SWEEP_MS);
@@ -200,23 +204,19 @@ export class Session {
 			livesLeft: this.lives
 		});
 
+		// Only the count is worth saying. That a row cleared, that the board is solved, that
+		// the lives ran out — the board and the end card already say all of it, and saying
+		// it again in small type undercuts them.
 		const remaining = result.correctCount - result.locked;
-		if (this.rows.length === 0) {
-			this.feedback = 'Solved.';
-			this.finish('won');
-		} else if (this.lives === 0) {
-			this.feedback = 'Out of lives.';
-			this.finish('lost');
-		} else if (result.locked > 0) {
-			this.feedback =
-				remaining > 0
-					? `Cleared ${result.locked}. ${remaining} of the rows below ${remaining === 1 ? 'is' : 'are'} already right — wrong order.`
-					: `Cleared ${result.locked}.`;
-		} else if (result.correctCount > 0) {
-			this.feedback = `${result.correctCount} rows are right — none of them at the top.`;
-		} else {
-			this.feedback = 'No rows correct.';
-		}
+		if (this.rows.length === 0) this.finish('won');
+		else if (this.lives === 0) this.finish('lost');
+		else if (result.locked > 0)
+			this.verdict = remaining > 0 ? { count: remaining, note: 'more right · wrong order' } : null;
+		else
+			this.verdict = {
+				count: result.correctCount,
+				note: result.correctCount > 0 ? 'rows right · none at the top' : 'rows right'
+			};
 
 		this.busy = false;
 	}
