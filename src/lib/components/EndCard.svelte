@@ -18,7 +18,12 @@
 	);
 </script>
 
-<div class="scrim">
+<!-- The scrim is a sibling of the card, never its ancestor: a filtered ancestor drags
+     everything inside it into the same blurred layer, which is what was making the
+     card's own text unreadable. -->
+<div class="scrim" aria-hidden="true"></div>
+
+<div class="sheet">
 	<div class="card" class:lost={!won}>
 		<p class="verdict">{won ? 'Solved' : 'Out of lives'}</p>
 		<p class="sub">
@@ -42,20 +47,29 @@
 </div>
 
 <style>
+	/* Graded rather than uniform: the solved rows are the answer, so they stay readable
+	   at the top while the card gets real contrast behind it at the bottom. */
 	.scrim {
+		position: fixed;
+		inset: 0;
+		background: linear-gradient(180deg, rgb(6 8 12 / 15%) 0%, rgb(6 8 12 / 82%) 62%);
+		animation: fade 260ms ease both;
+		z-index: 10;
+	}
+
+	.sheet {
 		position: fixed;
 		inset: 0;
 		display: grid;
 		place-items: end center;
 		padding: 16px;
 		padding-bottom: max(16px, env(safe-area-inset-bottom));
-		background: rgb(6 8 12 / 45%);
-		backdrop-filter: blur(2px);
-		animation: fade 260ms ease both;
-		z-index: 10;
+		pointer-events: none;
+		z-index: 11;
 	}
 
 	.card {
+		pointer-events: auto;
 		width: 100%;
 		max-width: 440px;
 		padding: 20px;
