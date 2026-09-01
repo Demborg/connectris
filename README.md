@@ -7,7 +7,7 @@ run of correct rows clears — a correct row sitting below a wrong one doesn't c
 rank your rows by how sure you are, and bet. Rows lift off the top of the well and the stack
 shifts up; a check that clears nothing costs a life, a check that makes progress is free.
 
-**Play it:** https://demborg.github.io/connectris/
+**Play it:** https://demborg.se/connectris/
 
 This is phase 0 — a prototype with hand-written puzzles and no backend, built to find out
 whether the mechanics are fun before anything else gets built. The reasoning behind every
