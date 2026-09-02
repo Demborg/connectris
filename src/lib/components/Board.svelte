@@ -4,7 +4,7 @@
 	import Tile from './Tile.svelte';
 	import { RIPPLE_STEP, ROW_STAGGER, TILE_STAGGER } from '$lib/game/session.svelte';
 	import type { Session } from '$lib/game/session.svelte';
-	import type { Group, Position, Tile as TileData } from '$lib/game/types';
+	import type { Position } from '$lib/game/types';
 
 	let { session }: { session: Session } = $props();
 
@@ -12,32 +12,39 @@
 	const colourOf = (group: string) =>
 		COLOURS[session.puzzle.groups.findIndex((g) => g.id === group)] ?? 'var(--accent)';
 
-	type Cell =
-		| { key: string; kind: 'solved'; group: Group; missed: boolean; order: number }
-		| { key: string; kind: 'tile'; row: number; col: number; tile: TileData };
-
-	// One flat grid for the whole board: solved rows, then revealed misses, then the rows
-	// still in play. Cleared rows are always the topmost ones, so they turn into solved
-	// rows exactly where they already sit — nothing below them has to move.
-	let cells = $derived([
-		...session.solved.map((s): Cell => ({
-			key: `done-${s.group.id}`,
-			kind: 'solved',
+	/**
+	 * Rows the player is finished with: cleared first, then the ones revealed by a loss.
+	 * Once the run is lost the remaining tiles come off the board entirely — their words
+	 * are all listed in the revealed rows, and leaving both on screen doubled the board's
+	 * height and broke the one-board-height rule.
+	 */
+	let done = $derived([
+		...session.solved.map((s) => ({
+			key: s.group.id,
 			group: s.group,
 			missed: false,
 			order: s.order
 		})),
-		...session.missed.map((g, i): Cell => ({
-			key: `done-${g.id}`,
-			kind: 'solved',
-			group: g,
-			missed: true,
-			order: i
-		})),
-		...session.rows.flatMap((row, r): Cell[] =>
-			row.map((tile, c): Cell => ({ key: `tile-${tile.id}`, kind: 'tile', row: r, col: c, tile }))
-		)
+		...session.missed.map((g, i) => ({ key: g.id, group: g, missed: true, order: i }))
 	]);
+	let active = $derived(session.status === 'lost' ? [] : session.rows);
+
+	let tiles = $derived(
+		active.flatMap((row, r) =>
+			row.map((tile, c) => ({ key: `tile-${tile.id}`, row: r, col: c, tile }) as const)
+		)
+	);
+
+	/**
+	 * Rows are ranked by how sure the player is, and the top one is the one a check
+	 * reaches first — so the frames fade as they go down. Linear with a floor, not a
+	 * decay: the bottom row still has to read as a container, or the tiering wins the
+	 * argument about order at the cost of the one about rows being the unit.
+	 *
+	 * Neutral, never hued: colour on this board means category and is not spent on
+	 * anything else.
+	 */
+	const tier = (rank: number) => 13 - rank * 2;
 
 	// The impact lands on the top remaining row and loses strength each row further down,
 	// so the shock visibly travels rather than shaking the whole board. A clear is absorbed
@@ -133,55 +140,91 @@
 	style:--boost={boost}
 	style:--jolt={session.crashMiss ? 'var(--danger)' : 'var(--accent)'}
 >
-	{#each cells as cell (cell.key)}
+	{#each done as d, i (d.key)}
+		<div class="band" style:grid-row={i + 1}>
+			<SolvedRow
+				group={d.group}
+				colour={colourOf(d.group.id)}
+				missed={d.missed}
+				enterDelay={d.order * 90}
+			/>
+		</div>
+	{/each}
+
+	<!-- One frame per row still in play, drawn behind the tiles. Rows are the entity the
+	     game is played in, so each one gets a container of its own. -->
+	<!-- Unkeyed on purpose: frames are positional, never reorder, and never animate. -->
+	{#each active, r}
+		<div
+			class="frame"
+			style:grid-row={done.length + r + 1}
+			style:--edge="rgb(255 255 255 / {tier(r).toFixed(1)}%)"
+			style:--fill="rgb(255 255 255 / {(tier(r) * 0.25).toFixed(1)}%)"
+		></div>
+	{/each}
+
+	{#each tiles as cell (cell.key)}
 		<div
 			class="slot"
-			class:full={cell.kind === 'solved'}
-			class:lifted={cell.kind === 'tile' && !!drag?.moved && samePos(drag.from, cell)}
-			animate:flip={{ duration: cell.kind === 'tile' ? 300 : 0 }}
+			class:lifted={!!drag?.moved && samePos(drag.from, cell)}
+			style:grid-row={done.length + cell.row + 1}
+			style:grid-column={cell.col + 1}
+			animate:flip={{ duration: 300 }}
 		>
-			{#if cell.kind === 'solved'}
-				<SolvedRow
-					group={cell.group}
-					colour={colourOf(cell.group.id)}
-					missed={cell.missed}
-					enterDelay={cell.order * 90}
-				/>
-			{:else}
-				<Tile
-					tile={cell.tile}
-					selected={samePos(session.tile, cell)}
-					dragging={!!drag?.moved && samePos(drag.from, cell)}
-					target={samePos(over, cell)}
-					offset={drag?.moved && samePos(drag.from, cell)
-						? { x: drag.dx, y: drag.dy }
-						: { x: 0, y: 0 }}
-					locking={cell.row < session.locking}
-					delay={cell.row * ROW_STAGGER + cell.col * TILE_STAGGER}
-					crash={crashAmp(cell.row)}
-					crashDelay={cell.row * RIPPLE_STEP}
-					impact={cell.row === 0}
-					colour={colourOf(cell.tile.group)}
-					disabled={session.over}
-					row={cell.row}
-					col={cell.col}
-					onpointerdown={(e) => start(e, cell)}
-					onpointermove={move}
-					onpointerup={end}
-					onpointercancel={cancel}
-					onpick={() => tap(cell)}
-				/>
-			{/if}
+			<Tile
+				tile={cell.tile}
+				selected={samePos(session.tile, cell)}
+				dragging={!!drag?.moved && samePos(drag.from, cell)}
+				target={samePos(over, cell)}
+				offset={drag?.moved && samePos(drag.from, cell)
+					? { x: drag.dx, y: drag.dy }
+					: { x: 0, y: 0 }}
+				locking={cell.row < session.locking}
+				delay={cell.row * ROW_STAGGER + cell.col * TILE_STAGGER}
+				crash={crashAmp(cell.row)}
+				crashDelay={cell.row * RIPPLE_STEP}
+				impact={cell.row === 0}
+				colour={colourOf(cell.tile.group)}
+				disabled={session.over}
+				row={cell.row}
+				col={cell.col}
+				onpointerdown={(e) => start(e, cell)}
+				onpointermove={move}
+				onpointerup={end}
+				onpointercancel={cancel}
+				onpick={() => tap(cell)}
+			/>
 		</div>
 	{/each}
 </div>
 
 <style>
+	/* Rows are spaced further apart than the tiles within them, so the row reads as the
+	   unit and the four words read as its contents. */
 	.grid {
 		display: grid;
 		grid-template-columns: repeat(4, minmax(0, 1fr));
-		gap: var(--gap);
+		column-gap: var(--gap);
+		row-gap: 18px;
 		align-items: stretch;
+	}
+
+	.band {
+		grid-column: 1 / -1;
+		display: grid;
+		margin: calc(-1 * var(--row-bleed)) -6px;
+	}
+
+	/* Empty and behind everything: it never sizes its track, it just draws the row.
+	   The negative margin lets it breathe around the tiles it contains. */
+	.frame {
+		grid-column: 1 / -1;
+		margin: calc(-1 * var(--row-bleed)) -6px;
+		border-radius: 17px;
+		background: var(--fill);
+		outline: 1px solid var(--edge);
+		outline-offset: -1px;
+		pointer-events: none;
 	}
 
 	.slot {
@@ -200,11 +243,6 @@
 		border-radius: var(--radius);
 		outline: 1px dashed var(--tile-edge);
 		outline-offset: -1px;
-	}
-
-	.slot.full {
-		grid-column: 1 / -1;
-		container-type: normal;
 	}
 
 	/* container-type makes each slot its own stacking context, so the z-index has to sit

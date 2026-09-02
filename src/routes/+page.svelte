@@ -240,16 +240,14 @@
 	}
 
 	/* The well holds five row slots for the whole game — solved rows keep a full row's
-	   height — so the board never resizes under the player. */
+	   height — so the board never resizes under the player. It carries no border of its
+	   own: the rows are the structure now, and an outer frame around framed rows just
+	   nests boxes inside boxes. */
 	.well {
 		flex: 0 0 auto;
 		padding: 10px;
 		border-radius: 18px;
-		background:
-			linear-gradient(90deg, rgb(255 255 255 / 3.5%), transparent 12px),
-			linear-gradient(270deg, rgb(255 255 255 / 3.5%), transparent 12px), var(--well);
-		outline: 1px solid var(--well-edge);
-		outline-offset: -1px;
+		background: var(--well);
 	}
 
 	footer {

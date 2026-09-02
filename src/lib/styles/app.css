@@ -39,7 +39,11 @@
 
 	--radius: 13px;
 	--gap: 7px;
-	--row-h: clamp(58px, 12vh, 84px);
+	/* Slightly shorter than before to pay for the space now spent between rows. */
+	--row-h: clamp(56px, 11.5vh, 80px);
+	/* How far a row's frame breathes past its contents, above and below. Solved rows add
+	   twice this to their height so every row lands on the same rhythm. */
+	--row-bleed: 5px;
 	/* Scaled up by the board while a multi-row clear is playing. */
 	--boost: 1;
 	/* Colour of the wave's impact: neutral when a clear lands, red when a check misses. */

@@ -101,6 +101,18 @@ like it is about.
 
 The game lives or dies on this, so these are decisions, not styling.
 
+**The row is the unit, and its rank is visible.** Each row still in play sits in its own
+frame, spaced further from its neighbours than its four words are from each other — so the
+eye reads a row as a thing containing words, not a grid of twenty tiles. The frames fade
+from the top down, which says the top row is the one a check reaches first. That tiering is
+neutral, never hued: colour on this board means category and is not spent on anything else.
+It also uses a linear ramp with a floor rather than a decay, because a bottom row faded to
+nothing stops reading as a container at all — which would win the argument about order at
+the cost of the one about rows.
+
+The board itself carries no border any more. An outer frame around framed rows just nests
+boxes inside boxes, and the rows are the structure now.
+
 **Nothing on screen counts upward.** The header carries the wordmark, the lives, and a way
 to the rules. That is all. See pin 11 — this is the rule the first playtest bought us, and
 it is worth defending against every future addition that wants a corner of the screen.

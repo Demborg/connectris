@@ -27,9 +27,11 @@
 		grid-template-columns: 26px 1fr;
 		align-items: center;
 		gap: var(--gap);
-		min-height: var(--row-h);
+		/* Matches the height an active row's frame reaches with its bleed, so solved and
+		   unsolved rows sit on exactly the same rhythm. */
+		min-height: calc(var(--row-h) + 2 * var(--row-bleed));
 		padding-right: 12px;
-		border-radius: var(--radius);
+		border-radius: 17px;
 		background: linear-gradient(
 			180deg,
 			color-mix(in oklab, var(--colour) 56%, var(--ink)),
