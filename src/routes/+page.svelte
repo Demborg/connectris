@@ -2,7 +2,7 @@
 	import Board from '$lib/components/Board.svelte';
 	import ComboFlash from '$lib/components/ComboFlash.svelte';
 	import EndCard from '$lib/components/EndCard.svelte';
-	import Lives from '$lib/components/Lives.svelte';
+	import Budget from '$lib/components/Budget.svelte';
 	import Verdict from '$lib/components/Verdict.svelte';
 	import puzzles from '$lib/data/puzzles.json';
 	import { Session } from '$lib/game/session.svelte';
@@ -32,11 +32,15 @@
 <div class="app">
 	<header>
 		<h1>CONNECTRIS</h1>
-		<Lives lives={session.lives} />
 		<button class="help" onclick={() => (rulesOpen = !rulesOpen)}>
 			{rulesOpen ? 'Close' : 'How to play'}
 		</button>
 	</header>
+
+	<!-- Connections keeps its goal on screen permanently, and it earns the space: it is
+	     the one line that says what you are trying to do. The second half carries what
+	     the rank numbers used to. -->
+	<p class="goal">Make five rows of four — surest at the top</p>
 
 	{#if rulesOpen}
 		<section class="rules">
@@ -47,8 +51,11 @@
 					<strong>Check clears from the top down only.</strong> A correct row sitting below a wrong one
 					doesn't clear. Put the row you're surest about first.
 				</li>
-				<li>A check that clears nothing costs a life. Making progress is free.</li>
-				<li>A miss tells you how many rows are right — never which ones.</li>
+				<li>
+					<strong>Every check costs one.</strong> Clearing several rows in one go is how you keep them
+					— which is what getting the order right buys you.
+				</li>
+				<li>A check tells you how many rows are right — never which ones.</li>
 			</ol>
 			<div class="picker">
 				{#each all as p, i (p.id)}
@@ -82,7 +89,9 @@
 		{/if}
 	</div>
 
+	<!-- The budget sits on the button that spends it. -->
 	<footer>
+		<Budget left={session.left} />
 		<button
 			class="check"
 			class:firing={session.sweeping}
@@ -111,12 +120,21 @@
 		padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
 	}
 
-	/* Wordmark, lives, and a way to the rules. Nothing else earns a place up here —
-	   anything that counts upward while you play changes what the game feels like it is. */
+	/* Wordmark and a way to the rules. Nothing else earns a place up here — anything that
+	   counts upward while you play changes what the game feels like it is. */
 	header {
 		display: flex;
 		align-items: center;
 		gap: 12px;
+	}
+
+	.goal {
+		margin: -2px 0 0;
+		font-size: var(--fs-xs);
+		font-weight: 600;
+		letter-spacing: 0.05em;
+		text-align: center;
+		color: var(--muted);
 	}
 
 	h1 {
@@ -253,6 +271,7 @@
 	footer {
 		display: flex;
 		flex-direction: column;
+		gap: 12px;
 	}
 
 	.check {

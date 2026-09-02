@@ -44,7 +44,7 @@
 	 * Neutral, never hued: colour on this board means category and is not spent on
 	 * anything else.
 	 */
-	const tier = (rank: number) => 13 - rank * 2;
+	const tier = (rank: number) => 26 - rank * 5;
 
 	// The impact lands on the top remaining row and loses strength each row further down,
 	// so the shock visibly travels rather than shaking the whole board. A clear is absorbed

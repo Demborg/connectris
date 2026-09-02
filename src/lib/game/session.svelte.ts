@@ -1,4 +1,4 @@
-import { COLS, LIVES, check, deal, swapTiles } from './engine';
+import { CHECKS, COLS, check, deal, swapTiles } from './engine';
 import { recordBest, saveRun, type Best, type EventInput, type GameEvent } from './log';
 import type { Group, Position, Puzzle, Row, SolvedRow } from './types';
 
@@ -46,7 +46,6 @@ export class Session {
 
 	rows = $state<Row[]>([]);
 	solved = $state<SolvedRow[]>([]);
-	lives = $state(LIVES);
 	moves = $state(0);
 	checks = $state(0);
 	status = $state<Status>('idle');
@@ -81,6 +80,11 @@ export class Session {
 	get elapsedMs(): number {
 		if (this.status === 'idle') return 0;
 		return (this.endedAt || Date.now()) - this.startedAt;
+	}
+
+	/** Checks still in hand. One counter now, not two — spending and counting are the same. */
+	get left(): number {
+		return CHECKS - this.checks;
 	}
 
 	get over(): boolean {
@@ -193,7 +197,6 @@ export class Session {
 			// Nothing cleared means row 1 is wrong, so the wave has nowhere to go and slams
 			// straight into it. Same motion as a clear landing — a miss is just the
 			// degenerate case where the run of correct rows has length zero.
-			this.lives--;
 			this.impact(MISS_AMP, true);
 		}
 
@@ -201,15 +204,16 @@ export class Session {
 			type: 'check',
 			locked: result.locked,
 			correctCount: result.correctCount,
-			livesLeft: this.lives
+			left: this.left
 		});
 
 		// Only the count is worth saying. That a row cleared, that the board is solved, that
 		// the lives ran out — the board and the end card already say all of it, and saying
 		// it again in small type undercuts them.
 		const remaining = result.correctCount - result.locked;
+		// Order matters: a final check that clears the board wins even if it was the last one.
 		if (this.rows.length === 0) this.finish('won');
-		else if (this.lives === 0) this.finish('lost');
+		else if (this.left === 0) this.finish('lost');
 		else if (result.locked > 0)
 			this.verdict = remaining > 0 ? { count: remaining, note: 'more right · wrong order' } : null;
 		else
@@ -238,7 +242,7 @@ export class Session {
 			startedAt: this.startedAt,
 			outcome,
 			timeMs: this.elapsedMs,
-			livesLeft: this.lives,
+			checksLeft: this.left,
 			moves: this.moves,
 			checks: this.checks,
 			events: this.events

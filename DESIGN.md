@@ -34,17 +34,26 @@ your own confidence ranking every time you check.
 It also makes the tetris framing literal — cleared rows light up and lock off the top of the
 well.
 
-**3. A check that clears nothing costs a life. Progress is free.**
-Four lives. This is the direct analogue of Connections not charging you for a correct group.
-It is self-limiting (you can only clear so many times), and it means the skill that keeps
-you alive is exactly the ordering skill the mechanic is built around.
+**3. Every check costs one of six. Clearing several rows in one go is how you keep them.**
+_Supersedes the original rule, which charged only for a check that cleared nothing._
+
+The old rule read well — "progress is free" — but it priced the game wrongly. Mis-ordering
+your rows cost nothing: a check that cleared one row when it could have cleared three was
+free, so the ordering mechanic, which is the entire point of the game, had no price on
+getting it wrong. And the DOUBLE/TRIPLE callouts were celebrating something the rules did
+not reward. Charging for every check fixes both at once: the order you put your rows in now
+decides how many checks the board costs you, and batching is worth real money.
+
+Six is chosen from the floor. See `CHECKS` in `engine.ts` for the arithmetic: clearing one
+row at a time takes four checks, so six leaves two spare, and the pressure escalates into
+the interesting strategy rather than into a dead run.
 
 DN's _Dagens fyra_ has no fail state at all — it just counts misses upward — and that is
-the main thing it does worse than Connections. Keeping real lives is deliberate.
+the main thing it does worse than Connections. Keeping a real one is deliberate.
 
 **4. A check reports how many rows are correct, never which.**
 With top-down-only clearing, a failed check would otherwise teach you almost nothing: `0`
-locked tells you only that row 1 is wrong. Paired with a tight life budget that is the worst
+locked tells you only that row 1 is wrong. Paired with a tight check budget that is the worst
 kind of fail state — you lose without learning. Reporting the count fixes the information
 starvation while keeping the ordering puzzle fully intact, because it never says _where_.
 
@@ -73,7 +82,7 @@ puzzle data, not a style note**: capped at 12 characters and enforced by a unit 
 will bite if puzzles go Swedish — compound words will blow the tile out.
 
 **8. Scoring axes stay separate, and nothing counts up while you play.**
-Time and lives remaining are shown when the run ends. Moves and checks are recorded but
+Time and checks remaining are shown when the run ends. Moves and checks are recorded but
 never displayed — see pin 11. Zachtronics' real insight isn't the histograms, it's that
 incomparable axes mean there's no single "best" and everyone can be proud of something. A
 failed run scores nothing for the day; your parents being able to actually lose is a
@@ -113,14 +122,15 @@ the cost of the one about rows.
 The board itself carries no border any more. An outer frame around framed rows just nests
 boxes inside boxes, and the rows are the structure now.
 
-**Nothing on screen counts upward.** The header carries the wordmark, the lives, and a way
-to the rules. That is all. See pin 11 — this is the rule the first playtest bought us, and
+**Nothing on screen counts upward.** The header carries the wordmark and a way to the rules;
+the goal line under it says what you are trying to do; the check budget sits on the button
+that spends it. That is all. See pin 11 — this is the rule the first playtest bought us, and
 it is worth defending against every future addition that wants a corner of the screen.
 
 **A check says one thing, and only when it has something to say.** The count of correct rows
 is the single piece of information the board cannot show by itself (pin 4), so it is the
 only thing written in words — set as a number that matters rather than a status line. That a
-row cleared, that the board is solved, that the lives ran out: the clear animation, the
+row cleared, that the board is solved, that the checks ran out: the clear animation, the
 crash and the end card already say all of that, and repeating it in small grey type
 undercut them. A check that clears cleanly and leaves nothing else right says nothing at
 all.
@@ -131,7 +141,7 @@ so they convert in place and nothing below them moves. Shrinking solved rows int
 banners made the whole layout shuffle on every clear, which was the single worst thing about
 the first build.
 
-**Colour means category and nothing else.** Selection, buttons, life pips and chrome are all
+**Colour means category and nothing else.** Selection, buttons, budget pips and chrome are all
 neutral, so a lit-up row is the only saturated thing on screen. The palette is the tetromino
 set — cyan, amber, purple, green, red — darkened toward near-black rather than mixed with
 the tile grey, because mixing toward a desaturated blue turns amber to olive.
@@ -195,10 +205,14 @@ it costs nothing, and it is what keeps the board reachable from a keyboard.
   stays in the loop longer).
 - **Is four swaps too much friction to promote a row?** Reordering rows by confidence is the
   core mechanic, and it now costs four swaps rather than one move. The first playtest was
-  against a build that had the shortcut, so this is untested. If it bites, the drag-native
-  fix is a long-press on a row to pick the whole row up — a gesture rather than a returning
-  column of numbers.
-- **Number of lives.** Four is genre muscle memory, not a measured number.
+  against a build that had the shortcut, so this is untested — and pin 3 raised the stakes:
+  now that every check is paid for, getting the order right before checking is worth real
+  money, so players will want to reorder more often than they did. If it bites, the
+  drag-native fix is a long-press on a row to pick the whole row up — a gesture rather than
+  a returning column of numbers.
+- **Size of the check budget.** Six is reasoned from the four-check floor, not measured. It
+  is the single number most likely to need tuning, and it sets how hard the game leans on
+  batching: tighter makes multi-row clears essential, looser makes them optional.
 - **Is the count feedback too generous?** It's the most reversible of the pinned rules.
 - **Grid size.** 4×5 is hardcoded in `engine.ts` as `COLS`/`ROWS`. A 5×5 hard mode is not a
   v1 question but shouldn't be designed out.

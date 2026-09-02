@@ -4,8 +4,17 @@ import type { CheckResult, Position, Puzzle, Row, Tile } from './types';
 export const COLS = 4;
 /** Rows on a full board, i.e. number of categories. */
 export const ROWS = 5;
-/** Failed checks allowed before the run ends. */
-export const LIVES = 4;
+/**
+ * Checks allowed in a run. Every check spends one, whether it clears rows or not.
+ *
+ * The floor is four: clearing a single row at a time takes 1+1+1+2 checks, because three
+ * rows solved leaves two, and if the top of those two is right the other one is forced.
+ * So six leaves two spare. Miss twice and you have exactly enough left to finish one row
+ * at a time; miss a third time and you can still win, but only by clearing several rows
+ * in one check. Pressure that escalates into the interesting strategy rather than into a
+ * dead run.
+ */
+export const CHECKS = 6;
 
 /* -------------------------------------------------------------------------- */
 /* Deterministic dealing                                                       */

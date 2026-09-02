@@ -13,7 +13,7 @@
 	let stats = $derived(
 		[
 			{ label: 'Time', value: formatTime(session.elapsedMs), was: best && formatTime(best.timeMs) },
-			{ label: 'Lives left', value: `${session.lives}`, was: best && `${best.livesLeft}` }
+			{ label: 'Checks left', value: `${session.left}`, was: best && `${best.checksLeft}` }
 		].map((s) => ({ ...s, was: won && s.was !== s.value ? s.was : undefined }))
 	);
 </script>
@@ -25,7 +25,7 @@
 
 <div class="sheet">
 	<div class="card" class:lost={!won}>
-		<p class="outcome">{won ? 'Solved' : 'Out of lives'}</p>
+		<p class="outcome">{won ? 'Solved' : 'Out of checks'}</p>
 		<p class="sub">
 			{won
 				? 'Every row cleared from the top.'
