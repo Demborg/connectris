@@ -84,6 +84,13 @@ def test_nothing_landing_goes_to_review_because_hard_and_broken_look_alike():
     assert decide(candidate(stats=stats(recovery=0.0)), T).verdict == "review"
 
 
+def test_a_grader_that_likes_a_board_the_solver_walked_through_is_overruled():
+    """The one gate the grader structurally cannot supply: it never sees the board played."""
+    trivial = candidate(stats=stats(recovery=1.0, full=1.0))
+    assert trivial.grade.verdict == "accept"
+    assert decide(trivial, T).verdict == "reject"
+
+
 def test_a_fatal_spec_problem_short_circuits_everything():
     c = candidate(problems=[Problem("duplicate-word", "twice")])
     decision = decide(c, T)
@@ -100,6 +107,7 @@ def test_missing_evidence_is_a_review_not_an_accept():
 
 
 def test_thresholds_are_the_only_thing_that_changed_between_these_two():
-    c = candidate(stats=stats(recovery=0.4))
+    """The purity claim the whole regrade design rests on."""
+    c = candidate(grade=Grade(verdict="accept", fairness=4, elegance=3, reasons=""))
     assert decide(c, Thresholds()).verdict == "accept"
-    assert decide(c, Thresholds(min_mean_recovery=0.5)).verdict == "review"
+    assert decide(c, Thresholds(min_fairness=5)).verdict == "review"

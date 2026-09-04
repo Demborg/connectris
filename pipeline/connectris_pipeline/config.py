@@ -53,18 +53,25 @@ class ModelSpec:
 class Thresholds:
     """Where auto-accept stops and the review queue starts.
 
-    Solve rates here are over the *weak* ensemble, which is a proxy for difficulty and
-    not a measurement of it. Both ends are pruned: a puzzle nothing can touch is usually
-    unfair rather than hard, and one every cheap model solves is not a puzzle.
+    Three numbers, down from seven. The first real run measured how often each of the
+    original seven fired across 20 candidates: `min_legibility` never, `max_mean_recovery`
+    once, `min_mean_recovery` once, `max_full_solve_rate` twice — and **none of the four
+    ever changed a verdict**, because the grader had already rejected those boards for
+    reasons of its own. Only the grader's two scores were load-bearing.
+
+    So the evidence stages stayed and their gates went. Solver recovery, legibility and
+    the red-team report all still reach the grader as prose in the digest, and the grader
+    reasons from them out loud — it has quoted "0% solver completion rate" and "an
+    abysmal naming match (0.09)" back in its rejections. They are better as testimony
+    than as tripwires.
+
+    What survives is one gate the grader structurally cannot supply. A board can read as
+    elegant and still be trivial, and the grader never sees it played.
     """
 
-    #: Mean over categories of "what fraction of solver attempts recovered this exact four".
-    min_mean_recovery: float = 0.15
+    #: Mean over categories of "did the weak solver recover this exact four". A cheap
+    #: model reconstructing most of the board is the one failure a good grade can hide.
     max_mean_recovery: float = 0.80
-    #: Fraction of attempts that got all five rows. Weak models should mostly fail this.
-    max_full_solve_rate: float = 0.50
-    #: Any word the red team can file in two places blocks auto-accept.
-    max_ambiguous_words: int = 0
     #: Grader's 1-5 scores.
     min_fairness: int = 4
     min_elegance: int = 3

@@ -121,7 +121,11 @@ def decide(candidate: Candidate, t: Thresholds) -> Decision:
         if red.verdict == "broken" or red.alternatives:
             reject = True
             reasons.append(f"red team found {len(red.alternatives)} alternative partition(s)")
-        if len(red.ambiguous_words) > t.max_ambiguous_words:
+        if red.ambiguous_words:
+            # No threshold: the red team now has to prove a second placement completes
+            # the board, so one finding is one too many. It reviews rather than rejects
+            # because a model can still be wrong about a completion, and a human reading
+            # the four words it names can tell in seconds.
             words = ", ".join(a.word for a in red.ambiguous_words)
             review.append(f"red team flagged ambiguous words: {words}")
     else:
@@ -133,15 +137,15 @@ def decide(candidate: Candidate, t: Thresholds) -> Decision:
     else:
         if s.well_formed == 0:
             review.append("no solver produced a legal partition — ensemble may be misconfigured")
-        if s.mean_recovery > t.max_mean_recovery or s.full_solve_rate > t.max_full_solve_rate:
+        if s.mean_recovery > t.max_mean_recovery:
             reject = True
             reasons.append(
-                f"too easy: weak solvers recovered {s.mean_recovery:.0%} of categories, "
-                f"solved outright {s.full_solve_rate:.0%}"
+                f"too easy: the weak solver recovered {s.mean_recovery:.0%} of categories"
             )
-        if s.mean_recovery < t.min_mean_recovery:
-            # Hard and broken look identical from here, so this never rejects on its own.
-            review.append(f"nothing landed: mean recovery {s.mean_recovery:.0%}")
+        if s.mean_recovery == 0:
+            # Hard and broken look identical from here, so this never rejects on its own —
+            # the grader, which can see the board, is the one that tells them apart.
+            review.append("nothing landed: the solver recovered no categories at all")
 
     g = candidate.grade
     if g is None:
