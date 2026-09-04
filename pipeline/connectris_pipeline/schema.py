@@ -50,9 +50,19 @@ class SolveAttempt(BaseModel):
 
 
 class AmbiguousWord(BaseModel):
-    word: str = Field(description="The word on the board that fits in more than one place.")
+    """A word whose second reading survives the full-partition rule.
+
+    Not merely a word that looks like it belongs elsewhere — every category is built to
+    contain one of those. This is one the finished board fails to resolve.
+    """
+
+    word: str = Field(description="The word whose second placement the whole board allows.")
     intended_label: str = Field(description="The category it is filed under in the answer key.")
     also_fits: str = Field(description="The other category on this board it fits just as well.")
+    completion: str = Field(
+        description="The four words the row it left would have instead, proving the rest of "
+        "the board still completes. Without this the finding is just a decoy doing its job."
+    )
     why: str = Field(description="One sentence for why the second reading is legitimate.")
 
 

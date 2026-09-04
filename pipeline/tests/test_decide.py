@@ -59,7 +59,13 @@ def test_an_alternative_partition_is_fatal():
 def test_one_ambiguous_word_blocks_auto_accept_without_killing_the_puzzle():
     red = RedTeamReport(
         ambiguous_words=[
-            AmbiguousWord(word="SOLE", intended_label="Fish", also_fits="Shoes", why="")
+            AmbiguousWord(
+                word="SOLE",
+                intended_label="Fish",
+                also_fits="Shoes",
+                completion="PERCH, BASS, SKATE, RAY",
+                why="the board completes with SOLE in either row",
+            )
         ],
         alternatives=[],
         verdict="soft",

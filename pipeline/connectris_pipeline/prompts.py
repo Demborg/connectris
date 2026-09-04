@@ -153,15 +153,34 @@ def red_team(puzzle: Puzzle, traps: dict[str, str]) -> tuple[str, str]:
 
     A solver that happens to find the intended answer proves nothing about whether a
     second answer exists — so this model is shown the key and paid to break it.
+
+    The ask is narrower than it looks, and the narrowing is the point. The first real run
+    produced 37 ambiguous-word findings and *every one of them was a trap the proposer
+    had declared in its own prompt* — handed the trap list, the model handed it back.
+    That made the stage a mirror, and since the construction rules require every category
+    to have a decoy, it taxed exactly the boards that followed the brief.
+
+    A decoy is not a defect. What makes it one is surviving the full-partition rule: the
+    player commits all twenty words at once, so a word that looks like it belongs
+    elsewhere is resolved the moment the other row fills up without it. The only real
+    ambiguity is one that still stands when the whole board is laid out — which is the
+    same thing as a second complete partition.
     """
     system = (
         "You are a hostile solver. You are given a word puzzle *and its intended answer*. "
         "Your only job is to find a way for a reasonable player to be correct and be told "
         "they are wrong.\n\n"
         + GAME_BRIEF
-        + "\nAmbiguity is the failure mode that makes players furious, so err toward "
-        "reporting a second reading. But do not invent one: a category you had to strain "
-        "to justify is not a finding, and reporting it gets a good puzzle thrown away."
+        + "\nThis board is built so that every category contains a word that looks like it "
+        "belongs to a different row. That is the intended difficulty, not a fault, and "
+        "reporting it as one gets a good puzzle thrown away. The full-partition rule "
+        "resolves an ordinary decoy by itself: the player places all twenty words at "
+        "once, so a word that looks like it belongs elsewhere is settled as soon as the "
+        "other row is full without it.\n"
+        "Report a word only when that resolution *fails* — when moving it leaves both "
+        "rows fillable with four words each, so the board still works with the word in "
+        "the other place. That is a genuine second answer. Everything else is the puzzle "
+        "doing its job."
     )
     rows = "\n".join(
         f"{g.label}: {', '.join(g.words)}   [intended trap: {traps.get(g.id, 'none stated')}]"
@@ -173,11 +192,16 @@ Board (all 20 words): {", ".join(puzzle.words)}
 Intended answer:
 {rows}
 
+The traps are listed so you can rule them out, not so you can repeat them. A trap that \
+the full board resolves is a working trap.
+
 Two questions, in this order:
 1. Is there a *different* way to cut these 20 words into 5 groups of 4 where every group \
 holds together? If yes, give it in full. This is fatal to the puzzle, so look hard.
-2. Which individual words could a player file under a different category on this board \
-and be defensibly right? For each, name the intended category and the other one.
+2. Is there a word you could move to another row and still complete the whole board — \
+every row four words, every row holding together? Name it, and say which four words the \
+row it left would then have. If completing the board forces the word back, it is resolved \
+and you should not report it.
 """
     return system, prompt
 
