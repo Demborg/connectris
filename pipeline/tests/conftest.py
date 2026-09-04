@@ -53,7 +53,7 @@ BOARDS: list[list[tuple[str, list[str]]]] = [
 ]
 
 CLEAN = RedTeamReport(ambiguous_words=[], alternatives=[], verdict="clean")
-PASSES = Grade(verdict="accept", fairness=5, elegance=4, reasons="scripted", revised_groups=[])
+PASSES = Grade(verdict="accept", fairness=5, elegance=4, reasons="scripted")
 
 
 class ScriptedLLM:

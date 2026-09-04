@@ -200,9 +200,9 @@ def grade(
         "A low recovery rate means hard OR broken, and it is your job to say which — the "
         "red-team report is the tiebreaker. A category the solvers found but could not "
         "name is the specific shape of unfair that nothing else in this pipeline catches.\n"
-        "Prefer 'revise' with a single word swapped over 'reject' when the board is sound "
-        "and one word is doing damage. Prefer 'reject' over a revision that needs two "
-        "categories rewritten."
+        "Use 'revise' when the board is sound and one word is doing the damage — name "
+        "that word in your reasons; a human decides what to do about it. Use 'reject' "
+        "when fixing it would need two categories rewritten."
     )
     rows = "\n".join(
         f"{g.label}: {', '.join(g.words)}   [intended trap: {traps.get(g.id, 'none stated')}]"
@@ -222,7 +222,7 @@ Weak-solver ensemble:
 Red team ({red.verdict}):
 {_red_summary(red)}
 
-Decide. If you revise, return the complete board, changing as little as you can.
+Decide.
 """
     return system, prompt
 

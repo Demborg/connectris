@@ -151,7 +151,7 @@ def decide(candidate: Candidate, t: Thresholds) -> Decision:
             reject = True
             reasons.append(f"grader rejected: {g.reasons}")
         elif g.verdict == "revise":
-            review.append(f"grader wanted another revision: {g.reasons}")
+            review.append(f"grader wants a word changed: {g.reasons}")
         if g.fairness < t.min_fairness:
             review.append(f"grader scored fairness {g.fairness}/5")
         if g.elegance < t.min_elegance:

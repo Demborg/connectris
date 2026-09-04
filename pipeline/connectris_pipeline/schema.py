@@ -81,7 +81,8 @@ class RedTeamReport(BaseModel):
 
 class Grade(BaseModel):
     verdict: Literal["accept", "revise", "reject"] = Field(
-        description="'revise' means you are supplying a fixed version below."
+        description="'accept' ships it. 'reject' kills it. 'revise' means the board is "
+        "sound but one word is doing damage — say which in `reasons`; a human will look."
     )
     fairness: int = Field(
         description="1-5. Can a careful player get here from the words alone, with no "
@@ -89,8 +90,3 @@ class Grade(BaseModel):
     )
     elegance: int = Field(description="1-5. Does the click of getting it feel earned?")
     reasons: str = Field(description="Two or three sentences. What is wrong, or what is good.")
-    revised_groups: list[ProposedGroup] = Field(
-        description="Only when verdict is 'revise': the whole puzzle rewritten, 5 groups of 4. "
-        "Change as little as possible — swapping one offending word is the usual fix. "
-        "Empty list otherwise."
-    )

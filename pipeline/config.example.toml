@@ -2,7 +2,6 @@
 # Copy to config.toml and pass with --config.
 
 concurrency = 8
-max_revisions = 1
 max_retries = 3
 
 # Gemini 3 models take `thinking_level` = "low" | "medium" | "high". ("minimal" exists in

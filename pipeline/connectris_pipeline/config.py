@@ -93,9 +93,6 @@ class Config:
 
     #: In-flight model calls across the whole run.
     concurrency: int = 8
-    #: How many times a 'revise' verdict may send a puzzle back around. Two is plenty;
-    #: a puzzle that needs three rewrites was a bad idea, not a bad draft.
-    max_revisions: int = 1
     #: Retries per model call, for transient errors and for output that will not parse.
     max_retries: int = 3
 
@@ -115,7 +112,7 @@ def load(path: Path | None) -> Config:
         return replace(current, **raw[key]) if key in raw else current
 
     thresholds = Thresholds(**raw["thresholds"]) if "thresholds" in raw else cfg.thresholds
-    top = {k: v for k, v in raw.items() if k in {"concurrency", "max_revisions", "max_retries"}}
+    top = {k: v for k, v in raw.items() if k in {"concurrency", "max_retries"}}
 
     return replace(
         cfg,

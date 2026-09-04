@@ -38,7 +38,7 @@ def candidate(**kwargs) -> Candidate:
         puzzle=Puzzle("c", "C", [Group("g", "G", ["A", "B", "C", "D"])]),
         stats=stats(),
         red=RedTeamReport(ambiguous_words=[], alternatives=[], verdict="clean"),
-        grade=Grade(verdict="accept", fairness=5, elegance=4, reasons="", revised_groups=[]),
+        grade=Grade(verdict="accept", fairness=5, elegance=4, reasons=""),
     )
     return Candidate(**{**base, **kwargs})
 

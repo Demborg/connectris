@@ -25,7 +25,7 @@ from .llm import LLM, Ledger
 from .record import Candidate, decide
 from .scoring import score
 from .spec import Corpus, Puzzle, is_fatal, validate
-from .stages import grade, propose, red_team, solve, to_puzzle
+from .stages import grade, propose, red_team, solve
 
 log = logging.getLogger(__name__)
 
@@ -60,41 +60,25 @@ class Run:
 
 
 async def evaluate(llm: LLM, cfg: Config, candidate: Candidate, corpus: Corpus) -> Candidate:
-    """Solve, red-team, grade, and take the grader's revision once if it offers one."""
-    for attempt in range(cfg.max_revisions + 1):
-        candidate.problems = validate(candidate.puzzle, corpus)
-        if is_fatal(candidate.problems):
-            break
+    """Gather the evidence, then decide. Straight line, no loop.
 
-        attempts = await solve(llm, cfg, candidate.puzzle)
-        candidate.attempts = attempts
-        candidate.stats = score(candidate.puzzle, attempts)
+    There was a revision loop here: a grader verdict of `revise` came with a rewritten
+    board, which went back around from validation. A real run retired it. It fired on 6
+    of 20 candidates and cost 22% of the batch's calls, and the grader then rejected its
+    own rewrite in 4 of those 6. It also overwrote the pre-revision record — board,
+    solver attempts, red-team report and first grade all gone — so the one question
+    DESIGN.md asked about it was unanswerable from the artifacts it wrote.
 
+    Since proposing a fresh board is one call and re-evaluating a rewrite is three, a
+    grader that wants a revision now just says so and the candidate goes to review.
+    """
+    candidate.problems = validate(candidate.puzzle, corpus)
+    if not is_fatal(candidate.problems):
+        candidate.attempts = await solve(llm, cfg, candidate.puzzle)
+        candidate.stats = score(candidate.puzzle, candidate.attempts)
         candidate.red = await red_team(llm, cfg, candidate.puzzle, candidate.traps)
         candidate.grade = await grade(llm, cfg, candidate)
 
-        revised = candidate.grade.revised_groups
-        if candidate.grade.verdict != "revise" or not revised:
-            break
-        if attempt == cfg.max_revisions:
-            # Out of revisions with the grader still asking for one. Keep this record
-            # rather than an unevaluated rewrite; `decide` reads the standing 'revise'
-            # off the grade and sends it to review.
-            break
-
-        puzzle, traps = to_puzzle(revised, candidate.puzzle.id, candidate.puzzle.name)
-        log.info("%s: taking the grader's revision", candidate.id)
-        candidate = Candidate(
-            id=candidate.id,
-            puzzle=puzzle,
-            traps=traps,
-            seed=candidate.seed,
-            revision=candidate.revision + 1,
-        )
-
-    # If it fell out of the loop still asking for another revision, `decide` reads that
-    # off the grade and sends it to review rather than shipping it.
-    candidate.problems = validate(candidate.puzzle, corpus)
     candidate.decision = decide(candidate, cfg.thresholds)
     return candidate
 

@@ -130,7 +130,7 @@ async def test_a_solver_outage_degrades_to_review_rather_than_a_bad_accept():
 
 
 async def test_a_grader_rejection_is_final():
-    rejects = Grade(verdict="reject", fairness=2, elegance=1, reasons="scripted", revised_groups=[])
+    rejects = Grade(verdict="reject", fairness=2, elegance=1, reasons="scripted")
     result = await run(count=2, llm=ScriptedLLM(grade=rejects))
     assert all(c.decision.verdict == "reject" for c in result.candidates)
 

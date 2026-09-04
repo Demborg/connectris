@@ -15,25 +15,20 @@ from ..llm import LLM
 from ..prompts import draw_seed
 from ..prompts import propose as propose_prompt
 from ..record import Candidate
-from ..schema import ProposedGroup, ProposedPuzzle
+from ..schema import ProposedPuzzle
 from ..spec import Corpus, Group, Puzzle, normalise_word, slugify
 
 
-def to_puzzle(
-    proposed: ProposedPuzzle | list[ProposedGroup], puzzle_id: str, name: str = ""
-) -> tuple[Puzzle, dict[str, str]]:
+def to_puzzle(proposed: ProposedPuzzle, puzzle_id: str) -> tuple[Puzzle, dict[str, str]]:
     """Model output -> board, plus the trap notes keyed by the ids we just assigned.
 
     Ids are ours, not the model's: they end up in the shipped JSON and in the play log,
     and a model asked for one will eventually produce a duplicate.
     """
-    groups_in = proposed.groups if isinstance(proposed, ProposedPuzzle) else proposed
-    title = name or (proposed.name if isinstance(proposed, ProposedPuzzle) else puzzle_id)
-
     groups: list[Group] = []
     traps: dict[str, str] = {}
     used: set[str] = set()
-    for g in groups_in:
+    for g in proposed.groups:
         gid = slugify(g.label)
         while gid in used:
             gid += "-b"
@@ -43,7 +38,7 @@ def to_puzzle(
         )
         traps[gid] = g.trap.strip()
 
-    return Puzzle(id=puzzle_id, name=title.strip(), groups=groups), traps
+    return Puzzle(id=puzzle_id, name=proposed.name.strip(), groups=groups), traps
 
 
 async def propose(
