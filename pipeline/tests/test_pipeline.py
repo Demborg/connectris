@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 
+import pytest
 from conftest import BOARDS, CONFIG, ScriptedLLM
 
 from connectris_pipeline import pipeline
@@ -151,3 +152,32 @@ async def test_export_round_trips_into_the_games_own_json(tmp_path):
     reloaded, _ = load(target)
     assert len(reloaded) == len(shipped) + len(accepted)
     assert all(not is_fatal(validate(p)) for p in reloaded)
+
+
+async def test_a_run_killed_part_way_keeps_what_it_paid_for(tmp_path):
+    """The first real batch took 25 minutes and wrote nothing until the very end.
+
+    A timeout would have discarded every token it had spent, in a pipeline whose stated
+    principle is that a run which dies should not throw away work it already bought.
+    """
+    seen: list[str] = []
+
+    class Killed(BaseException):
+        """Not an Exception, so it passes straight through the per-candidate handler —
+        which is what a timeout or a Ctrl-C actually does."""
+
+    class DiesHalfway(ScriptedLLM):
+        async def generate(self, **kwargs):
+            if kwargs["stage"] == "grade":
+                seen.append("graded")
+                if len(seen) > 1:
+                    raise Killed("killed")
+            return await super().generate(**kwargs)
+
+    with pytest.raises(Killed):
+        await run(count=3, llm=DiesHalfway(), out_dir=tmp_path)
+
+    (partial,) = tmp_path.glob("*/candidates.jsonl")
+    survived = [json.loads(line) for line in partial.read_text().splitlines() if line.strip()]
+    assert survived, "a killed run left nothing behind"
+    assert survived[0]["decision"] is not None

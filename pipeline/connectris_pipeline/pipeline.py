@@ -15,6 +15,7 @@ import asyncio
 import json
 import logging
 import random
+import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -93,70 +94,106 @@ async def run(
     corpus: Corpus | None = None,
     examples: list[Puzzle] | None = None,
 ) -> Run:
-    if corpus is None or examples is None:
-        shipped, shipped_corpus = load_corpus()
-        examples = examples if examples is not None else shipped[:2]
-        corpus = corpus if corpus is not None else shipped_corpus
+    if corpus is None:
+        corpus = load_corpus()[1]
+    if examples is None:
+        examples = load_corpus()[0][:2]
 
-    ledger = llm.ledger
     stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
-    rng = random.Random(seed)
+    directory = None if out_dir is None else (out_dir / stamp)
     gate = asyncio.Semaphore(cfg.concurrency)
 
-    # Pass one: propose, folding each board into the corpus as it lands.
-    lock = asyncio.Lock()
-    candidates: list[Candidate] = []
-    #: What the corpus looked like when each candidate was proposed — which is exactly
-    #: what its prompt was told to avoid. Pass two validates against this and not against
-    #: the live corpus, because the live corpus contains the candidate itself by then.
+    # Drawn up front, not inside the tasks. Drawing from the shared rng inside a task
+    # makes each candidate's seed depend on scheduling order, so a "reproducible" run
+    # would only be reproducible while the semaphore happened not to suspend.
+    rng = random.Random(seed)
+    seeds = [rng.randrange(1 << 30) for _ in range(count)]
+
+    # Pass one: propose, folding each board into the corpus as it lands. No lock: the
+    # blocks that touch `corpus` contain no await, and asyncio only switches tasks at an
+    # await, so they are already atomic.
+    #
+    # Each candidate keeps the corpus snapshot it was proposed against — exactly what its
+    # prompt was told to avoid. Pass two validates against that, not against the live
+    # corpus, which contains the candidate itself by then.
     proposed_against: dict[str, Corpus] = {}
 
-    async def one(index: int) -> None:
+    async def one(index: int) -> Candidate:
         async with gate:
-            local = random.Random(rng.randrange(1 << 30))
             cid = f"gen-{stamp}-{index:02d}"
+            snapshot = Corpus(set(corpus.words), set(corpus.labels))
+            proposed_against[cid] = snapshot
             try:
-                async with lock:
-                    snapshot = Corpus(set(corpus.words), set(corpus.labels))
-                proposed_against[cid] = snapshot
                 candidate = await propose(
-                    llm, cfg, candidate_id=cid, rng=local, examples=examples, corpus=snapshot
+                    llm,
+                    cfg,
+                    candidate_id=cid,
+                    rng=random.Random(seeds[index]),
+                    examples=examples,
+                    corpus=snapshot,
                 )
-            except Exception as exc:
-                log.error("proposal %s failed: %s", cid, exc)
-                candidates.append(
-                    Candidate(
-                        id=cid, puzzle=Puzzle(id=cid, name="(failed)", groups=[]), error=str(exc)
-                    )
+            except Exception:
+                log.exception("proposal %s failed", cid)
+                return Candidate(
+                    id=cid,
+                    puzzle=Puzzle(id=cid, name="(failed)", groups=[]),
+                    error=_last_error(),
                 )
-                return
-            async with lock:
-                corpus.extend(candidate.puzzle)
-                candidates.append(candidate)
-
-    await asyncio.gather(*(one(i) for i in range(count)))
-    candidates.sort(key=lambda c: c.id)
-
-    # Pass two: the candidates no longer interact, so evaluate them all at once.
-    async def check(candidate: Candidate) -> Candidate:
-        if candidate.error:
-            candidate.decision = decide(candidate, cfg.thresholds)
+            corpus.extend(candidate.puzzle)
             return candidate
-        async with gate:
-            try:
-                return await evaluate(llm, cfg, candidate, proposed_against[candidate.id])
-            except Exception as exc:
-                log.error("%s failed during evaluation: %s", candidate.id, exc)
-                candidate.error = str(exc)
-                candidate.decision = decide(candidate, cfg.thresholds)
-                return candidate
+
+    candidates = list(await asyncio.gather(*map(one, range(count))))
+
+    # Pass two: the candidates no longer interact, so evaluate them all at once. Each
+    # writes itself out as it lands, so a run that is killed part-way keeps what it paid
+    # for rather than discarding the batch.
+    writer = _Writer(directory)
+
+    async def check(candidate: Candidate) -> Candidate:
+        if not candidate.error:
+            async with gate:
+                try:
+                    candidate = await evaluate(llm, cfg, candidate, proposed_against[candidate.id])
+                except Exception:
+                    log.exception("%s failed during evaluation", candidate.id)
+                    candidate.error = _last_error()
+        if candidate.decision is None:
+            candidate.decision = decide(candidate, cfg.thresholds)
+        writer.append(candidate)
+        return candidate
 
     finished = list(await asyncio.gather(*(check(c) for c in candidates)))
-    result = Run(candidates=finished, ledger=ledger)
-
-    if out_dir is not None:
-        result.directory = write(result, cfg, out_dir / stamp)
+    result = Run(candidates=finished, ledger=llm.ledger, directory=directory)
+    if directory is not None:
+        write(result, cfg, directory)
     return result
+
+
+def _last_error() -> str:
+    """The exception being handled, as one line for the record."""
+    exc = sys.exception()
+    return f"{type(exc).__name__}: {exc}"
+
+
+class _Writer:
+    """Streams candidates into candidates.jsonl as they finish.
+
+    The first real run took 25 minutes and wrote nothing until the very end, so a
+    timeout would have thrown away every token it had spent. `write` still rewrites the
+    file at the end — this is the crash-only copy, not the authoritative one.
+    """
+
+    def __init__(self, directory: Path | None) -> None:
+        self._path = None if directory is None else directory / "candidates.jsonl"
+        if self._path is not None:
+            self._path.parent.mkdir(parents=True, exist_ok=True)
+            self._path.write_text("")
+
+    def append(self, candidate: Candidate) -> None:
+        if self._path is None:
+            return
+        with self._path.open("a") as fh:
+            fh.write(json.dumps(candidate.to_json(), ensure_ascii=False) + "\n")
 
 
 def write(result: Run, cfg: Config, directory: Path) -> Path:
