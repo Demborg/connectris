@@ -75,15 +75,17 @@ class Config:
     #: One puzzle per call — see README on why not batches. Thinking all the way up:
     #: this is the stage where a night's quality is decided and it runs twenty times.
     proposer: ModelSpec = ModelSpec("gemini-3.8-flash", thinking_level="high")
-    #: Deliberately weak, deliberately mixed. Two generations and two tiers, because
-    #: mixing model families is a feature: it stops puzzle quality overfitting to one
-    #: model's blind spots. Add a Claude-on-Vertex entry once llm.py has that arm.
-    solvers: tuple[ModelSpec, ...] = (
-        ModelSpec("gemini-3.5-flash-lite", thinking_level="low"),
-        ModelSpec("gemini-3.1-flash-lite", thinking_level="low"),
-        ModelSpec("gemini-2.5-flash-lite", thinking_budget=0),
-    )
-    attempts_per_solver: int = 3
+    #: One weak model, one attempt. The original ensemble was three models at three
+    #: attempts each, on the theory that mixing families stops quality overfitting to one
+    #: model's blind spots. The first real run falsified it: the three correlated 0.71 to
+    #: 0.85 — a capability ladder measuring one latent variable, not independent blind
+    #: spots — and three attempts reproduced nine on 20 verdicts out of 20, mean recovery
+    #: differing by 0.044. Nine calls a board bought nothing a single call did not.
+    #:
+    #: 3.1-flash-lite is kept for having the highest mean and the widest spread. If a
+    #: second family ever joins, it should be a genuinely different one, and it should be
+    #: added because a run showed the single solver missing something.
+    solver: ModelSpec = ModelSpec("gemini-3.1-flash-lite", thinking_level="low")
     #: The critical stage. Strong model, and not the same call as solving.
     red_team: ModelSpec = ModelSpec("gemini-3.8-flash", thinking_level="high")
     grader: ModelSpec = ModelSpec("gemini-3.8-flash", thinking_level="high")
@@ -112,24 +114,15 @@ def load(path: Path | None) -> Config:
     def model(key: str, current: ModelSpec) -> ModelSpec:
         return replace(current, **raw[key]) if key in raw else current
 
-    if "solvers" in raw:
-        solvers = tuple(ModelSpec(**s) for s in raw["solvers"])
-    else:
-        solvers = cfg.solvers
-
     thresholds = Thresholds(**raw["thresholds"]) if "thresholds" in raw else cfg.thresholds
-    top = {
-        k: v
-        for k, v in raw.items()
-        if k in {"attempts_per_solver", "concurrency", "max_revisions", "max_retries"}
-    }
+    top = {k: v for k, v in raw.items() if k in {"concurrency", "max_revisions", "max_retries"}}
 
     return replace(
         cfg,
         proposer=model("proposer", cfg.proposer),
         red_team=model("red_team", cfg.red_team),
         grader=model("grader", cfg.grader),
-        solvers=solvers,
+        solver=model("solver", cfg.solver),
         thresholds=thresholds,
         **top,
     )

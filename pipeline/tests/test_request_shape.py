@@ -83,12 +83,13 @@ def test_no_tools_are_offered_anywhere_in_this_pipeline():
     assert sent.automatic_function_calling.disable is True
 
 
-def test_the_default_ensemble_is_mixed_and_weak():
+def test_the_solver_is_weak_and_the_judges_are_not():
+    """The difficulty proxy only means anything if the solver is worse than the proposer."""
     cfg = Config()
-    keys = [m.key for m in cfg.solvers]
-    assert len(set(keys)) == len(keys), "two identical solvers is one solver"
-    assert len({m.name.rsplit("-", 1)[0] for m in cfg.solvers}) > 1, "ensemble is one family"
-    assert all(m.thinking_level != "high" for m in cfg.solvers), "solvers are meant to be weak"
+    assert cfg.solver.thinking_level == "low"
+    assert "lite" in cfg.solver.name
+    for judge in (cfg.proposer, cfg.red_team, cfg.grader):
+        assert judge.thinking_level == "high"
 
 
 PUZZLE = Puzzle(

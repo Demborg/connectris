@@ -25,11 +25,7 @@ from connectris_pipeline.schema import (
     SolvedGroup,
 )
 
-CONFIG = Config(
-    solvers=(ModelSpec("fake-solver", thinking_level="low"),),
-    attempts_per_solver=1,
-    concurrency=4,
-)
+CONFIG = Config(solver=ModelSpec("fake-solver", thinking_level="low"), concurrency=4)
 
 #: Five categories each, all distinct across boards, so a batch can be deduped for real.
 BOARDS: list[list[tuple[str, list[str]]]] = [

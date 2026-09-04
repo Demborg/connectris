@@ -1,7 +1,6 @@
 # Everything here is optional; absent keys keep the defaults in config.py.
 # Copy to config.toml and pass with --config.
 
-attempts_per_solver = 3
 concurrency = 8
 max_revisions = 1
 max_retries = 3
@@ -26,20 +25,12 @@ thinking_level = "high"
 name = "gemini-3.8-flash"
 thinking_level = "high"
 
-# The ensemble is deliberately weak and deliberately mixed — two generations, two tiers.
-# Mixing model families is a feature: it stops puzzle quality overfitting to one model's
-# blind spots.
-[[solvers]]
-name = "gemini-3.5-flash-lite"
-thinking_level = "low"
-
-[[solvers]]
+# One deliberately weak model, one attempt. It was three models at three attempts each
+# until a real run showed them correlating 0.71-0.85 and three attempts reproducing nine
+# on every verdict.
+[solver]
 name = "gemini-3.1-flash-lite"
 thinking_level = "low"
-
-[[solvers]]
-name = "gemini-2.5-flash-lite"
-thinking_budget = 0
 
 [thresholds]
 min_mean_recovery = 0.15
