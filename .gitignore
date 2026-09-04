@@ -8,6 +8,14 @@ node_modules
 /.svelte-kit
 /build
 
+# Pipeline (pipeline/README.md)
+pipeline/runs/
+pipeline/config.toml
+.venv
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+
 # OS
 .DS_Store
 Thumbs.db

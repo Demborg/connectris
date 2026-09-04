@@ -253,40 +253,97 @@ Server-side puzzle delivery and check validation, shared leaderboard, share a li
 family. The client must never hold the answer key, or the leaderboard is decorative;
 retrofitting this later means reworking the state model.
 
-**Phase 2 — generated puzzles** (below).
+**Phase 2 — generated puzzles** _(pipeline built, unproven)_. Below, and in `pipeline/`.
 
 **Phase 3 — accounts and histograms.** Percentile distributions once a puzzle has ~30 plays.
 
 ---
 
-## Puzzle generation pipeline (phase 2 sketch)
+## Puzzle generation pipeline
 
 Offline batch, nightly, one puzzle a day — cost rounds to nothing, and it constrains nothing
-about the serving stack.
+about the serving stack. Built as a separate Python job in `pipeline/`; that README is the
+operational detail, this is what was decided and why.
 
-1. **Generate** — strong model, batches of candidates, with the trap design stated
-   explicitly: which word is the decoy and which category it's baiting.
-2. **Solve** — an ensemble of deliberately weak models, N attempts each at temperature.
-   Yields a solve rate → difficulty proxy. Target a band; 0% and 100% both get pruned.
-3. **Name** — solvers state the category they think they found; compare to the true label by
+1. **Propose** — strong model, structured output, with the trap design stated explicitly:
+   which word is the decoy and which category it's baiting.
+2. **Validate** — deterministic, free, and before a single solver token. Mirrors `engine.ts`
+   and the `puzzle data` block in `engine.spec.ts`, plus dedupe against shipped words and
+   category concepts.
+3. **Solve** — an ensemble of deliberately weak models, N attempts each, varied by seed and
+   board order. Yields a solve rate → difficulty proxy. Target a band; 0% and 100% both get
+   pruned.
+4. **Name** — solvers state the category they think they found; compare to the true label by
    embedding similarity. This measures _legibility_. A puzzle where solvers find the grouping
    but name it differently is fine; one where nobody can articulate why is unfair, and this
    is the only stage that catches it.
-4. **Red-team** — a separate model whose only job is to find an alternative consistent
+5. **Red-team** — a separate model whose only job is to find an alternative consistent
    partition, or a word that legitimately fits two categories. **This is the critical stage
    and it is not the same as solving.** Ambiguity is the failure mode that makes players
    furious, and a solver that happens to find the intended answer won't surface it.
-5. **Dedupe** — against previously shipped words and category concepts.
+6. **Grade** — the only stage that sees the board, the traps, the solver evidence and the
+   red-team report at once. Rates, and where one word is doing the damage, rewrites.
 
 Auto-accept above thresholds, everything else into a review queue.
 
 Mixing providers in the solver ensemble is a feature — it stops puzzle quality being
 overfitted to one model's blind spots.
 
+### Decided while building it
+
+**One puzzle per call, not a batch.** A call asked for ten boards spends its attention on
+the first two and then reuses their vocabulary. Independent calls also buy independent
+retries and cheap parallelism, and the cost of twenty calls a night is not a number worth
+optimising. Variety comes from the input instead: each call draws two domains and a
+wordplay device from rotating lists, which is a more reliable diversity lever than asking
+a model to be varied.
+
+**Solver variety comes from the seed and the board order, not from temperature.** The
+original sketch said "N attempts each at temperature". Gemini 3's guidance is to leave
+temperature at its default of 1.0 — below that the models loop and degrade on exactly the
+kind of reasoning this stage measures — so each attempt instead carries its own sampling
+seed and its own shuffle of the twenty words. The shuffle is the better half: it varies the
+input rather than the sampler, and it means a category only counts as recovered if it
+survives being presented in a different order. Ensemble spread now comes from mixing model
+families and thinking levels, which is where it always did most of the work.
+
+**Dedupe runs during proposal, not after it.** Each board folds into the corpus as it
+lands, so the fifth proposal of a night knows what the first four used. Deduping a
+finished batch tells you about a collision when there is nothing left to do about it.
+
+**The accept/review/reject call is a pure function over a stored record.** Every stage
+writes what it learned to disk and nothing decides anything until the end, so thresholds
+can be re-tuned and old runs re-decided for free — which is exactly what the honest caveat
+below says will be needed. This is pin 10 applied to the pipeline rather than to play.
+
+**Low recovery never rejects on its own.** Hard and broken look identical from the solve
+stage, and the red team is the tiebreaker. The review queue exists precisely so that this
+ambiguity does not have to be resolved by a threshold.
+
+**There is a mock provider that plays every role.** The whole pipeline runs end to end
+with no credentials, which is what makes the orchestration testable and lets thresholds be
+exercised against a known answer key. It is a fixture, not a puzzle designer.
+
 **The honest caveat:** cheap-model difficulty is not human difficulty, and the mapping is
 unknown until there is human data. Until then the pipeline is a filter for _broken_ puzzles,
-not a difficulty oracle. Bootstrap by logging real runs and fitting model-solve-rate against
-human-solve-rate once there are a few dozen puzzles.
+not a difficulty oracle, and every threshold in it is reasoned rather than measured.
+Bootstrap by logging real runs and fitting model-solve-rate against human-solve-rate once
+there are a few dozen puzzles.
+
+### Open
+
+- **Whether the thresholds are anywhere near right.** Nothing has been through it against
+  real models yet, let alone against real players. Expect the first fifty candidates to be
+  a calibration exercise rather than a supply of puzzles.
+- **Whether the weak ensemble is weak enough.** If the cheap models solve everything, the
+  difficulty proxy is measuring nothing and the band has to move; if they solve nothing,
+  the red team is carrying the whole pipeline alone.
+- **Whether a grader rewrite is ever better than a fresh proposal.** Revision is capped at
+  one for now, on the theory that a puzzle needing three rewrites was a bad idea rather
+  than a bad draft. Untested.
+- **Swedish.** The word-length cap will bite on compounds, and LLM generation for Swedish
+  idiom and wordplay is expected to be noticeably weaker — human review stays in the loop
+  longer.
 
 ---
 
@@ -304,8 +361,18 @@ Scheduler) because that's where the tooling lives and it's offline anyway.
 distribution" is window functions — exactly what Firestore is bad at. Also wanted for
 analysing pipeline output.
 
-**Models: Vertex AI.** Note that Vertex serves Claude as well as Gemini, so "stay
-Google-native" does not force a single model family; auth is plain GCP ADC either way.
+**Models: Vertex AI**, and only Vertex. The pipeline runs as a Cloud Run Job in the same
+project, so ADC is already there and there is no key to manage; supporting AI Studio
+alongside it bought a second code path for a second set of failure modes, and was cut.
+Generation goes through `models.generate_content` — Vertex's newer Interactions endpoint
+answers `Unsupported model interaction` for every Gemini model, so the legacy surface is
+the only one actually available there. Note that Vertex serves Claude as well as Gemini,
+so "stay Google-native" does not force a single model family, and mixing families in the
+solver ensemble is a feature rather than a compromise.
+
+Model names are the fastest-ageing thing in this repo and live in config, not in code. The
+generation split matters more than the names: Gemini 3 takes a thinking _level_ and wants
+temperature left alone, 2.5 takes a token _budget_ and does not.
 
 **Auth: deferred.** A display name in localStorage is enough to compete with family. Google
 sign-in when it's needed. Shape the score payload now so a user id can be attached later.

@@ -1,0 +1,96 @@
+"""Structured-output schemas.
+
+Every model call in the pipeline returns one of these. The field descriptions are not
+documentation — they are shipped to the model as part of the JSON schema and are the
+cheapest prompt surface there is, so they carry real instruction.
+
+Deliberately plain: no unions, no optionals, no dicts. Vertex's structured output is a
+JSON-schema subset, and "empty list" survives that subset where "null" does not.
+"""
+
+from __future__ import annotations
+
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+
+class ProposedGroup(BaseModel):
+    label: str = Field(
+        description="The category, as the player sees it once the row clears. Short. "
+        "Use '___ WORD' or 'WORD ___' for word-joining categories."
+    )
+    words: list[str] = Field(
+        description="Exactly 4 words, uppercase, at most 12 characters each, no spaces "
+        "unless the entry genuinely has one."
+    )
+    trap: str = Field(
+        description="Which word in this group is the decoy, and which other category on "
+        "this board it is baiting. Say 'none' only if this group has no decoy at all."
+    )
+
+
+class ProposedPuzzle(BaseModel):
+    name: str = Field(description="A two or three word title for the puzzle.")
+    groups: list[ProposedGroup] = Field(description="Exactly 5 groups of 4 words.")
+    hardest_group: str = Field(
+        description="The label of the group you expect to be found last, and one line on why."
+    )
+
+
+class SolvedGroup(BaseModel):
+    category: str = Field(description="What you think these four words have in common.")
+    words: list[str] = Field(description="Exactly 4 of the words from the board, copied exactly.")
+
+
+class SolveAttempt(BaseModel):
+    groups: list[SolvedGroup] = Field(
+        description="Exactly 5 groups of 4, using all 20 words, each word exactly once."
+    )
+
+
+class AmbiguousWord(BaseModel):
+    word: str = Field(description="The word on the board that fits in more than one place.")
+    intended_label: str = Field(description="The category it is filed under in the answer key.")
+    also_fits: str = Field(description="The other category on this board it fits just as well.")
+    why: str = Field(description="One sentence for why the second reading is legitimate.")
+
+
+class AlternativePartition(BaseModel):
+    """A second consistent way to cut the board into five fours.
+
+    Finding one of these is fatal to a puzzle: the player is right and the game says no.
+    """
+
+    groups: list[SolvedGroup] = Field(description="A full alternative solution: 5 groups of 4.")
+    why: str = Field(description="Why this partition holds together as well as the intended one.")
+
+
+class RedTeamReport(BaseModel):
+    ambiguous_words: list[AmbiguousWord] = Field(
+        description="Words that legitimately fit two categories on this board. Empty if none."
+    )
+    alternatives: list[AlternativePartition] = Field(
+        description="Full alternative solutions you found. Empty if none. Do not force one."
+    )
+    verdict: Literal["clean", "soft", "broken"] = Field(
+        description="'clean' = one solution only. 'soft' = a defensible second reading of one "
+        "word. 'broken' = a whole alternative partition holds."
+    )
+
+
+class Grade(BaseModel):
+    verdict: Literal["accept", "revise", "reject"] = Field(
+        description="'revise' means you are supplying a fixed version below."
+    )
+    fairness: int = Field(
+        description="1-5. Can a careful player get here from the words alone, with no "
+        "outside knowledge they could not reasonably have?"
+    )
+    elegance: int = Field(description="1-5. Does the click of getting it feel earned?")
+    reasons: str = Field(description="Two or three sentences. What is wrong, or what is good.")
+    revised_groups: list[ProposedGroup] = Field(
+        description="Only when verdict is 'revise': the whole puzzle rewritten, 5 groups of 4. "
+        "Change as little as possible — swapping one offending word is the usual fix. "
+        "Empty list otherwise."
+    )

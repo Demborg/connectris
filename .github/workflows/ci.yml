@@ -31,3 +31,24 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  pipeline:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pipeline
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+
+      # The pipeline is offline here: the mock provider plays every model role, so this
+      # needs no credentials and makes no network calls.
+      - name: Lint
+        run: uv run --with ruff ruff check . && uv run --with ruff ruff format --check .
+
+      - name: Test
+        run: uv run --extra dev --python 3.12 pytest -q
+
+      - name: Puzzle rules still agree with the game's
+        run: uv run --python 3.12 python -m connectris_pipeline.cli check
