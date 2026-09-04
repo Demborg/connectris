@@ -65,10 +65,6 @@ class Attempt:
             groups=[(g.category, [normalise_word(w) for w in g.words]) for g in raw.groups],
         )
 
-    @property
-    def sets(self) -> list[frozenset[str]]:
-        return [frozenset(words) for _, words in self.groups]
-
     def is_well_formed(self, board: set[str]) -> bool:
         """Did it actually partition the board, or just say words?"""
         flat = [w for _, words in self.groups for w in words]
@@ -90,8 +86,8 @@ class GroupStat:
     #: Fraction of attempts that produced this exact four as one of their groups.
     recovery: float
     #: Mean similarity of the names given to it, over the attempts that found it.
-    #: -1 when nobody found it, which is a different thing from "named it badly".
-    legibility: float
+    #: None when nobody found it, which is a different failure from naming it badly.
+    legibility: float | None
     names: list[str] = field(default_factory=list)
 
 
@@ -101,7 +97,7 @@ class SolveStats:
     well_formed: int
     full_solve_rate: float
     mean_recovery: float
-    mean_legibility: float
+    mean_legibility: float | None
     groups: list[GroupStat]
     by_model: dict[str, float]
 
@@ -114,7 +110,7 @@ class SolveStats:
         ]
         for g in self.groups:
             named = "; ".join(dict.fromkeys(g.names)) or "never found it"
-            legible = "n/a" if g.legibility < 0 else f"{g.legibility:.2f}"
+            legible = "n/a" if g.legibility is None else f"{g.legibility:.2f}"
             lines.append(f"  {g.label!r}: {g.recovery:.0%} found, name match {legible} — {named}")
         by_model = ", ".join(f"{k} {v:.0%}" for k, v in self.by_model.items())
         lines.append(f"By solver: {by_model}")
@@ -157,41 +153,38 @@ def score(puzzle: Puzzle, attempts: list[Attempt]) -> SolveStats:
     per_model: dict[str, list[int]] = {}
 
     for att in attempts:
+        named = {frozenset(words): category for category, words in att.groups}
         hits = 0
-        sets = att.sets
         for g in puzzle.groups:
-            for (category, _words), s in zip(att.groups, sets, strict=True):
-                if s == intended[g.id]:
-                    found[g.id].append(category.strip())
-                    hits += 1
-                    break
-        if hits == ROWS:
-            full += 1
+            if (category := named.get(intended[g.id])) is not None:
+                found[g.id].append(category.strip())
+                hits += 1
+        full += hits == ROWS
         per_model.setdefault(att.model, []).append(hits)
 
     stats: list[GroupStat] = []
     for g in puzzle.groups:
         names = found[g.id]
         legibility = (
-            sum(lexical_similarity(g.label, name) for name in names) / len(names) if names else -1.0
+            sum(lexical_similarity(g.label, name) for name in names) / len(names) if names else None
         )
         stats.append(
             GroupStat(
                 id=g.id,
                 label=g.label,
                 recovery=len(names) / n,
-                legibility=round(legibility, 3),
+                legibility=None if legibility is None else round(legibility, 3),
                 names=list(dict.fromkeys(names))[:6],
             )
         )
 
-    scored = [s.legibility for s in stats if s.legibility >= 0]
+    scored = [s.legibility for s in stats if s.legibility is not None]
     return SolveStats(
         attempts=len(attempts),
         well_formed=sum(1 for a in attempts if a.is_well_formed(board)),
         full_solve_rate=full / n,
         mean_recovery=sum(s.recovery for s in stats) / len(stats),
-        mean_legibility=round(sum(scored) / len(scored), 3) if scored else -1.0,
+        mean_legibility=round(sum(scored) / len(scored), 3) if scored else None,
         groups=stats,
         by_model={k: sum(v) / (len(v) * ROWS) for k, v in per_model.items()},
     )

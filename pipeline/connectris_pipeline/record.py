@@ -10,12 +10,12 @@ instinct as pin 10 in DESIGN.md — log everything, score it later.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from typing import Literal
+from typing import Literal, Self
 
 from .config import Thresholds
 from .schema import Grade, RedTeamReport
 from .scoring import Attempt, GroupStat, SolveStats
-from .spec import Group, Problem, Puzzle, is_fatal
+from .spec import Problem, Puzzle, is_fatal
 
 Verdict = Literal["accept", "review", "reject"]
 
@@ -65,17 +65,9 @@ class Candidate:
         }
 
     @classmethod
-    def from_json(cls, raw: dict) -> Candidate:
+    def from_json(cls, raw: dict) -> Self:
         """Rebuild a record written by a previous run, so `regrade` needs no model."""
-        p = raw["puzzle"]
-        puzzle = Puzzle(
-            id=p["id"],
-            name=p["name"],
-            language=p.get("language", "en"),
-            groups=[
-                Group(id=g["id"], label=g["label"], words=list(g["words"])) for g in p["groups"]
-            ],
-        )
+        puzzle = Puzzle.from_game_json(raw["puzzle"])
         stats = None
         if raw.get("stats"):
             fields = dict(raw["stats"])

@@ -53,13 +53,19 @@ def test_recovery_is_per_category_and_order_free():
     assert by_id["rocks"].recovery == 0.5
 
 
-def test_a_category_nobody_found_scores_legibility_minus_one():
-    """'Never found' and 'found but unnameable' are different failures, so different numbers."""
+def test_a_category_nobody_found_has_no_legibility_at_all():
+    """'Never found' and 'found but unnameable' are different failures, so: None, not 0."""
     missed = attempt(*[("junk", list(g.words)) for g in PUZZLE.groups[:4]])
     stats = score(PUZZLE, [missed])
     trees = next(g for g in stats.groups if g.id == "trees")
     assert trees.recovery == 0.0
-    assert trees.legibility == -1.0
+    assert trees.legibility is None
+
+
+def test_a_board_nobody_touched_has_no_mean_legibility_either():
+    stats = score(PUZZLE, [attempt(("junk", ["NOT", "ON", "THE", "BOARD"]))])
+    assert stats.mean_legibility is None
+    assert "n/a" in stats.digest()
 
 
 def test_found_but_named_differently_scores_low_legibility():

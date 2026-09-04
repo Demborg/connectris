@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from .spec import Corpus, Group, Puzzle
+from .spec import Corpus, Puzzle
 
 #: pipeline/connectris_pipeline/corpus.py -> repo root
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -21,18 +21,7 @@ def load(path: Path = PUZZLES_JSON) -> tuple[list[Puzzle], Corpus]:
     if not path.exists():
         return [], Corpus()
     raw = json.loads(path.read_text())
-    puzzles = [
-        Puzzle(
-            id=p["id"],
-            name=p["name"],
-            language=p.get("language", "en"),
-            groups=[
-                Group(id=g["id"], label=g["label"], words=list(g["words"])) for g in p["groups"]
-            ],
-        )
-        for p in raw
-    ]
-    return puzzles, Corpus.from_game_json(raw)
+    return [Puzzle.from_game_json(p) for p in raw], Corpus.from_game_json(raw)
 
 
 def append(puzzles: list[Puzzle], path: Path = PUZZLES_JSON) -> int:

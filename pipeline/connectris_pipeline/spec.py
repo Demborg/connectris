@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Literal, Self
 
 #: Words per row. `COLS` in engine.ts.
 COLS = 4
@@ -63,6 +63,18 @@ class Puzzle:
     def words(self) -> list[str]:
         return [w for g in self.groups for w in g.words]
 
+    @classmethod
+    def from_game_json(cls, raw: dict) -> Self:
+        """The inverse of `to_game_json`, which existed twice by hand before this."""
+        return cls(
+            id=raw["id"],
+            name=raw["name"],
+            language=raw.get("language", "en"),
+            groups=[
+                Group(id=g["id"], label=g["label"], words=list(g["words"])) for g in raw["groups"]
+            ],
+        )
+
     def to_game_json(self) -> dict:
         """The exact object shape `src/lib/data/puzzles.json` holds."""
         return {
@@ -102,7 +114,7 @@ class Corpus:
     labels: set[str] = field(default_factory=set)
 
     @classmethod
-    def from_game_json(cls, puzzles: list[dict]) -> Corpus:
+    def from_game_json(cls, puzzles: list[dict]) -> Self:
         words: set[str] = set()
         labels: set[str] = set()
         for p in puzzles:
