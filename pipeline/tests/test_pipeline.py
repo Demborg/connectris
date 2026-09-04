@@ -7,7 +7,7 @@ import json
 from connectris_pipeline import pipeline
 from connectris_pipeline.config import Config, ModelSpec, Thresholds
 from connectris_pipeline.corpus import append, load
-from connectris_pipeline.mock import MockLLM
+from connectris_pipeline.mock import BANK, MockLLM
 from connectris_pipeline.spec import Corpus, is_fatal, validate
 
 CFG = Config(
@@ -131,3 +131,36 @@ async def test_export_round_trips_into_the_games_own_json(tmp_path):
     assert len(reloaded) == len(shipped) + len(accepted)
     for p in reloaded:
         assert not is_fatal(validate(p))
+
+
+async def test_a_candidate_is_never_deduped_against_itself():
+    """The bug that made the accept rate structurally zero.
+
+    Proposals fold into the shared corpus as they land, so by the time pass two runs the
+    corpus contains the candidate under test. Validating against the live corpus reported
+    every board as 20 stale words and 5 stale categories, and the grader was shown those
+    as evidence. Each candidate is checked against what existed when it was proposed.
+    """
+    # One candidate against an empty corpus: the only collision available is with itself.
+    result = await run(count=1)
+    (candidate,) = result.candidates
+    assert candidate.warnings == [], "a lone candidate was deduped against itself"
+
+
+async def test_a_genuine_collision_is_still_caught():
+    """The fix must not have turned the dedupe stage off.
+
+    Two checks, because they fail differently: against a shipped corpus, and between two
+    candidates in the same batch — the in-batch half is the whole point of folding each
+    board into the corpus as it lands.
+    """
+    shipped = Corpus(words={w for _, ws, _ in BANK for w in ws}, labels=set())
+    against_shipped = await pipeline.run(
+        MockLLM(seed=7), CFG, count=1, seed=7, corpus=shipped, examples=[]
+    )
+    assert "stale-words" in [p.code for c in against_shipped.candidates for p in c.problems]
+
+    # The mock draws 5 categories from a bank of 15, so 6 boards must collide with a
+    # sibling somewhere.
+    in_batch = await run(count=6)
+    assert "stale-category" in [p.code for c in in_batch.candidates for p in c.problems]

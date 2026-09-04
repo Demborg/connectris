@@ -122,6 +122,10 @@ async def run(
     # Pass one: propose, folding each board into the corpus as it lands.
     lock = asyncio.Lock()
     candidates: list[Candidate] = []
+    #: What the corpus looked like when each candidate was proposed — which is exactly
+    #: what its prompt was told to avoid. Pass two validates against this and not against
+    #: the live corpus, because the live corpus contains the candidate itself by then.
+    proposed_against: dict[str, Corpus] = {}
 
     async def one(index: int) -> None:
         async with gate:
@@ -130,6 +134,7 @@ async def run(
             try:
                 async with lock:
                     snapshot = Corpus(set(corpus.words), set(corpus.labels))
+                proposed_against[cid] = snapshot
                 candidate = await propose(
                     llm, cfg, candidate_id=cid, rng=local, examples=examples, corpus=snapshot
                 )
@@ -155,7 +160,7 @@ async def run(
             return candidate
         async with gate:
             try:
-                return await evaluate(llm, cfg, candidate, corpus)
+                return await evaluate(llm, cfg, candidate, proposed_against[candidate.id])
             except Exception as exc:
                 log.error("%s failed during evaluation: %s", candidate.id, exc)
                 candidate.error = str(exc)
