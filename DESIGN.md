@@ -150,11 +150,12 @@ the tile grey, because mixing toward a desaturated blue turns amber to olive.
 column shrink, and only as far as the column demands. A visible ladder of sizes made the
 board look accidental.
 
-**The clear rolls top-down.** Tiles within a row light in quick succession and each row
-starts well after the one above, so a multi-row clear reads as a wave rolling down the board
-rather than one flash. Each tile ends on exactly the colour the solved row uses, so the row
-consolidating into a single bar is a swap the eye doesn't catch. Bars in a multi-row clear
-land in sequence rather than all on one frame.
+**The clear rolls top-down, and only top-down.** A row's four tiles light on one frame:
+the wave has one direction, and a left-to-right roll inside each row is a second direction
+crossing it. Everything left over is vertical — the tiles are pressed down as the wave
+passes, the bar squashes as it forms, the category name drops in from above. Each tile ends
+on exactly the colour the solved row uses, so the row consolidating into a single bar is a
+swap the eye doesn't catch.
 
 **The press causes the wave.** Hitting check sends two light rails up the side of the board
 from button height, arriving at the top just as the clear starts rolling down. Without it

@@ -1,4 +1,4 @@
-import { CHECKS, COLS, check, deal, swapTiles } from './engine';
+import { CHECKS, check, deal, swapTiles } from './engine';
 import { recordBest, saveRun, type Best, type EventInput, type GameEvent } from './log';
 import type { Group, Position, Puzzle, Row, SolvedRow } from './types';
 
@@ -8,13 +8,13 @@ export type Status = 'idle' | 'playing' | 'won' | 'lost';
 export type Verdict = { count: number; note: string };
 
 /**
- * The clearing wave. Tiles within a row light up in quick succession, and each row
- * starts well after the one above it — so the clear reads as rolling down the board
- * row by row rather than as one undifferentiated flash.
+ * The clearing wave, and its one direction: down. A row's four tiles light together —
+ * nothing travels sideways, because a sideways roll inside each row reads as a second
+ * animation crossing the one that matters — and each row starts well after the one above
+ * it, so the clear still reads as rolling down the board row by row.
  */
 export const ROW_STAGGER = 170;
-export const TILE_STAGGER = 45;
-const POP = 260;
+const POP = 240;
 const SETTLE = 120;
 
 /** How long the wave's impact takes to play out, and how fast it travels on downward. */
@@ -33,8 +33,7 @@ const SWEEP_LEAD = 200;
 const MISS_AMP = 1.35;
 
 /** How long the wave takes to cross `rows` rows before they consolidate. */
-export const lockDuration = (rows: number) =>
-	(rows - 1) * ROW_STAGGER + (COLS - 1) * TILE_STAGGER + POP + SETTLE;
+export const lockDuration = (rows: number) => (rows - 1) * ROW_STAGGER + POP + SETTLE;
 
 const reducedMotion = () =>
 	typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;

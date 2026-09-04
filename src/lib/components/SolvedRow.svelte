@@ -90,19 +90,24 @@
 		opacity: 0.7;
 	}
 
+	/* Squashed under the wave that just passed through it, then settling — the same
+	   vertical vocabulary the tiles lock with and the impact lands with. */
 	@keyframes consolidate {
 		0% {
 			filter: brightness(1.5);
+			transform: scaleY(1.07);
 		}
 		100% {
 			filter: none;
+			transform: scaleY(1);
 		}
 	}
 
+	/* Dropping in from above, with the wave, rather than rising against it. */
 	@keyframes surface {
 		from {
 			opacity: 0;
-			transform: translateY(3px);
+			transform: translateY(-4px);
 		}
 	}
 </style>

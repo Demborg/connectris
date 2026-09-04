@@ -13,7 +13,7 @@
 		target: boolean;
 		offset: { x: number; y: number };
 		locking: boolean;
-		/** Position in the clearing wave, in ms. */
+		/** Which row of the wave this is, in ms. Every tile in a row shares it. */
 		delay: number;
 		/** Strength of the wave hitting this row, 0 for none. Decays down the board. */
 		crash: number;
@@ -149,11 +149,13 @@
 		transition: none;
 	}
 
-	/* Each tile fires on its own delay, so a clear rolls left-to-right, top-to-bottom.
-	   It ends on exactly the colour the solved row uses, so the row consolidating into
-	   a single bar is a swap the eye doesn't catch. */
+	/* The whole row lights on one frame: the wave's only direction is down the board, and
+	   a left-to-right roll inside the row is a second direction crossing it. What is left
+	   over to read is vertical — the row is pressed down as the wave passes through it.
+	   Each tile ends on exactly the colour the solved row uses, so the row consolidating
+	   into a single bar is a swap the eye doesn't catch. */
 	.locking {
-		animation: settle 260ms var(--ease) var(--delay) both;
+		animation: settle 240ms var(--ease) var(--delay) both;
 	}
 
 	@keyframes settle {
@@ -167,7 +169,7 @@
 			background: color-mix(in oklab, var(--colour) 82%, var(--ink));
 			outline-color: color-mix(in oklab, var(--colour) 92%, white);
 			box-shadow: 0 0 0 calc(7px * var(--boost)) color-mix(in oklab, var(--colour) 26%, transparent);
-			transform: scale(calc(1 + 0.06 * var(--boost)));
+			transform: translateY(calc(3px * var(--boost))) scale(calc(1 + 0.06 * var(--boost)));
 		}
 		100% {
 			background: color-mix(in oklab, var(--colour) 50%, var(--ink));

@@ -2,7 +2,7 @@
 	import { flip } from 'svelte/animate';
 	import SolvedRow from './SolvedRow.svelte';
 	import Tile from './Tile.svelte';
-	import { RIPPLE_STEP, ROW_STAGGER, TILE_STAGGER } from '$lib/game/session.svelte';
+	import { RIPPLE_STEP, ROW_STAGGER } from '$lib/game/session.svelte';
 	import type { Session } from '$lib/game/session.svelte';
 	import type { Position } from '$lib/game/types';
 
@@ -180,7 +180,7 @@
 					? { x: drag.dx, y: drag.dy }
 					: { x: 0, y: 0 }}
 				locking={cell.row < session.locking}
-				delay={cell.row * ROW_STAGGER + cell.col * TILE_STAGGER}
+				delay={cell.row * ROW_STAGGER}
 				crash={crashAmp(cell.row)}
 				crashDelay={cell.row * RIPPLE_STEP}
 				impact={cell.row === 0}
