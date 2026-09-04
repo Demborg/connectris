@@ -20,11 +20,16 @@ import os
 import random
 import time
 from dataclasses import asdict, dataclass, field
-from typing import Protocol, TypeVar
+from typing import TYPE_CHECKING, Protocol, TypeVar, cast
 
 from pydantic import BaseModel
 
 from .config import ModelSpec
+
+if TYPE_CHECKING:
+    # Only for the return annotation; the SDK is imported lazily inside the methods that
+    # need it, so the package still imports without google-genai installed.
+    from google.genai.types import GenerateContentConfig
 
 log = logging.getLogger(__name__)
 
@@ -138,7 +143,9 @@ class GeminiLLM:
         self._gate = asyncio.Semaphore(concurrency)
 
     @staticmethod
-    def config(model: ModelSpec, system: str, schema: type[BaseModel], seed: int | None):
+    def config(
+        model: ModelSpec, system: str, schema: type[BaseModel], seed: int | None
+    ) -> GenerateContentConfig:
         """The whole request, minus the prompt. Every stage goes through here.
 
         Only the knobs that are actually set are sent — an unset knob is not a default.
@@ -148,7 +155,12 @@ class GeminiLLM:
         from google.genai import types
 
         if model.thinking_level is not None:
-            thinking = types.ThinkingConfig(thinking_level=model.thinking_level)
+            # Our config carries a lowercase Literal; the SDK's field is its own enum and
+            # pydantic coerces the string on the way in. test_request_shape.py pins that
+            # coercion, so this cast is checked rather than assumed.
+            thinking = types.ThinkingConfig(
+                thinking_level=cast("types.ThinkingLevel", model.thinking_level)
+            )
         elif model.thinking_budget is not None:
             thinking = types.ThinkingConfig(thinking_budget=model.thinking_budget)
         else:
@@ -229,7 +241,7 @@ class GeminiLLM:
         raise ModelError(f"{stage}: {model.key} failed {self._max_retries} times: {last}") from last
 
 
-def dumps(obj) -> str:
+def dumps(obj: BaseModel | dict | list) -> str:
     """Compact JSON for embedding structured data inside a prompt."""
     if isinstance(obj, BaseModel):
         obj = obj.model_dump()

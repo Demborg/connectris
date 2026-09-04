@@ -255,11 +255,11 @@ def _red_summary(red: RedTeamReport | None) -> str:
     """A stage that fell over must read as absent, never as a clean bill of health."""
     if red is None:
         return "- the red team did not run; treat this board as unchecked for a second answer"
-    lines = []
-    for a in red.ambiguous_words:
-        lines.append(
-            f"- {a.word}: filed under {a.intended_label!r}, also fits {a.also_fits!r} — {a.why}"
-        )
+    lines = [
+        f"- {a.word}: filed under {a.intended_label!r}, also fits {a.also_fits!r} — {a.why} "
+        f"(leaving {a.intended_label!r} as: {a.completion})"
+        for a in red.ambiguous_words
+    ]
     for alt in red.alternatives:
         groups = "; ".join(f"{g.category}: {', '.join(g.words)}" for g in alt.groups)
         lines.append(f"- ALTERNATIVE PARTITION — {alt.why}\n  {groups}")

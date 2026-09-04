@@ -55,8 +55,9 @@ class Run:
             recovery = f"{c.stats.mean_recovery:.0%}" if c.stats else "  - "
             head = f"  {verdict:<7} {c.id}  recovery {recovery:>4}  {c.puzzle.name}"
             lines.append(head)
-            for reason in (c.decision.reasons if c.decision else [])[:3]:
-                lines.append(f"            {reason}")
+            lines.extend(
+                f"            {reason}" for reason in (c.decision.reasons if c.decision else [])[:3]
+            )
         return "\n".join(lines)
 
 
@@ -228,4 +229,4 @@ def regrade(directory: Path, cfg: Config) -> Run:
     return Run(candidates=candidates, ledger=Ledger(), directory=directory)
 
 
-__all__ = ["Run", "run", "evaluate", "write", "reload", "regrade"]
+__all__ = ["Run", "evaluate", "regrade", "reload", "run", "write"]

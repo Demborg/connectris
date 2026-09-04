@@ -172,17 +172,16 @@ def validate(
     # filed elsewhere, at the answer if it is the label's own.
     for g in puzzle.groups:
         label_words = set(re.sub(r"[^a-z]+", " ", g.label.lower()).split())
-        for other in puzzle.groups:
-            for w in other.words:
-                if normalise_word(w).lower() in label_words:
-                    problems.append(
-                        Problem(
-                            "label-gives-it-away",
-                            f"{w!r} (in {other.id!r}) is written into "
-                            f"the label of {g.id!r}: {g.label!r}",
-                            "warn",
-                        )
-                    )
+        problems.extend(
+            Problem(
+                "label-gives-it-away",
+                f"{w!r} (in {other.id!r}) is written into the label of {g.id!r}: {g.label!r}",
+                "warn",
+            )
+            for other in puzzle.groups
+            for w in other.words
+            if normalise_word(w).lower() in label_words
+        )
 
     if corpus is not None:
         reused = sorted(set(words) & corpus.words)
@@ -191,11 +190,11 @@ def validate(
             problems.append(
                 Problem("stale-words", f"{len(reused)} words already shipped: {shown}", "warn")
             )
-        for g in puzzle.groups:
-            if label_key(g.label) in corpus.labels:
-                problems.append(
-                    Problem("stale-category", f"category {g.label!r} has shipped before", "warn")
-                )
+        problems.extend(
+            Problem("stale-category", f"category {g.label!r} has shipped before", "warn")
+            for g in puzzle.groups
+            if label_key(g.label) in corpus.labels
+        )
 
     return problems
 

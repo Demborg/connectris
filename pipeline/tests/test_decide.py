@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from connectris_pipeline.config import Thresholds
 from connectris_pipeline.record import Candidate, decide
 from connectris_pipeline.schema import (
@@ -32,14 +34,15 @@ def stats(recovery: float = 0.4, legibility: float = 0.9, full: float = 0.1) -> 
 
 
 def candidate(**kwargs) -> Candidate:
-    base = dict(
+    """A candidate that would sail through, so each test changes exactly one thing."""
+    base = Candidate(
         id="c",
         puzzle=Puzzle("c", "C", [Group("g", "G", ["A", "B", "C", "D"])]),
         stats=stats(),
         red=RedTeamReport(ambiguous_words=[], alternatives=[], verdict="clean"),
         grade=Grade(verdict="accept", fairness=5, elegance=4, reasons=""),
     )
-    return Candidate(**{**base, **kwargs})
+    return replace(base, **kwargs)
 
 
 def test_clean_through_every_stage_is_accepted():
@@ -86,7 +89,7 @@ def test_nothing_landing_goes_to_review_because_hard_and_broken_look_alike():
 def test_a_grader_that_likes_a_board_the_solver_walked_through_is_overruled():
     """The one gate the grader structurally cannot supply: it never sees the board played."""
     trivial = candidate(stats=stats(recovery=1.0, full=1.0))
-    assert trivial.grade.verdict == "accept"
+    assert trivial.grade is not None and trivial.grade.verdict == "accept"
     assert decide(trivial, T).verdict == "reject"
 
 

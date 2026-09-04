@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import pytest
 from conftest import ScriptedLLM
+from google.genai.types import GenerateContentConfig, ThinkingConfig
+from pydantic import BaseModel
 
 from connectris_pipeline import config as config_module
 from connectris_pipeline import prompts
@@ -20,21 +22,30 @@ from connectris_pipeline.spec import Group, Puzzle
 from connectris_pipeline.stages.solve import attempt_seed, board_order
 
 
-def config(model: ModelSpec, seed: int | None = None, schema: type = ProposedPuzzle):
+def config(
+    model: ModelSpec, seed: int | None = None, schema: type[BaseModel] = ProposedPuzzle
+) -> GenerateContentConfig:
     return GeminiLLM.config(model, "you are a puzzle constructor", schema, seed)
+
+
+def thinking(model: ModelSpec) -> ThinkingConfig:
+    sent = config(model).thinking_config
+    assert sent is not None, "a model with a thinking setting must send one"
+    return sent
 
 
 def test_gemini_3_models_send_a_thinking_level():
     """The SDK normalises our lowercase config value into its own enum."""
-    sent = config(ModelSpec("gemini-3.8-flash", thinking_level="high"))
-    assert sent.thinking_config.thinking_level.value.lower() == "high"
-    assert sent.thinking_config.thinking_budget is None
+    sent = thinking(ModelSpec("gemini-3.8-flash", thinking_level="high"))
+    assert sent.thinking_level is not None
+    assert sent.thinking_level.value.lower() == "high"
+    assert sent.thinking_budget is None
 
 
 def test_two_five_models_still_send_a_token_budget():
-    sent = config(ModelSpec("gemini-2.5-flash-lite", thinking_budget=0))
-    assert sent.thinking_config.thinking_budget == 0
-    assert sent.thinking_config.thinking_level is None
+    sent = thinking(ModelSpec("gemini-2.5-flash-lite", thinking_budget=0))
+    assert sent.thinking_budget == 0
+    assert sent.thinking_level is None
 
 
 def test_the_seed_is_what_makes_two_attempts_differ():
@@ -81,8 +92,8 @@ def test_field_descriptions_reach_the_model():
 
 
 def test_no_tools_are_offered_anywhere_in_this_pipeline():
-    sent = config(ModelSpec("gemini-3.8-flash", thinking_level="low"))
-    assert sent.automatic_function_calling.disable is True
+    sent = config(ModelSpec("gemini-3.8-flash", thinking_level="low")).automatic_function_calling
+    assert sent is not None and sent.disable is True
 
 
 def test_the_solver_is_weak_and_the_judges_are_not():

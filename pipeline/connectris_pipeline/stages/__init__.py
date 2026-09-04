@@ -5,4 +5,4 @@ from .propose import propose
 from .redteam import red_team
 from .solve import solve
 
-__all__ = ["propose", "solve", "red_team", "grade"]
+__all__ = ["grade", "propose", "red_team", "solve"]

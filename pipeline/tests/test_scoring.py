@@ -72,7 +72,8 @@ def test_found_but_named_differently_scores_low_legibility():
     vague = attempt(*[("things that go together", list(g.words)) for g in PUZZLE.groups])
     stats = score(PUZZLE, [vague])
     assert stats.mean_recovery == 1.0
-    assert 0 <= stats.mean_legibility < 0.45
+    assert stats.mean_legibility is not None
+    assert stats.mean_legibility < 0.45
 
 
 def test_malformed_attempts_still_count_against_recovery():

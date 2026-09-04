@@ -19,15 +19,15 @@ from connectris_pipeline.spec import (
 )
 
 
-def board(**overrides) -> Puzzle:
-    groups = [
+def board(groups: list[Group] | None = None) -> Puzzle:
+    default = [
         Group("tools", "Hand tools", ["HAMMER", "CHISEL", "PLANE", "WRENCH"]),
         Group("weather", "Bad weather", ["FROST", "GALE", "HAZE", "SLEET"]),
         Group("rocks", "Rocks", ["SHALE", "BASALT", "CHALK", "SLATE"]),
         Group("fish", "Fish", ["PERCH", "SOLE", "BASS", "SKATE"]),
         Group("trees", "Trees", ["BIRCH", "ALDER", "ROWAN", "ASPEN"]),
     ]
-    return Puzzle(id="t", name="Test", groups=overrides.pop("groups", groups), **overrides)
+    return Puzzle(id="t", name="Test", groups=default if groups is None else groups)
 
 
 def codes(puzzle: Puzzle, corpus: Corpus | None = None) -> set[str]:

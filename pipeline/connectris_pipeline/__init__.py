@@ -6,8 +6,8 @@ from .spec import COLS, MAX_WORD_LEN, ROWS, Group, Puzzle, validate
 
 __all__ = [
     "COLS",
-    "ROWS",
     "MAX_WORD_LEN",
+    "ROWS",
     "Config",
     "Group",
     "ModelSpec",
