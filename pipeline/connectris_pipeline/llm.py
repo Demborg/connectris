@@ -1,10 +1,12 @@
 """The provider seam.
 
-One method, `generate`, which takes a schema and returns an instance of it. Everything
-downstream is written against this protocol, which is what makes the mock provider able
-to drive the entire pipeline offline — and what will make adding Claude-on-Vertex to the
-solver ensemble a new class rather than a refactor. (Vertex serves both families; auth is
-plain ADC either way. See DESIGN.md, Stack.)
+One method, `generate`, which takes a schema and returns an instance of it.
+
+The `LLM` protocol is narrow on purpose: `GeminiLLM` and the scripted double in
+`tests/conftest.py` are its only implementations, and Vertex serving Claude as well as
+Gemini is the reason it stays an interface rather than a class. It is worth having only
+because it is *checked* — `tests/test_request_shape.py` asserts both implementations
+satisfy it, so a signature that drifts fails the type check instead of failing at 3am.
 
 Token counts are recorded per call rather than money. Prices move; tokens don't.
 """
@@ -90,6 +92,8 @@ class Ledger:
 class LLM(Protocol):
     #: Every implementation records what it spent here.
     ledger: Ledger
+    #: Named in the run header, so an operator can see which project a batch hit.
+    backend: str
 
     async def generate(
         self,
@@ -103,7 +107,7 @@ class LLM(Protocol):
     ) -> T: ...
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
-        """Empty list means this provider has no embeddings; callers fall back to lexical."""
+        """Empty list means embeddings are unavailable; callers fall back to lexical."""
         ...
 
 

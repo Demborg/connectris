@@ -9,9 +9,10 @@ design decision (see DESIGN.md on solver variety). When it moves again, these fa
 from __future__ import annotations
 
 import pytest
+from conftest import ScriptedLLM
 
 from connectris_pipeline.config import Config, ModelSpec
-from connectris_pipeline.llm import GeminiLLM
+from connectris_pipeline.llm import LLM, GeminiLLM
 from connectris_pipeline.schema import Grade, ProposedPuzzle, SolveAttempt
 from connectris_pipeline.spec import Group, Puzzle
 from connectris_pipeline.stages.solve import attempt_seed, board_order
@@ -113,3 +114,17 @@ def test_attempts_get_different_boards_and_the_same_board_twice():
 
 def test_the_board_is_never_handed_over_in_solution_order():
     assert board_order(PUZZLE, attempt_seed("t", "m/low", 0)) != PUZZLE.words
+
+
+def test_both_implementations_satisfy_the_seam() -> None:
+    """The Protocol is only worth having because this line is type-checked.
+
+    `ty` resolves these assignments against `LLM`; a signature that drifts on either
+    implementation fails CI rather than failing at 3am. Nothing here runs at runtime
+    beyond two constructions.
+    """
+    scripted: LLM = ScriptedLLM()
+    assert scripted.backend == "scripted"
+
+    def _gemini_is_an_llm(client: GeminiLLM) -> LLM:
+        return client

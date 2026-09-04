@@ -1,6 +1,6 @@
 """Command line.
 
-    connectris-pipeline run --count 8 --provider mock
+    connectris-pipeline run --count 8
     connectris-pipeline regrade runs/20260903-101500 --config strict.toml
     connectris-pipeline export runs/20260903-101500
     connectris-pipeline check
@@ -28,7 +28,6 @@ from . import config as config_module
 from . import corpus as corpus_module
 from . import pipeline
 from .llm import GeminiLLM, Ledger
-from .mock import MockLLM
 from .spec import validate
 
 DEFAULT_RUNS = Path(__file__).resolve().parents[1] / "runs"
@@ -56,33 +55,21 @@ def main_options(
     )
 
 
-def _llm(provider: str, cfg: config_module.Config, *, seed: int):
-    if provider == "mock":
-        return MockLLM(ledger=Ledger(), seed=seed)
-    return GeminiLLM(
-        ledger=Ledger(),
-        embedding_model=cfg.embedding_model,
-        max_retries=cfg.max_retries,
-        concurrency=cfg.concurrency,
-    )
-
-
 @app.command()
 def run(
     count: Annotated[int, typer.Option(help="How many boards to propose.", min=1)] = 4,
-    provider: Annotated[
-        str, typer.Option(help="'gemini', or 'mock' to run offline with no credentials.")
-    ] = "gemini",
     config: ConfigFile = None,
     out: Annotated[Path, typer.Option(help="Where to write the run directory.")] = DEFAULT_RUNS,
     seed: Annotated[int, typer.Option(help="Makes a run reproducible.")] = 0,
 ) -> None:
     """Generate, solve, red-team and grade a batch."""
-    if provider not in {"gemini", "mock"}:
-        raise typer.BadParameter("provider must be 'gemini' or 'mock'", param_hint="--provider")
-
     cfg = config_module.load(config)
-    llm = _llm(provider, cfg, seed=seed)
+    llm = GeminiLLM(
+        ledger=Ledger(),
+        embedding_model=cfg.embedding_model,
+        max_retries=cfg.max_retries,
+        concurrency=cfg.concurrency,
+    )
     typer.secho(f"provider: {llm.backend}", err=True, fg=typer.colors.BRIGHT_BLACK)
 
     result = asyncio.run(pipeline.run(llm, cfg, count=count, seed=seed, out_dir=out))
