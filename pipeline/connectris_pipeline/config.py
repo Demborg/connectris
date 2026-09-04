@@ -10,7 +10,7 @@ new numbers without spending a token.
 from __future__ import annotations
 
 import tomllib
-from dataclasses import asdict, dataclass, field, replace
+from dataclasses import asdict, dataclass, field, fields, replace
 from pathlib import Path
 from typing import Literal
 
@@ -114,6 +114,13 @@ def load(path: Path | None) -> Config:
         return cfg
 
     raw = tomllib.loads(path.read_text())
+
+    known = {f.name for f in fields(Config)}
+    if unknown := raw.keys() - known:
+        # A typo used to be silently ignored: `concurency = 99` fell through the filter
+        # below and the run used the default, with no warning. Someone tuning thresholds
+        # overnight got the defaults and no signal.
+        raise ValueError(f"{path}: unknown config keys: {', '.join(sorted(unknown))}")
 
     def model(key: str, current: ModelSpec) -> ModelSpec:
         return replace(current, **raw[key]) if key in raw else current

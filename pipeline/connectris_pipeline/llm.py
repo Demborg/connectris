@@ -186,9 +186,16 @@ class GeminiLLM:
                     resp = await self._client.aio.models.generate_content(
                         model=model.name, contents=prompt, config=config
                     )
-                # Structured output can still come back as text when the model hits a stop
-                # reason mid-object; try the text before giving up to a retry.
-                parsed = resp.parsed or schema.model_validate_json(resp.text or "")
+                # `resp.parsed` is typed `BaseModel | dict | Enum | None`, and the dict
+                # case is the dangerous one: it would be returned as if it were `schema`,
+                # then blow up several frames away inside a broad except. Structured
+                # output can also come back as plain text when the model hits a stop
+                # reason mid-object, which the fallback covers.
+                parsed = (
+                    resp.parsed
+                    if isinstance(resp.parsed, schema)
+                    else schema.model_validate_json(resp.text or "")
+                )
                 usage = resp.usage_metadata
                 self.ledger.add(
                     Call(

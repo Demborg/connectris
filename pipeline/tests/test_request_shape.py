@@ -11,9 +11,11 @@ from __future__ import annotations
 import pytest
 from conftest import ScriptedLLM
 
+from connectris_pipeline import config as config_module
+from connectris_pipeline import prompts
 from connectris_pipeline.config import Config, ModelSpec
 from connectris_pipeline.llm import LLM, GeminiLLM
-from connectris_pipeline.schema import Grade, ProposedPuzzle, SolveAttempt
+from connectris_pipeline.schema import Grade, ProposedPuzzle, RedTeamReport, SolveAttempt
 from connectris_pipeline.spec import Group, Puzzle
 from connectris_pipeline.stages.solve import attempt_seed, board_order
 
@@ -129,3 +131,30 @@ def test_both_implementations_satisfy_the_seam() -> None:
 
     def _gemini_is_an_llm(client: GeminiLLM) -> LLM:
         return client
+
+
+def test_a_red_team_that_never_ran_reads_as_absent_not_as_clean() -> None:
+    """A stage that fell over must not be indistinguishable from one that found nothing."""
+    _, absent = prompts.grade(puzzle=PUZZLE, traps={}, solver_digest="", red=None, warnings=[])
+    assert "did not run" in absent
+
+    _, clean = prompts.grade(
+        puzzle=PUZZLE,
+        traps={},
+        solver_digest="",
+        red=RedTeamReport(ambiguous_words=[], alternatives=[], verdict="clean"),
+        warnings=[],
+    )
+    assert "did not run" not in clean
+
+
+def test_a_mistyped_config_key_is_refused_rather_than_ignored(tmp_path) -> None:
+    """It used to fall through the filter and the run quietly used the default."""
+    good = tmp_path / "good.toml"
+    good.write_text("concurrency = 99\n")
+    assert config_module.load(good).concurrency == 99
+
+    typo = tmp_path / "typo.toml"
+    typo.write_text("concurency = 99\n")
+    with pytest.raises(ValueError, match="concurency"):
+        config_module.load(typo)

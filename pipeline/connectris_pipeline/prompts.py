@@ -211,7 +211,7 @@ def grade(
     puzzle: Puzzle,
     traps: dict[str, str],
     solver_digest: str,
-    red: RedTeamReport,
+    red: RedTeamReport | None,
     warnings: list[str],
 ) -> tuple[str, str]:
     system = (
@@ -243,7 +243,7 @@ Automatic checks flagged:
 Weak-solver ensemble:
 {solver_digest}
 
-Red team ({red.verdict}):
+Red team ({red.verdict if red else "did not run"}):
 {_red_summary(red)}
 
 Decide.
@@ -251,7 +251,10 @@ Decide.
     return system, prompt
 
 
-def _red_summary(red: RedTeamReport) -> str:
+def _red_summary(red: RedTeamReport | None) -> str:
+    """A stage that fell over must read as absent, never as a clean bill of health."""
+    if red is None:
+        return "- the red team did not run; treat this board as unchecked for a second answer"
     lines = []
     for a in red.ambiguous_words:
         lines.append(
