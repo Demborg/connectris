@@ -25,7 +25,6 @@ def stats(recovery: float = 0.4, legibility: float = 0.9, full: float = 0.1) -> 
         well_formed=8,
         full_solve_rate=full,
         mean_recovery=recovery,
-        min_recovery=recovery,
         mean_legibility=legibility,
         groups=groups,
         by_model={"fake@1.0": recovery},

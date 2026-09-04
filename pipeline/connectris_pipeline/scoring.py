@@ -101,7 +101,6 @@ class SolveStats:
     well_formed: int
     full_solve_rate: float
     mean_recovery: float
-    min_recovery: float
     mean_legibility: float
     groups: list[GroupStat]
     by_model: dict[str, float]
@@ -192,7 +191,6 @@ def score(puzzle: Puzzle, attempts: list[Attempt]) -> SolveStats:
         well_formed=sum(1 for a in attempts if a.is_well_formed(board)),
         full_solve_rate=full / n,
         mean_recovery=sum(s.recovery for s in stats) / len(stats),
-        min_recovery=min((s.recovery for s in stats), default=0.0),
         mean_legibility=round(sum(scored) / len(scored), 3) if scored else -1.0,
         groups=stats,
         by_model={k: sum(v) / (len(v) * ROWS) for k, v in per_model.items()},

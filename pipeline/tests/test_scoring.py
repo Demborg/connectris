@@ -51,7 +51,6 @@ def test_recovery_is_per_category_and_order_free():
     by_id = {g.id: g for g in stats.groups}
     assert by_id["tools"].recovery == 1.0
     assert by_id["rocks"].recovery == 0.5
-    assert stats.min_recovery == 0.5
 
 
 def test_a_category_nobody_found_scores_legibility_minus_one():

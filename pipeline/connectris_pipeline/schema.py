@@ -33,9 +33,6 @@ class ProposedGroup(BaseModel):
 class ProposedPuzzle(BaseModel):
     name: str = Field(description="A two or three word title for the puzzle.")
     groups: list[ProposedGroup] = Field(description="Exactly 5 groups of 4 words.")
-    hardest_group: str = Field(
-        description="The label of the group you expect to be found last, and one line on why."
-    )
 
 
 class SolvedGroup(BaseModel):

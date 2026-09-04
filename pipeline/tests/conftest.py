@@ -103,7 +103,6 @@ class ScriptedLLM:
                 ProposedGroup(label=label, words=list(ws), trap=f"{ws[0]} baits another row")
                 for label, ws in rows
             ],
-            hardest_group=rows[-1][0],
         )
 
     def _solve(self, prompt: str) -> SolveAttempt:
