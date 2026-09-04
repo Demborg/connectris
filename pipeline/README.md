@@ -12,14 +12,7 @@ and it is the only part of this repo that is allowed to be slow.
 
 ## Running it
 
-No credentials needed for the dry run — the mock provider plays every role:
-
-```sh
-cd pipeline
-uv run --with pydantic python -m connectris_pipeline.cli run --count 6 --provider mock
-```
-
-Against real models — Vertex, ADC, nothing to leak:
+Vertex, ADC, nothing to leak:
 
 ```sh
 gcloud auth application-default login
@@ -126,13 +119,22 @@ sends whichever is set. All of it is overridable in `config.toml` — see
 `tests/test_request_shape.py` covers the parts of the request that are pure. It is there
 because this shape has already moved once.
 
-## The honest caveat
+## What one real run cost, and taught
 
-Cheap-model difficulty is not human difficulty, and the mapping is unknown until there is
-human data. Until then this is a filter for **broken** puzzles, not a difficulty oracle —
-the thresholds in `config.py` are reasoned from the design, not measured. Bootstrap by
-logging real runs and fitting model-solve-rate against human-solve-rate once there are a
-few dozen puzzles; `regrade` exists so that refit costs nothing.
+20 candidates, 306 model calls, 25 minutes, **$4.15** — of which 94% was thinking tokens on
+the three strong-model stages. `propose` alone was half the bill. The solve stage was 76%
+of the calls and 5.3% of the cost, which is the opposite of what everyone guesses.
+
+It produced 2 boards at hand-written quality out of 20. Everything deleted since was
+deleted because that run showed it changing no outcome.
+
+**The honest caveat still stands:** cheap-model difficulty is not human difficulty, and the
+mapping is unknown until there is human data. This is a filter for **broken** puzzles, not
+a difficulty oracle, and the three surviving thresholds are still reasoned rather than
+fitted. Bootstrap by logging real runs and fitting model-solve-rate against human-solve-rate
+once there are a few dozen puzzles; `regrade` exists so that refit costs nothing — it has
+already paid for itself once, recovering a whole counterfactual verdict distribution for
+zero tokens after a bug was found.
 
 ## Layout
 
@@ -141,15 +143,17 @@ connectris_pipeline/spec.py      Puzzle shape and every deterministic rule. Mirr
 connectris_pipeline/schema.py    Structured-output schemas. Field descriptions are prompt.
 connectris_pipeline/prompts.py   Prompts, and the seed vocabulary that keeps a batch varied.
 connectris_pipeline/llm.py       Provider seam + token ledger. Vertex, via generate_content.
-connectris_pipeline/mock.py      A provider that never leaves the machine. Not a stub.
 connectris_pipeline/scoring.py   Recovery and legibility.
 connectris_pipeline/record.py    The per-candidate record, and `decide`.
 connectris_pipeline/pipeline.py  Orchestration, artifacts, regrade.
 connectris_pipeline/stages/      One module per stage.
+tests/conftest.py                A scripted stand-in for the model. Not a simulator.
 ```
 
 `cli.py` is Typer — the options are already typed and the annotations carry their own help,
 so there is no second copy of the signature to keep in sync. It is Click underneath.
 
-Adding another model family to the solver ensemble is a new class implementing `LLM`, not
-a refactor — Vertex serves Claude as well as Gemini and auth is plain ADC either way.
+Adding another model family is a new class implementing `LLM`, not a refactor — Vertex
+serves Claude as well as Gemini and auth is plain ADC either way. That protocol is worth
+having only because it is checked: `tests/test_request_shape.py` asserts both
+implementations satisfy it, so a drifting signature fails CI.

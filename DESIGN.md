@@ -270,19 +270,17 @@ operational detail, this is what was decided and why.
 2. **Validate** — deterministic, free, and before a single solver token. Mirrors `engine.ts`
    and the `puzzle data` block in `engine.spec.ts`, plus dedupe against shipped words and
    category concepts.
-3. **Solve** — an ensemble of deliberately weak models, N attempts each, varied by seed and
-   board order. Yields a solve rate → difficulty proxy. Target a band; 0% and 100% both get
-   pruned.
-4. **Name** — solvers state the category they think they found; compare to the true label by
-   embedding similarity. This measures _legibility_. A puzzle where solvers find the grouping
-   but name it differently is fine; one where nobody can articulate why is unfair, and this
-   is the only stage that catches it.
+3. **Solve** — one deliberately weak model. Yields a solve rate → difficulty proxy.
+4. **Name** — the solver states the category it thinks it found; compare to the true label.
+   This measures _legibility_. A puzzle where the grouping is found but named differently is
+   fine; one where nobody can articulate why is unfair, and this is the only stage that
+   catches it.
 5. **Red-team** — a separate model whose only job is to find an alternative consistent
-   partition, or a word that legitimately fits two categories. **This is the critical stage
-   and it is not the same as solving.** Ambiguity is the failure mode that makes players
-   furious, and a solver that happens to find the intended answer won't surface it.
+   partition. **This is the critical stage and it is not the same as solving.** Ambiguity is
+   the failure mode that makes players furious, and a solver that happens to find the
+   intended answer won't surface it.
 6. **Grade** — the only stage that sees the board, the traps, the solver evidence and the
-   red-team report at once. Rates, and where one word is doing the damage, rewrites.
+   red-team report at once. Rates, and says what is wrong.
 
 Auto-accept above thresholds, everything else into a review queue.
 
@@ -298,14 +296,11 @@ optimising. Variety comes from the input instead: each call draws two domains an
 wordplay device from rotating lists, which is a more reliable diversity lever than asking
 a model to be varied.
 
-**Solver variety comes from the seed and the board order, not from temperature.** The
-original sketch said "N attempts each at temperature". Gemini 3's guidance is to leave
-temperature at its default of 1.0 — below that the models loop and degrade on exactly the
-kind of reasoning this stage measures — so each attempt instead carries its own sampling
-seed and its own shuffle of the twenty words. The shuffle is the better half: it varies the
-input rather than the sampler, and it means a category only counts as recovered if it
-survives being presented in a different order. Ensemble spread now comes from mixing model
-families and thinking levels, which is where it always did most of the work.
+**Temperature is left alone.** The original sketch said "N attempts each at temperature".
+Gemini 3's guidance is to keep temperature at its default of 1.0, because below that the
+models loop and degrade on exactly the kind of reasoning this stage measures. The board is
+still shuffled before the solver sees it, so recovery measures the puzzle rather than the
+proposer's formatting.
 
 **Dedupe runs during proposal, not after it.** Each board folds into the corpus as it
 lands, so the fifth proposal of a night knows what the first four used. Deduping a
@@ -330,17 +325,49 @@ not a difficulty oracle, and every threshold in it is reasoned rather than measu
 Bootstrap by logging real runs and fitting model-solve-rate against human-solve-rate once
 there are a few dozen puzzles.
 
+### What the first real run changed
+
+_20 candidates, 306 calls, $4.15, 2 boards at hand-written quality._
+
+**The evidence stages earn their place as grader input, not as gates.** Of seven
+thresholds, four never changed a verdict across 20 candidates — the grader had already
+decided, and its rejections were specific and correct. So solver recovery, legibility and
+the red-team report all still run and all still reach the grader as prose, and only three
+thresholds survive. The one that matters most is the one the grader structurally cannot
+supply: a board can read as elegant and still be trivial, because the grader never sees it
+played.
+
+**A decoy is not an ambiguity, and the red team had to be told so.** All 37 of its
+findings were traps the proposer had declared in its own prompt — handed the trap list, it
+handed it back. Since the construction rules require a decoy per category, the stage was
+taxing exactly the boards that followed the brief, and the only two boards that would have
+auto-accepted got there by having traps it happened to miss. The full-partition rule is
+what resolves an ordinary decoy; the red team now has to show that resolution failing.
+
+**Nine solver calls a board bought nothing that one call did not.** Three models
+correlating 0.71–0.85 is a capability ladder, not independent blind spots.
+
+**Embeddings lost to token overlap.** 344 calls, no decisions changed, and the free
+version was stricter and more accurate — the embedder charged 0.13 cosine for a
+capitalisation change, wider than the band being cut.
+
+**The grader would not repair its own boards.** The revision loop fired 6 times in 20, cost
+22% of the batch, and the grader rejected its own rewrite in 4 of those 6. Proposing fresh
+is one call; re-evaluating a rewrite is three.
+
 ### Open
 
-- **Whether the thresholds are anywhere near right.** Nothing has been through it against
-  real models yet, let alone against real players. Expect the first fifty candidates to be
-  a calibration exercise rather than a supply of puzzles.
-- **Whether the weak ensemble is weak enough.** If the cheap models solve everything, the
-  difficulty proxy is measuring nothing and the band has to move; if they solve nothing,
-  the red team is carrying the whole pipeline alone.
-- **Whether a grader rewrite is ever better than a fresh proposal.** Revision is capped at
-  one for now, on the theory that a puzzle needing three rewrites was a bad idea rather
-  than a bad draft. Untested.
+- **Whether the three surviving thresholds are anywhere near right.** They are reasoned,
+  not fitted, and no human has played a generated board yet.
+- **Whether the single solver is weak enough.** If it solves everything the difficulty
+  proxy is measuring nothing; if it solves nothing the grader is carrying the pipeline
+  alone.
+- **Whether the sharpened red team finds anything at all.** It found zero alternative
+  partitions in 20 boards — the stage this document calls critical has not yet fired. That
+  may be 20 being too few for a rare-but-fatal event, or it may be the stage not working.
+  Re-check at n=100 before trusting either reading.
+- **Cost per shippable puzzle.** At a 10% hit rate and $4 a run, that is roughly $40 of
+  thinking tokens per board worth keeping. Fine for one a day; worth knowing.
 - **Swedish.** The word-length cap will bite on compounds, and LLM generation for Swedish
   idiom and wordplay is expected to be noticeably weaker — human review stays in the loop
   longer.
