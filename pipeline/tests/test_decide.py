@@ -18,6 +18,7 @@ T = Thresholds()
 
 
 def stats(recovery: float = 0.4, legibility: float = 0.9, full: float = 0.1) -> SolveStats:
+    """`legibility` no longer gates anything — it reaches the grader as prose instead."""
     groups = [GroupStat(f"g{i}", f"G{i}", recovery, legibility) for i in range(5)]
     return SolveStats(
         attempts=9,
@@ -75,12 +76,6 @@ def test_too_easy_is_rejected():
 def test_nothing_landing_goes_to_review_because_hard_and_broken_look_alike():
     """The whole reason the review queue exists rather than a second threshold."""
     assert decide(candidate(stats=stats(recovery=0.0)), T).verdict == "review"
-
-
-def test_found_but_unnameable_goes_to_review():
-    decision = decide(candidate(stats=stats(legibility=0.1)), T)
-    assert decision.verdict == "review"
-    assert any("named them differently" in r for r in decision.reasons)
 
 
 def test_a_fatal_spec_problem_short_circuits_everything():

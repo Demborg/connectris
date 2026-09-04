@@ -106,10 +106,6 @@ class LLM(Protocol):
         seed: int | None = None,
     ) -> T: ...
 
-    async def embed(self, texts: list[str]) -> list[list[float]]:
-        """Empty list means embeddings are unavailable; callers fall back to lexical."""
-        ...
-
 
 class GeminiLLM:
     """google-genai on Vertex AI.
@@ -124,14 +120,7 @@ class GeminiLLM:
     `response_schema`, and the SDK parses the reply back into it.
     """
 
-    def __init__(
-        self,
-        *,
-        ledger: Ledger,
-        embedding_model: str = "",
-        max_retries: int = 3,
-        concurrency: int = 8,
-    ) -> None:
+    def __init__(self, *, ledger: Ledger, max_retries: int = 3, concurrency: int = 8) -> None:
         from google import genai  # imported here so the package works without the SDK
 
         project = os.environ.get("GOOGLE_CLOUD_PROJECT")
@@ -145,7 +134,6 @@ class GeminiLLM:
         self._client = genai.Client(vertexai=True, project=project, location=location)
         self.backend = f"vertex:{project}/{location}"
         self.ledger = ledger
-        self._embedding_model = embedding_model
         self._max_retries = max_retries
         self._gate = asyncio.Semaphore(concurrency)
 
@@ -232,36 +220,6 @@ class GeminiLLM:
             )
         )
         raise ModelError(f"{stage}: {model.key} failed {self._max_retries} times: {last}") from last
-
-    async def embed(self, texts: list[str]) -> list[list[float]]:
-        """One call per text, on purpose.
-
-        `gemini-embedding-2` takes a `contents` list and returns exactly one embedding
-        however many you pass — no error, just one vector. Batching here would silently
-        score every category against the wrong text, so each text gets its own call and
-        the concurrency gate keeps it cheap.
-        """
-        if not self._embedding_model or not texts:
-            return []
-        from google.genai import types
-
-        config = types.EmbedContentConfig(task_type="SEMANTIC_SIMILARITY")
-
-        async def one(text: str) -> list[float] | None:
-            try:
-                async with self._gate:
-                    resp = await self._client.aio.models.embed_content(
-                        model=self._embedding_model, contents=text, config=config
-                    )
-                return list(resp.embeddings[0].values)
-            except Exception as exc:
-                log.warning("embedding failed (%s); falling back to lexical similarity", exc)
-                return None
-
-        vectors = await asyncio.gather(*(one(t) for t in texts))
-        # All or nothing: a partial set would score some categories on embeddings and
-        # others lexically, and those two numbers are not on the same scale.
-        return [] if any(v is None for v in vectors) else vectors
 
 
 def dumps(obj) -> str:

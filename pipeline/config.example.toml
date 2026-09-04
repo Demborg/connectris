@@ -6,10 +6,6 @@ concurrency = 8
 max_revisions = 1
 max_retries = 3
 
-# Empty string turns embeddings off and falls back to lexical similarity, which is a
-# floor on legibility rather than a measurement of it.
-embedding_model = "gemini-embedding-2"
-
 # Gemini 3 models take `thinking_level` = "low" | "medium" | "high". ("minimal" exists in
 # the API but 3.8 Flash rejects it.) Gemini 2.5 models take `thinking_budget` in tokens,
 # 0 to switch thinking off. Set one or the other, never both.
@@ -49,7 +45,6 @@ thinking_budget = 0
 min_mean_recovery = 0.15
 max_mean_recovery = 0.80
 max_full_solve_rate = 0.50
-min_legibility = 0.45
 max_ambiguous_words = 0
 min_fairness = 4
 min_elegance = 3

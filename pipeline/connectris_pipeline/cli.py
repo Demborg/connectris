@@ -66,7 +66,6 @@ def run(
     cfg = config_module.load(config)
     llm = GeminiLLM(
         ledger=Ledger(),
-        embedding_model=cfg.embedding_model,
         max_retries=cfg.max_retries,
         concurrency=cfg.concurrency,
     )

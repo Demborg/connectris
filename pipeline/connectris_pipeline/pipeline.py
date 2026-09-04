@@ -68,7 +68,7 @@ async def evaluate(llm: LLM, cfg: Config, candidate: Candidate, corpus: Corpus) 
 
         attempts = await solve(llm, cfg, candidate.puzzle)
         candidate.attempts = attempts
-        candidate.stats = await score(candidate.puzzle, attempts, embed=llm.embed)
+        candidate.stats = score(candidate.puzzle, attempts)
 
         candidate.red = await red_team(llm, cfg, candidate.puzzle, candidate.traps)
         candidate.grade = await grade(llm, cfg, candidate)

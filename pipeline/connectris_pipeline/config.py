@@ -63,9 +63,6 @@ class Thresholds:
     max_mean_recovery: float = 0.80
     #: Fraction of attempts that got all five rows. Weak models should mostly fail this.
     max_full_solve_rate: float = 0.50
-    #: Category-name similarity, over recovered groups only. Catches "found it but can't
-    #: say why", which is the unfairness a solver alone will never surface.
-    min_legibility: float = 0.45
     #: Any word the red team can file in two places blocks auto-accept.
     max_ambiguous_words: int = 0
     #: Grader's 1-5 scores.
@@ -90,11 +87,6 @@ class Config:
     #: The critical stage. Strong model, and not the same call as solving.
     red_team: ModelSpec = ModelSpec("gemini-3.8-flash", thinking_level="high")
     grader: ModelSpec = ModelSpec("gemini-3.8-flash", thinking_level="high")
-    #: Empty string falls back to lexical similarity, which keeps the pipeline runnable
-    #: without an embeddings endpoint at a cost in precision. `gemini-embedding-001` is
-    #: not served on Vertex here; `-2` is.
-    embedding_model: str = "gemini-embedding-2"
-
     thresholds: Thresholds = field(default_factory=Thresholds)
 
     #: In-flight model calls across the whole run.
@@ -129,8 +121,7 @@ def load(path: Path | None) -> Config:
     top = {
         k: v
         for k, v in raw.items()
-        if k
-        in {"attempts_per_solver", "embedding_model", "concurrency", "max_revisions", "max_retries"}
+        if k in {"attempts_per_solver", "concurrency", "max_revisions", "max_retries"}
     }
 
     return replace(

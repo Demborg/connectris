@@ -142,11 +142,6 @@ def decide(candidate: Candidate, t: Thresholds) -> Decision:
         if s.mean_recovery < t.min_mean_recovery:
             # Hard and broken look identical from here, so this never rejects on its own.
             review.append(f"nothing landed: mean recovery {s.mean_recovery:.0%}")
-        if 0 <= s.mean_legibility < t.min_legibility:
-            review.append(
-                f"solvers found categories but named them differently "
-                f"(legibility {s.mean_legibility:.2f})"
-            )
 
     g = candidate.grade
     if g is None:

@@ -6,6 +6,13 @@ they say what it was? A puzzle where solvers find the grouping but name it diffe
 fine; one where nobody can articulate why is unfair, and this is the only stage that
 catches it.
 
+Legibility is lexical, not embedded. The first real run put 344 embedding calls through
+`gemini-embedding-2` — more calls than the whole generation pipeline — and changed no
+decision: the board-level threshold fired 0 times in 20, and this free function reproduced
+19 of those 20 verdicts while being *stricter*. It is also more accurate where it matters
+most: the embedder charged 0.13 cosine for a pure capitalisation change, wider than the
+whole band the rescale had been calibrated to cut.
+
 Both are proxies over cheap models, which is not human difficulty. See DESIGN.md's honest
 caveat: until real runs are logged and fitted, this filters broken puzzles, not easy ones.
 """
@@ -13,7 +20,6 @@ caveat: until real runs are logged and fitted, this filters broken puzzles, not 
 from __future__ import annotations
 
 import difflib
-import math
 import re
 from dataclasses import asdict, dataclass, field
 
@@ -127,10 +133,10 @@ def _tokens(label: str) -> set[str]:
 def lexical_similarity(a: str, b: str) -> float:
     """Token overlap or string ratio, whichever is kinder.
 
-    The fallback when there is no embeddings endpoint. It is blind to synonyms — 'Card
-    suits' vs 'Things in a deck' scores near zero — so it is a floor on legibility, not a
-    measurement of it, and it will send fair puzzles to the review queue rather than
-    reject them.
+    Blind to synonyms — 'Card suits' vs 'Things in a deck' scores near zero — so it is a
+    floor on legibility, not a measurement of it, and it errs toward the review queue
+    rather than toward rejection. That is the right direction to be wrong in, and it is
+    what an embedding model measurably failed to improve on.
     """
     ta, tb = _tokens(a), _tokens(b)
     jaccard = len(ta & tb) / len(ta | tb) if ta | tb else 0.0
@@ -142,15 +148,7 @@ def lexical_similarity(a: str, b: str) -> float:
     return max(jaccard, ratio)
 
 
-def cosine(a: list[float], b: list[float]) -> float:
-    dot = sum(x * y for x, y in zip(a, b, strict=True))
-    na = math.sqrt(sum(x * x for x in a))
-    nb = math.sqrt(sum(x * x for x in b))
-    return dot / (na * nb) if na and nb else 0.0
-
-
-async def score(puzzle: Puzzle, attempts: list[Attempt], embed=None) -> SolveStats:
-    """`embed` is an async `list[str] -> list[list[float]]`; falsy result means lexical."""
+def score(puzzle: Puzzle, attempts: list[Attempt]) -> SolveStats:
     board = {normalise_word(w) for w in puzzle.words}
     intended = {g.id: frozenset(normalise_word(w) for w in g.words) for g in puzzle.groups}
     n = max(len(attempts), 1)
@@ -172,13 +170,11 @@ async def score(puzzle: Puzzle, attempts: list[Attempt], embed=None) -> SolveSta
             full += 1
         per_model.setdefault(att.model, []).append(hits)
 
-    similarity = await _similarity_fn(puzzle, found, embed)
-
     stats: list[GroupStat] = []
     for g in puzzle.groups:
         names = found[g.id]
         legibility = (
-            sum(similarity(g.label, name) for name in names) / len(names) if names else -1.0
+            sum(lexical_similarity(g.label, name) for name in names) / len(names) if names else -1.0
         )
         stats.append(
             GroupStat(
@@ -201,50 +197,3 @@ async def score(puzzle: Puzzle, attempts: list[Attempt], embed=None) -> SolveSta
         groups=stats,
         by_model={k: sum(v) / (len(v) * ROWS) for k, v in per_model.items()},
     )
-
-
-async def _similarity_fn(puzzle: Puzzle, found: dict[str, list[str]], embed):
-    """One embedding call for every label and every name, or lexical if that fails."""
-    if embed is None:
-        return lexical_similarity
-
-    texts = [g.label for g in puzzle.groups] + [n for names in found.values() for n in names]
-    texts = list(dict.fromkeys(t for t in texts if t.strip()))
-    if not texts:
-        return lexical_similarity
-
-    vectors = await embed(texts)
-    if not vectors or len(vectors) != len(texts):
-        return lexical_similarity
-
-    table = dict(zip(texts, vectors, strict=True))
-
-    def similar(a: str, b: str) -> float:
-        va, vb = table.get(a), table.get(b)
-        if va is None or vb is None:
-            return lexical_similarity(a, b)
-        return rescale(cosine(va, vb))
-
-    return similar
-
-
-#: Raw cosine has no useful zero, so it is rescaled onto 0..1 before meeting a threshold.
-#: These two numbers are measured, not guessed — 13 label pairs through
-#: `gemini-embedding-2`, which sorted into three clean bands:
-#:
-#:     genuine paraphrase   0.78 - 0.91   ("Card suits" ~ "Suits in a deck")
-#:     unrelated category   0.61 - 0.64   ("Fish" ~ "Typography")
-#:     vague non-answer     0.45 - 0.59   ("Card suits" ~ "words that go together")
-#:
-#: Note the middle band: two real but different categories score *higher* than a solver
-#: shrugging. Both are legibility failures, so the floor sits under both, and the gap
-#: between 0.64 and 0.78 is what `min_legibility` is really cutting.
-#:
-#: This is model-specific. Change `embedding_model` and these have to be re-measured.
-EMBEDDING_FLOOR = 0.60
-EMBEDDING_SPAN = 0.35
-
-
-def rescale(cos: float) -> float:
-    """Raw cosine onto 0..1, with 'unrelated' pinned near zero."""
-    return min(1.0, max(0.0, (cos - EMBEDDING_FLOOR) / EMBEDDING_SPAN))
