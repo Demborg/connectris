@@ -183,10 +183,20 @@ board shake. Only two things separate them: the impact flashes red instead of ne
 a miss rings much further down the stack, because a clear is absorbed by the rows that took
 it and a miss was absorbed by nothing.
 
-**A bigger clear hits harder.** Two rows or more gets a Tetris-style callout — DOUBLE,
-TRIPLE, CONNECTRIS — in the slack below the well, and the clear glows brighter and lands
-heavier as the count goes up. The end card is held back while a callout is on screen: the
-winning move is the one clear most worth celebrating, and it's exactly the one the card
+**The callout counts up as the wave rolls.** Two rows or more gets a Tetris-style callout
+in the slack below the well, and it is a running tally rather than a final figure: the
+second row landing says DOUBLE, the third rolls it over to TRIPLE, and a five-row clear
+climbs the whole ladder to CONNECTRIS. Announcing the total once at the end throws away the
+best part — the count still going up while you watch. Each word arrives from below and
+shoves the last one out of the top, because a crossfade in place reads as a correction
+rather than a tally.
+
+**Each rung is louder than the last.** Size, weight and tracking all escalate, and
+CONNECTRIS — the whole board in one check — is painted in the tetromino palette sweeping
+across the letters, the only place on screen where all five category colours appear at once,
+because it is the only moment that has all five rows. The clear also glows brighter and
+lands heavier as the count goes up. The end card is held back while a callout is on screen:
+the winning move is the one clear most worth celebrating, and it's exactly the one the card
 would otherwise cover.
 
 ### Deliberately dropped

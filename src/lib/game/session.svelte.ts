@@ -23,6 +23,9 @@ export const LOCK_MS = 240;
  */
 const ROW_STEP = 420;
 
+/** How long the last callout stays up once the wave has finished rolling. */
+const COMBO_HOLD = 1100;
+
 /** How long the wave's impact takes to play out, and how fast it travels on downward. */
 export const CRASH_MS = 460;
 export const RIPPLE_STEP = 60;
@@ -63,7 +66,12 @@ export class Session {
 	clearing = $state(0);
 	/** True while the press is travelling up the board. */
 	sweeping = $state(false);
-	/** Rows taken by the last multi-row clear, while its flourish is on screen. */
+	/**
+	 * Rows the current clear has taken so far, while its flourish is on screen. It counts
+	 * up as the wave rolls — DOUBLE, then TRIPLE — rather than being announced once at the
+	 * end, so the callout is a running tally of the thing happening rather than a receipt
+	 * for it.
+	 */
 	combo = $state(0);
 	/** Strength of the wave's impact on the top remaining row, 0 when nothing is playing. */
 	crash = $state(0);
@@ -75,6 +83,7 @@ export class Session {
 	endedAt = 0;
 	private events: GameEvent[] = [];
 	private busy = false;
+	private comboTimer: ReturnType<typeof setTimeout> | undefined;
 
 	constructor(puzzle: Puzzle) {
 		this.puzzle = puzzle;
@@ -165,8 +174,11 @@ export class Session {
 
 		const result = check(this.rows);
 		this.checks++;
-		// Drop the previous verdict now, so it isn't left standing over the clear animation.
+		// Drop the previous verdict and callout now, so neither is left standing over the
+		// clear animation this check is about to play.
 		this.verdict = null;
+		clearTimeout(this.comboTimer);
+		this.combo = 0;
 
 		this.sweeping = true;
 		setTimeout(() => (this.sweeping = false), SWEEP_MS);
@@ -180,10 +192,6 @@ export class Session {
 			// clear carries more momentum into it.
 			if (this.rows.length > 0) {
 				this.impact(Math.min(1.6, 1 + (result.locked - 1) * 0.2), false);
-			}
-			if (result.locked >= 2) {
-				this.combo = result.locked;
-				setTimeout(() => (this.combo = 0), 1200);
 			}
 		} else {
 			// Nothing cleared means row 1 is wrong, so the wave has nowhere to go and slams
@@ -220,7 +228,7 @@ export class Session {
 	/**
 	 * Roll the wave down `count` rows, one row at a time. Each row lights, then converts
 	 * into its solved bar before the row below it lights — so the board is only ever doing
-	 * one thing rather than lifting every row off and then labelling them all again.
+	 * one thing, and the callout can count up as it goes.
 	 *
 	 * A cleared row leaves `rows` the moment it lands and joins `solved` above it, so the
 	 * row currently lifting is always row 0 and the board never changes height.
@@ -244,10 +252,15 @@ export class Session {
 			];
 			this.lifting = false;
 
+			// Only from the second row on is there anything to shout about, and from there
+			// the shout grows with the tally rather than waiting for the final figure.
+			if (i >= 1) this.combo = i + 1;
+
 			if (i < count - 1) await wait(ROW_STEP - LOCK_MS);
 		}
 
 		this.clearing = 0;
+		if (this.combo > 0) this.comboTimer = setTimeout(() => (this.combo = 0), COMBO_HOLD);
 	}
 
 	/** Land the wave on the top remaining row. A miss rings further down the stack. */
