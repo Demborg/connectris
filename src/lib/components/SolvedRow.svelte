@@ -39,9 +39,10 @@
 		);
 		outline: 1px solid color-mix(in oklab, var(--colour) 62%, var(--ink));
 		outline-offset: -1px;
-		/* Delayed per row within a batch, so a multi-row clear settles top to bottom
-		   instead of every bar landing on the same frame. */
-		animation: consolidate 320ms var(--ease) var(--enter) both;
+		/* A cleared row converts the instant the wave leaves it, so this needs no delay of
+		   its own — the sequencing is the wave's. The delay is only for the rows a loss
+		   reveals, which have no wave to inherit their order from. */
+		animation: consolidate 300ms var(--ease) var(--enter) both;
 	}
 
 	.chip {
@@ -53,11 +54,13 @@
 		box-shadow: 0 0 12px color-mix(in oklab, var(--colour) 60%, transparent);
 	}
 
+	/* Close on the bar's heels rather than a beat behind it: naming the category is part
+	   of the row landing, not a second pass over rows that already landed. */
 	.text {
 		display: grid;
 		gap: 3px;
 		min-width: 0;
-		animation: surface 260ms var(--ease) calc(var(--enter) + 90ms) both;
+		animation: surface 240ms var(--ease) calc(var(--enter) + 50ms) both;
 	}
 
 	.label {

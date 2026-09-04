@@ -13,9 +13,15 @@ export type Verdict = { count: number; note: string };
  * animation crossing the one that matters — and each row starts well after the one above
  * it, so the clear still reads as rolling down the board row by row.
  */
-export const ROW_STAGGER = 170;
-const POP = 240;
-const SETTLE = 120;
+export const LOCK_MS = 240;
+
+/**
+ * One row's whole life happens before the next one starts: it lights, it consolidates
+ * into its bar, and it names its category, and only then does the row below light. The
+ * alternative — every row lifting off first, then a second pass of labels rolling in —
+ * is two waves where the player did one thing.
+ */
+const ROW_STEP = 420;
 
 /** How long the wave's impact takes to play out, and how fast it travels on downward. */
 export const CRASH_MS = 460;
@@ -31,9 +37,6 @@ const SWEEP_LEAD = 200;
 
 /** A miss hits harder than a single-row clear and rings further down the stack. */
 const MISS_AMP = 1.35;
-
-/** How long the wave takes to cross `rows` rows before they consolidate. */
-export const lockDuration = (rows: number) => (rows - 1) * ROW_STAGGER + POP + SETTLE;
 
 const reducedMotion = () =>
 	typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -54,8 +57,10 @@ export class Session {
 
 	/** What the last check revealed: how many rows are right, never which. Pin 4. */
 	verdict = $state<Verdict | null>(null);
-	/** Rows currently lifting off. Drives the clear animation. */
-	locking = $state(0);
+	/** True while the top row is lifting off. Drives the tile clear animation. */
+	lifting = $state(false);
+	/** Rows in the clear currently playing, for how hard it lands. 0 when nothing is. */
+	clearing = $state(0);
 	/** True while the press is travelling up the board. */
 	sweeping = $state(false);
 	/** Rows taken by the last multi-row clear, while its flourish is on screen. */
@@ -168,19 +173,7 @@ export class Session {
 		await wait(SWEEP_LEAD);
 
 		if (result.locked > 0) {
-			this.locking = result.locked;
-			await wait(lockDuration(result.locked));
-			const cleared = this.rows.slice(0, result.locked);
-			this.rows = this.rows.slice(result.locked);
-			this.solved = [
-				...this.solved,
-				...cleared.map((r, order) => ({
-					group: this.puzzle.groups.find((g) => g.id === r[0].group)!,
-					check: this.checks,
-					order
-				}))
-			];
-			this.locking = 0;
+			await this.roll(result.locked);
 
 			// The wave rolls on into whatever is left. The top remaining row is, by
 			// definition, the one that stopped the run — so it takes the hit. A bigger
@@ -222,6 +215,39 @@ export class Session {
 			};
 
 		this.busy = false;
+	}
+
+	/**
+	 * Roll the wave down `count` rows, one row at a time. Each row lights, then converts
+	 * into its solved bar before the row below it lights — so the board is only ever doing
+	 * one thing rather than lifting every row off and then labelling them all again.
+	 *
+	 * A cleared row leaves `rows` the moment it lands and joins `solved` above it, so the
+	 * row currently lifting is always row 0 and the board never changes height.
+	 */
+	private async roll(count: number): Promise<void> {
+		this.clearing = count;
+
+		for (let i = 0; i < count; i++) {
+			this.lifting = true;
+			await wait(LOCK_MS);
+
+			const [row, ...rest] = this.rows;
+			this.rows = rest;
+			this.solved = [
+				...this.solved,
+				{
+					group: this.puzzle.groups.find((g) => g.id === row[0].group)!,
+					check: this.checks,
+					order: i
+				}
+			];
+			this.lifting = false;
+
+			if (i < count - 1) await wait(ROW_STEP - LOCK_MS);
+		}
+
+		this.clearing = 0;
 	}
 
 	/** Land the wave on the top remaining row. A miss rings further down the stack. */

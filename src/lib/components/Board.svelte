@@ -2,7 +2,7 @@
 	import { flip } from 'svelte/animate';
 	import SolvedRow from './SolvedRow.svelte';
 	import Tile from './Tile.svelte';
-	import { RIPPLE_STEP, ROW_STAGGER } from '$lib/game/session.svelte';
+	import { RIPPLE_STEP } from '$lib/game/session.svelte';
 	import type { Session } from '$lib/game/session.svelte';
 	import type { Position } from '$lib/game/types';
 
@@ -54,7 +54,7 @@
 	const crashAmp = (row: number) => Math.max(0, session.crash * (1 - row * decay));
 
 	// A bigger clear hits harder and glows brighter.
-	let boost = $derived(session.locking > 1 ? Math.min(1.6, 1 + (session.locking - 1) * 0.2) : 1);
+	let boost = $derived(session.clearing > 1 ? Math.min(1.6, 1 + (session.clearing - 1) * 0.2) : 1);
 
 	/* ------------------------------------------------------------------------ */
 	/* Dragging                                                                  */
@@ -146,7 +146,7 @@
 				group={d.group}
 				colour={colourOf(d.group.id)}
 				missed={d.missed}
-				enterDelay={d.order * 90}
+				enterDelay={d.missed ? d.order * 90 : 0}
 			/>
 		</div>
 	{/each}
@@ -179,8 +179,7 @@
 				offset={drag?.moved && samePos(drag.from, cell)
 					? { x: drag.dx, y: drag.dy }
 					: { x: 0, y: 0 }}
-				locking={cell.row < session.locking}
-				delay={cell.row * ROW_STAGGER}
+				locking={session.lifting && cell.row === 0}
 				crash={crashAmp(cell.row)}
 				crashDelay={cell.row * RIPPLE_STEP}
 				impact={cell.row === 0}

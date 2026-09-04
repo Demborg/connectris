@@ -157,6 +157,13 @@ passes, the bar squashes as it forms, the category name drops in from above. Eac
 on exactly the colour the solved row uses, so the row consolidating into a single bar is a
 swap the eye doesn't catch.
 
+**One row's whole life, then the next.** A row lights, converts into its bar, and names its
+category before the row below it lights. The first build lifted every cleared row off first
+and then ran a second pass of labels rolling in, which is two waves for one thing the player
+did — and the labels arrived long after the moment they were the payoff for. Rows leave the
+board as they land, so the row currently lifting is always the top one and the board never
+changes height.
+
 **The press causes the wave.** Hitting check sends two light rails up the side of the board
 from button height, arriving at the top just as the clear starts rolling down. Without it
 the wave simply appeared at the top with no connection to the thing the player touched.

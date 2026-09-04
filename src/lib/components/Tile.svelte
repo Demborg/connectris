@@ -12,9 +12,8 @@
 		/** The tile a drag is hovering over, and would swap with. */
 		target: boolean;
 		offset: { x: number; y: number };
+		/** The row the wave is on right now — the whole row lights at once. */
 		locking: boolean;
-		/** Which row of the wave this is, in ms. Every tile in a row shares it. */
-		delay: number;
 		/** Strength of the wave hitting this row, 0 for none. Decays down the board. */
 		crash: number;
 		crashDelay: number;
@@ -38,7 +37,6 @@
 		target,
 		offset,
 		locking,
-		delay,
 		crash,
 		crashDelay,
 		impact,
@@ -65,7 +63,6 @@
 	style:--len={tile.word.length}
 	style:--dx="{offset.x}px"
 	style:--dy="{offset.y}px"
-	style:--delay="{delay}ms"
 	style:--crash-delay="{crashDelay}ms"
 	style:--amp={crash}
 	style:--colour={colour}
@@ -155,7 +152,7 @@
 	   Each tile ends on exactly the colour the solved row uses, so the row consolidating
 	   into a single bar is a swap the eye doesn't catch. */
 	.locking {
-		animation: settle 240ms var(--ease) var(--delay) both;
+		animation: settle 240ms var(--ease) both;
 	}
 
 	@keyframes settle {
