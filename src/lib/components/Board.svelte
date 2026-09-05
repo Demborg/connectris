@@ -13,6 +13,15 @@
 		COLOURS[session.puzzle.groups.findIndex((g) => g.id === group)] ?? 'var(--accent)';
 
 	/**
+	 * The top row, on the frames where it is lifting off. Both the animation and the colour
+	 * hang off this, and they have to stay the same condition: `--colour` is read only by
+	 * the `settle` keyframes in Tile.svelte, so a tile that is not locking has no use for
+	 * its category's colour — and handing it one anyway writes the whole answer key into
+	 * the DOM, where an inspector reads it off an uncleared board.
+	 */
+	const isLocking = (row: number) => session.lifting && row === 0;
+
+	/**
 	 * Rows the player is finished with: cleared first, then the ones revealed by a loss.
 	 * Once the run is lost the remaining tiles come off the board entirely — their words
 	 * are all listed in the revealed rows, and leaving both on screen doubled the board's
@@ -179,11 +188,11 @@
 				offset={drag?.moved && samePos(drag.from, cell)
 					? { x: drag.dx, y: drag.dy }
 					: { x: 0, y: 0 }}
-				locking={session.lifting && cell.row === 0}
+				locking={isLocking(cell.row)}
 				crash={crashAmp(cell.row)}
 				crashDelay={cell.row * RIPPLE_STEP}
 				impact={cell.row === 0}
-				colour={colourOf(cell.tile.group)}
+				colour={isLocking(cell.row) ? colourOf(cell.tile.group) : 'var(--accent)'}
 				disabled={session.over}
 				row={cell.row}
 				col={cell.col}
