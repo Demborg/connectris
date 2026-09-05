@@ -9,12 +9,12 @@ export const ROWS = 5;
  *
  * The floor is four: clearing a single row at a time takes 1+1+1+2 checks, because three
  * rows solved leaves two, and if the top of those two is right the other one is forced.
- * So six leaves two spare. Miss twice and you have exactly enough left to finish one row
- * at a time; miss a third time and you can still win, but only by clearing several rows
- * in one check. Pressure that escalates into the interesting strategy rather than into a
- * dead run.
+ * So four is the floor exactly, and there is nothing spare. A run that clears one row at a
+ * time has to be perfect; every miss has to be bought back by taking two rows in a single
+ * check later. That makes batching the way through rather than a way to save money, which
+ * is the strongest version of the ordering bet the game is built on.
  */
-export const CHECKS = 6;
+export const CHECKS = 4;
 
 /* -------------------------------------------------------------------------- */
 /* Deterministic dealing                                                       */

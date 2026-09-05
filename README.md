@@ -5,7 +5,7 @@ A word-grouping puzzle where **the order of your rows is part of the answer**.
 Twenty words, five rows of four. Every row is a category. Hit _Check_ and only the leading
 run of correct rows clears — a correct row sitting below a wrong one doesn't count. So you
 rank your rows by how sure you are, and bet. Clearing rows light up in a wave rolling down
-the board and lock in place. Every check spends one of six, so getting the order right —
+the board and lock in place. Every check spends one of four, so getting the order right —
 and clearing several rows at once — is what keeps them.
 
 **Play it:** https://demborg.se/connectris/
