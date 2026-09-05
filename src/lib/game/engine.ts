@@ -1,4 +1,4 @@
-import type { Answer, CheckResult, Position, Puzzle, Row, Tile } from './types';
+import type { Answer, Board, CheckResult, Position, Puzzle, Row, Tile } from './types';
 
 /** Words per row / row width. */
 export const COLS = 4;
@@ -86,6 +86,12 @@ export function deal(puzzle: Puzzle): Deal {
 		if (!rows.some((row) => isComplete(row, answer))) return { rows, answer };
 	}
 	throw new Error(`could not deal a non-trivial board for puzzle ${puzzle.id}`);
+}
+
+/** Deal a board for a player: the rows, and nothing that says how to grade them. */
+export function boardOf(puzzle: Puzzle): Board {
+	const { id, name, language } = puzzle;
+	return { puzzle: { id, name, language }, rows: deal(puzzle).rows };
 }
 
 /* -------------------------------------------------------------------------- */

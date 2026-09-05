@@ -5,13 +5,19 @@
 	import Budget from '$lib/components/Budget.svelte';
 	import Verdict from '$lib/components/Verdict.svelte';
 	import puzzles from '$lib/data/puzzles.json';
+	import { localChecker } from '$lib/game/checker';
+	import { boardOf } from '$lib/game/engine';
 	import { Session } from '$lib/game/session.svelte';
 	import type { Puzzle } from '$lib/game/types';
 
 	const all = puzzles as Puzzle[];
 
+	// Phase 0's grader: the whole puzzle is in the bundle, so it answers from here. The
+	// session cannot tell that apart from one answering over the wire, which is the point.
+	const sessionFor = (p: Puzzle) => new Session(boardOf(p), localChecker(p));
+
 	let index = $state(0);
-	let session = $state(new Session(all[0]));
+	let session = $state(sessionFor(all[0]));
 	let rulesOpen = $state(false);
 
 	// Nothing counts up on screen while you play. Time, moves and checks are all still
@@ -20,7 +26,7 @@
 
 	function load(i: number) {
 		index = ((i % all.length) + all.length) % all.length;
-		session = new Session(all[index]);
+		session = sessionFor(all[index]);
 		rulesOpen = false;
 	}
 </script>

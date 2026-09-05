@@ -15,6 +15,9 @@ export type Puzzle = {
 	groups: Group[];
 };
 
+/** A puzzle as a player may see it: which board this is, never what is on it. */
+export type PuzzleMeta = Pick<Puzzle, 'id' | 'name' | 'language'>;
+
 /** A word on the board. Ids are stable for the life of a game so keyed each blocks work. */
 export type Tile = {
 	id: number;
@@ -44,6 +47,35 @@ export type SolvedRow = {
 	order: number;
 };
 
+/** A dealt board with nothing attached that grades it. Safe to hand to a player. */
+export type Board = {
+	puzzle: PuzzleMeta;
+	rows: Row[];
+};
+
+/**
+ * What a graded check tells the player: how many rows are right, which ones cleared, and
+ * — only once the run is over — what was never found. Pin 4: it never says *where*.
+ */
+export type CheckOutcome = {
+	/** Leading run of correct rows from the top: the rows that actually cleared. */
+	locked: number;
+	/** How many rows were correct anywhere. Never says which. */
+	correctCount: number;
+	/** The categories that cleared, top-first. The only answers a run gives up early. */
+	cleared: Group[];
+	/** Categories never found. Empty until the run is over, so a miss reveals nothing. */
+	missed: Group[];
+};
+
+/**
+ * Grades an arrangement. The seam the answer key sits behind: a session knows how to ask
+ * and nothing about who answers, so the same game plays against a local key or a remote
+ * one without noticing the difference.
+ */
+export type Checker = (rows: Row[], checksUsed: number) => Promise<CheckOutcome>;
+
+/** The engine's own grading result, over rows it can see the key for. */
 export type CheckResult = {
 	/** Per-row, top-first, over the rows that were still in play. */
 	correct: boolean[];

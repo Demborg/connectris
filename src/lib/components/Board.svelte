@@ -8,9 +8,14 @@
 
 	let { session }: { session: Session } = $props();
 
+	/**
+	 * Colour is per finished row, and a row's colour is its place in the order they were
+	 * finished in — not its place in the answer key, which the board no longer has. The
+	 * palette is arbitrary either way; what it has to do is tell five rows apart and keep
+	 * a row on one colour from the frame it lifts to the bar it becomes.
+	 */
 	const COLOURS = ['var(--g1)', 'var(--g2)', 'var(--g3)', 'var(--g4)', 'var(--g5)'];
-	const colourOf = (group: string) =>
-		COLOURS[session.puzzle.groups.findIndex((g) => g.id === group)] ?? 'var(--accent)';
+	const colourOf = (rank: number) => COLOURS[rank % COLOURS.length];
 
 	/**
 	 * The top row, on the frames where it is lifting off. Both the animation and the colour
@@ -23,8 +28,10 @@
 	 * longer knows which group it belongs to. Only a row that has been graded does.
 	 */
 	const isLocking = (row: number) => session.lifting && row === 0;
+	// The lifting row lands on the colour of the bar it is about to become, which is the
+	// next place in `done`.
 	const lockingColour = (row: number) =>
-		isLocking(row) && session.liftingGroup ? colourOf(session.liftingGroup.id) : 'var(--accent)';
+		isLocking(row) ? colourOf(session.solved.length) : 'var(--accent)';
 
 	/**
 	 * Rows the player is finished with: cleared first, then the ones revealed by a loss.
@@ -158,7 +165,7 @@
 		<div class="band" style:grid-row={i + 1}>
 			<SolvedRow
 				group={d.group}
-				colour={colourOf(d.group.id)}
+				colour={colourOf(i)}
 				missed={d.missed}
 				enterDelay={d.missed ? d.order * 90 : 0}
 			/>
