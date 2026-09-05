@@ -14,10 +14,13 @@ from __future__ import annotations
 
 import random
 
+from connectris_pipeline.categories import DEVICES, Category, Slot
 from connectris_pipeline.config import Config, ModelSpec
 from connectris_pipeline.llm import Call, Ledger
 from connectris_pipeline.schema import (
     Grade,
+    InventedCategories,
+    InventedCategory,
     ProposedGroup,
     ProposedPuzzle,
     RedTeamReport,
@@ -84,6 +87,13 @@ class ScriptedLLM:
             return self._propose()
         if schema is SolveAttempt:
             return self._solve(prompt)
+        if schema is InventedCategories:
+            return InventedCategories(
+                categories=[
+                    InventedCategory(label=f"Invented {i}", reads_as="reads wider")
+                    for i in range(3)
+                ]
+            )
         if schema is RedTeamReport:
             return self._red
         if schema is Grade:
@@ -122,3 +132,33 @@ class ScriptedLLM:
             for i in range(0, len(loose), 4)
         ]
         return SolveAttempt(groups=found)
+
+
+class MemoryCategorySource:
+    """An in-memory adapter for the `CategorySource` port.
+
+    Its existence is the point: a port with one adapter is a class wearing a hat. This is
+    the second, and it keeps the tests off the filesystem.
+    """
+
+    def __init__(self, labels: list[str] | None = None) -> None:
+        self.categories = [Category(label=x) for x in (labels or [])]
+
+    def known(self) -> list[Category]:
+        return list(self.categories)
+
+    def bank(self, categories: list[Category]) -> int:
+        seen = {c.key for c in self.categories}
+        fresh = [c for c in categories if c.key and c.key not in seen and not seen.add(c.key)]
+        self.categories += fresh
+        return len(fresh)
+
+    def allocate(self, count: int, *, rng) -> list[Slot]:
+        devices = list(DEVICES)
+        rng.shuffle(devices)
+        themes = [c.label for c in self.categories]
+        rng.shuffle(themes)
+        return [
+            Slot(device=devices[i % len(devices)], theme=themes[i] if i < len(themes) else "")
+            for i in range(count)
+        ]

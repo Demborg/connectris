@@ -32,7 +32,8 @@ class Candidate:
     puzzle: Puzzle
     #: group id -> the decoy the proposer says it planted. Shown to the red team and grader.
     traps: dict[str, str] = field(default_factory=dict)
-    seed: dict[str, str] = field(default_factory=dict)
+    #: The device and theme this board was allocated before it was written.
+    slot: dict[str, str] = field(default_factory=dict)
     problems: list[Problem] = field(default_factory=list)
     attempts: list[Attempt] = field(default_factory=list)
     stats: SolveStats | None = None
@@ -49,7 +50,7 @@ class Candidate:
     def to_json(self) -> dict:
         return {
             "id": self.id,
-            "seed": self.seed,
+            "slot": self.slot,
             "puzzle": self.puzzle.to_game_json(),
             "traps": self.traps,
             "problems": [asdict(p) for p in self.problems],
@@ -75,7 +76,7 @@ class Candidate:
             id=raw["id"],
             puzzle=puzzle,
             traps=raw.get("traps", {}),
-            seed=raw.get("seed", {}),
+            slot=raw.get("slot", {}),
             problems=[Problem(**x) for x in raw.get("problems", [])],
             attempts=[Attempt(**a) for a in raw.get("attempts", [])],
             stats=stats,

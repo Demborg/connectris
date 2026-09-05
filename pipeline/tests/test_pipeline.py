@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 
 import pytest
-from conftest import BOARDS, CONFIG, ScriptedLLM
+from conftest import BOARDS, CONFIG, MemoryCategorySource, ScriptedLLM
 
 from connectris_pipeline import pipeline
 from connectris_pipeline.config import Config, Thresholds
@@ -39,6 +39,7 @@ async def run(
         seed=7,
         corpus=Corpus() if corpus is None else corpus,
         examples=[],
+        source=MemoryCategorySource(["Stone fruit", "Chess tactics", "Bed linen"]),
         **kwargs,
     )
 

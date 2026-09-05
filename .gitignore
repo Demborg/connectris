@@ -11,6 +11,7 @@ node_modules
 # Pipeline (pipeline/README.md)
 pipeline/runs/
 pipeline/config.toml
+pipeline/categories.json
 .venv
 __pycache__/
 .pytest_cache/

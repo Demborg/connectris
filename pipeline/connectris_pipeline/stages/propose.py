@@ -2,17 +2,19 @@
 
 One puzzle per call, not a batch of ten. A single call asked for ten boards spends its
 attention on the first two and then reuses their vocabulary; independent calls also mean
-an independent retry, cheap parallelism, and a per-candidate diversity seed. The cost of
-twenty calls a night rounds to nothing (DESIGN.md, phase 2).
+an independent retry and cheap parallelism. The cost of twenty calls a night rounds to
+nothing (DESIGN.md, phase 2).
+
+Two of the five categories arrive already decided, allocated from the pool before any
+board was written (see `categories.py`). The other three are the proposer's, because
+choosing categories whose *words* collide is the part of board design a pool cannot do.
 """
 
 from __future__ import annotations
 
-import random
-
+from ..categories import Slot
 from ..config import Config
 from ..llm import LLM
-from ..prompts import draw_seed
 from ..prompts import propose as propose_prompt
 from ..record import Candidate
 from ..schema import ProposedPuzzle
@@ -46,13 +48,12 @@ async def propose(
     cfg: Config,
     *,
     candidate_id: str,
-    rng: random.Random,
+    slot: Slot,
     examples: list[Puzzle],
     corpus: Corpus,
 ) -> Candidate:
-    seed = draw_seed(rng)
     system, prompt = propose_prompt(
-        seed=seed,
+        slot=slot,
         examples=examples,
         avoid_words=sorted(corpus.words),
         avoid_labels=sorted(corpus.labels),
@@ -61,4 +62,9 @@ async def propose(
         stage="propose", model=cfg.proposer, system=system, prompt=prompt, schema=ProposedPuzzle
     )
     puzzle, traps = to_puzzle(out, candidate_id)
-    return Candidate(id=candidate_id, puzzle=puzzle, traps=traps, seed=seed)
+    return Candidate(
+        id=candidate_id,
+        puzzle=puzzle,
+        traps=traps,
+        slot={"device": slot.device, "theme": slot.theme},
+    )

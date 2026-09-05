@@ -20,13 +20,14 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+from .categories import DEFAULT_POOL, CategorySource, JsonCategorySource
 from .config import Config
 from .corpus import load as load_corpus
 from .llm import LLM, Ledger
 from .record import Candidate, decide
 from .scoring import score
 from .spec import Corpus, Puzzle, is_fatal, validate
-from .stages import grade, propose, red_team, solve
+from .stages import grade, invent, propose, red_team, solve
 
 log = logging.getLogger(__name__)
 
@@ -94,11 +95,14 @@ async def run(
     out_dir: Path | None = None,
     corpus: Corpus | None = None,
     examples: list[Puzzle] | None = None,
+    source: CategorySource | None = None,
 ) -> Run:
     if corpus is None:
         corpus = load_corpus()[1]
     if examples is None:
         examples = load_corpus()[0][:2]
+    if source is None:
+        source = JsonCategorySource(DEFAULT_POOL)
 
     stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     directory = None if out_dir is None else (out_dir / stamp)
@@ -108,7 +112,17 @@ async def run(
     # makes each candidate's seed depend on scheduling order, so a "reproducible" run
     # would only be reproducible while the semaphore happened not to suspend.
     rng = random.Random(seed)
-    seeds = [rng.randrange(1 << 30) for _ in range(count)]
+
+    # Stage zero: top the pool up if it cannot cover the batch, then allocate. Novelty is
+    # settled here, before a single board is written, rather than by discarding boards the
+    # proposer has already thought hard about.
+    if len(source.known()) < count:
+        try:
+            banked = await invent(llm, cfg, source, count=cfg.invent_batch)
+            log.info("banked %d new categories", banked)
+        except Exception:
+            log.exception("category invention failed; allocating from what the pool has")
+    slots = source.allocate(count, rng=rng)
 
     # Pass one: propose, folding each board into the corpus as it lands so later prompts
     # avoid earlier boards. No lock: the blocks that touch `corpus` contain no await, and
@@ -127,7 +141,7 @@ async def run(
                     llm,
                     cfg,
                     candidate_id=cid,
-                    rng=random.Random(seeds[index]),
+                    slot=slots[index],
                     examples=examples,
                     corpus=Corpus(set(corpus.words), set(corpus.labels)),
                 )

@@ -11,8 +11,7 @@ players we are calibrating against.
 
 from __future__ import annotations
 
-import random
-
+from .categories import Slot
 from .schema import RedTeamReport
 from .spec import COLS, MAX_WORD_LEN, ROWS, Puzzle
 
@@ -62,55 +61,6 @@ the last thing anyone sees.
 - No proper nouns that need specific regional or generational knowledge.
 """
 
-#: Rotated through so a night's batch does not come back as five puzzles about cooking.
-DOMAINS = [
-    "kitchen and cooking",
-    "geology and weather",
-    "sailing and the sea",
-    "music theory",
-    "cards and gambling",
-    "the body",
-    "printing and typography",
-    "gardening",
-    "cinema and theatre",
-    "birds and animals",
-    "tools and hardware",
-    "clothing",
-    "money and finance",
-    "mathematics",
-    "chess and board games",
-    "trains and roads",
-    "medicine",
-    "law and courtrooms",
-    "cosmetics",
-    "sleep and dreams",
-    "insects",
-    "textiles and sewing",
-    "astronomy",
-    "coffee and tea",
-    "castles and armour",
-    "photography",
-    "plumbing",
-    "the circus",
-]
-
-#: At least one category per puzzle must be built with the drawn device.
-DEVICES = [
-    "a ___ WORD compound, where all four words take the same following word",
-    "a WORD ___ compound, where all four words take the same preceding word",
-    "four words that each contain a smaller hidden word of the same kind",
-    "four words that are homophones of something else entirely",
-    "four members of an ordered set (ranks, sizes, stages)",
-    "four words that all mean roughly the same thing",
-    "four words that are all a specific kind of noun with an everyday second meaning",
-]
-
-
-def draw_seed(rng: random.Random) -> dict[str, str]:
-    """A per-candidate seed. Diversity comes from the input, not from asking for variety."""
-    domains = rng.sample(DOMAINS, 2)
-    return {"domains": ", ".join(domains), "device": rng.choice(DEVICES)}
-
 
 def _puzzle_as_example(p: Puzzle) -> str:
     rows = "\n".join(f"  {g.label}: {', '.join(g.words)}" for g in p.groups)
@@ -118,7 +68,7 @@ def _puzzle_as_example(p: Puzzle) -> str:
 
 
 def propose(
-    *, seed: dict[str, str], examples: list[Puzzle], avoid_words: list[str], avoid_labels: list[str]
+    *, slot: Slot, examples: list[Puzzle], avoid_words: list[str], avoid_labels: list[str]
 ) -> tuple[str, str]:
     shown = "\n\n".join(_puzzle_as_example(p) for p in examples)
     words = ", ".join(sorted(avoid_words)[:200]) or "(nothing yet)"
@@ -137,8 +87,11 @@ Hand-written boards that set the standard:
 
 Write one new board.
 
-Draw at least two categories from: {seed["domains"]}.
-Build at least one category as {seed["device"]}.
+Two of your five categories are assigned. Build the other three yourself, and choose them
+so their words collide with these two.
+
+  Assigned device: {slot.device}
+  Assigned theme: {slot.theme or "(none — the pool was empty, so choose all five)"}
 
 Already shipped, so do not reuse — words: {words}
 Already shipped, so do not repeat the idea — categories: {labels}
@@ -284,3 +237,32 @@ def _red_summary(red: RedTeamReport | None) -> str:
         groups = "; ".join(f"{g.category}: {', '.join(g.words)}" for g in alt.groups)
         lines.append(f"- ALTERNATIVE PARTITION — {alt.why}\n  {groups}")
     return "\n".join(lines) or "- nothing found"
+
+
+def invent(*, count: int, known: list[str]) -> tuple[str, str]:
+    """Stage 0. Cheap, bulk, and run before any board exists.
+
+    Asking for forty categories in one call is fine where asking for ten boards is not: a
+    board is a design with five interacting parts and degrades when batched, a category is
+    a one-line idea.
+    """
+    system = (
+        "You invent categories for a word puzzle. Not boards — just categories, one line "
+        "each, to be drawn on later.\n\n" + GAME_BRIEF + "\n"
+        "The best category reads wider than it is. 'Stone fruit' looks like 'fruit' and "
+        "tempts APPLE, but an apple is a pome, so the temptation resolves the moment the "
+        "label is read precisely. 'Circus performers' looks like 'circus things' and "
+        "excludes TRAPEZE. That narrowing is what you are being asked for.\n"
+        "Avoid categories that need regional or generational knowledge, and avoid ones "
+        "whose members are longer than 12 characters."
+    )
+    have = ", ".join(sorted(known)[:300]) or "(the pool is empty)"
+    prompt = f"""\
+Invent {count} categories.
+
+For each, give the label as a player would read it, and the wider reading it will be
+mistaken for along with the word that mistake pulls in.
+
+Already in the pool, so do not repeat the idea: {have}
+"""
+    return system, prompt

@@ -15,6 +15,24 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
+class InventedCategory(BaseModel):
+    """A category for the pool, judged before any board is built from it."""
+
+    label: str = Field(
+        description="The category as a player would read it once the row clears. Short. "
+        "Prefer one that narrows: 'Stone fruit' rather than 'Fruit'."
+    )
+    reads_as: str = Field(
+        description="The wider category a player will mistake this for, and the word that "
+        "mistake would pull in. 'Reads as fruit, so it pulls APPLE.' This is the trap, and "
+        "it belongs to the category rather than to any word."
+    )
+
+
+class InventedCategories(BaseModel):
+    categories: list[InventedCategory] = Field(description="Distinct from each other.")
+
+
 class ProposedGroup(BaseModel):
     label: str = Field(
         description="The category, as the player sees it once the row clears. Short. "

@@ -169,3 +169,11 @@ def test_a_mistyped_config_key_is_refused_rather_than_ignored(tmp_path) -> None:
     typo.write_text("concurency = 99\n")
     with pytest.raises(ValueError, match="concurency"):
         config_module.load(typo)
+
+
+def test_a_top_level_key_written_below_a_table_is_diagnosed(tmp_path) -> None:
+    """TOML's easiest mistake: the scalar lands inside the table above it."""
+    misplaced = tmp_path / "misplaced.toml"
+    misplaced.write_text('[grader]\nname = "x"\nattempts = 3\n')
+    with pytest.raises(ValueError, match="must appear above"):
+        config_module.load(misplaced)

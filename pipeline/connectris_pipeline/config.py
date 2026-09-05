@@ -96,6 +96,9 @@ class Config:
     #: added because a run showed the single solver missing something.
     solver: ModelSpec = ModelSpec("gemini-3.1-flash-lite", thinking_level="low")
     attempts: int = 3
+    #: How many categories to invent when the pool cannot cover a batch. Bulk is fine
+    #: here — a category is a one-line idea, unlike a board.
+    invent_batch: int = 40
     #: The critical stage. Strong model, and not the same call as solving.
     red_team: ModelSpec = ModelSpec("gemini-3.8-flash", thinking_level="high")
     grader: ModelSpec = ModelSpec("gemini-3.8-flash", thinking_level="high")
@@ -126,10 +129,24 @@ def load(path: Path | None) -> Config:
         raise ValueError(f"{path}: unknown config keys: {', '.join(sorted(unknown))}")
 
     def model(key: str, current: ModelSpec) -> ModelSpec:
-        return replace(current, **raw[key]) if key in raw else current
+        if key not in raw:
+            return current
+        # A top-level scalar written after a table lands *inside* that table, which is
+        # the easiest TOML mistake there is. Say so, rather than raising a TypeError from
+        # inside dataclasses.replace.
+        if unknown := raw[key].keys() - {f.name for f in fields(ModelSpec)}:
+            raise ValueError(
+                f"{path}: [{key}] has no key {', '.join(sorted(unknown))} — "
+                "top-level settings must appear above the first [table]"
+            )
+        return replace(current, **raw[key])
 
     thresholds = Thresholds(**raw["thresholds"]) if "thresholds" in raw else cfg.thresholds
-    top = {k: v for k, v in raw.items() if k in {"attempts", "concurrency", "max_retries"}}
+    top = {
+        k: v
+        for k, v in raw.items()
+        if k in {"attempts", "invent_batch", "concurrency", "max_retries"}
+    }
 
     return replace(
         cfg,
