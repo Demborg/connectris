@@ -34,7 +34,7 @@ your own confidence ranking every time you check.
 It also makes the tetris framing literal — cleared rows light up and lock off the top of the
 well.
 
-**3. Every check costs one of six. Clearing several rows in one go is how you keep them.**
+**3. Every check costs one of four. Clearing several rows in one go is how you keep them.**
 _Supersedes the original rule, which charged only for a check that cleared nothing._
 
 The old rule read well — "progress is free" — but it priced the game wrongly. Mis-ordering
@@ -44,9 +44,11 @@ getting it wrong. And the DOUBLE/TRIPLE callouts were celebrating something the 
 not reward. Charging for every check fixes both at once: the order you put your rows in now
 decides how many checks the board costs you, and batching is worth real money.
 
-Six is chosen from the floor. See `CHECKS` in `engine.ts` for the arithmetic: clearing one
-row at a time takes four checks, so six leaves two spare, and the pressure escalates into
-the interesting strategy rather than into a dead run.
+Four _is_ the floor. See `CHECKS` in `engine.ts` for the arithmetic: clearing one row at a
+time takes exactly four checks, so a one-row-at-a-time run has to be perfect and every miss
+has to be bought back by taking two rows in one check. Six left two spare and made batching
+merely worth money; four makes it the way through. The budget was always the number most
+likely to move — this is it moving, and it can move back.
 
 DN's _Dagens fyra_ has no fail state at all — it just counts misses upward — and that is
 the main thing it does worse than Connections. Keeping a real one is deliberate.
@@ -228,9 +230,10 @@ it costs nothing, and it is what keeps the board reachable from a keyboard.
   money, so players will want to reorder more often than they did. If it bites, the
   drag-native fix is a long-press on a row to pick the whole row up — a gesture rather than
   a returning column of numbers.
-- **Size of the check budget.** Six is reasoned from the four-check floor, not measured. It
-  is the single number most likely to need tuning, and it sets how hard the game leans on
-  batching: tighter makes multi-row clears essential, looser makes them optional.
+- **Size of the check budget.** Now four, tightened from six, and still reasoned rather than
+  measured. Six left two checks spare; four leaves none, which is the "tighter makes multi-row
+  clears essential" end of the dial this note always pointed at. Whether that is tense or
+  merely punishing is the first thing real play should answer.
 - **Is the count feedback too generous?** It's the most reversible of the pinned rules.
 - **Grid size.** 4×5 is hardcoded in `engine.ts` as `COLS`/`ROWS`. A 5×5 hard mode is not a
   v1 question but shouldn't be designed out.

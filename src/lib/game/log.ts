@@ -36,10 +36,12 @@ export type Run = {
 /** Personal best per puzzle — the local stand-in for the leaderboard. */
 export type Best = Pick<Run, 'timeMs' | 'checksLeft' | 'moves' | 'checks'>;
 
-// v2: every check now spends from a budget, so runs record checksLeft rather than lives.
-// Old records would read as undefined and quietly poison the best-run comparison.
-const RUNS_KEY = 'connectris:runs:v2';
-const BEST_KEY = 'connectris:best:v2';
+// v3: the budget tightened from six checks to four, so the most a win can now leave in hand
+// is three. A v2 best holding four or five is unreachable and would sit on the end card as a
+// target nobody can beat. Same reason v2 replaced v1, where runs recorded lives rather than
+// checksLeft: a budget change invalidates the comparison, so it invalidates the key.
+const RUNS_KEY = 'connectris:runs:v3';
+const BEST_KEY = 'connectris:best:v3';
 const MAX_RUNS = 50;
 
 function read<T>(key: string, fallback: T): T {
