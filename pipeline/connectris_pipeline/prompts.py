@@ -33,7 +33,8 @@ Hard constraints — a puzzle breaking any of these is thrown away unread:
 - Exactly {ROWS} categories of exactly {COLS} words. {ROWS * COLS} distinct words, no repeats.
 - Every word at most {MAX_WORD_LEN} characters. The board is four columns on a phone. \
 Shorter is better; most words should be under 8.
-- Plain uppercase English. No punctuation, no digits, no phrases.
+- Plain uppercase English. No punctuation, no digits. Two words are fine if the
+entry really is two words and it fits the tile.
 - No word may appear inside another category's label.
 
 What makes one good — and this is the distinction the whole thing turns on:

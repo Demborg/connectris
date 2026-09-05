@@ -4,8 +4,16 @@
 		"name": "Warm-up",
 		"language": "en",
 		"groups": [
-			{ "id": "planets", "label": "Planets", "words": ["MARS", "VENUS", "SATURN", "NEPTUNE"] },
-			{ "id": "fruit", "label": "Fruit", "words": ["APPLE", "MANGO", "PEACH", "PLUM"] },
+			{
+				"id": "planets",
+				"label": "Planets",
+				"words": ["MARS", "VENUS", "SATURN", "NEPTUNE"]
+			},
+			{
+				"id": "fruit",
+				"label": "Fruit",
+				"words": ["APPLE", "MANGO", "PEACH", "PLUM"]
+			},
 			{
 				"id": "suits",
 				"label": "Card suits",
@@ -16,7 +24,11 @@
 				"label": "Tech companies",
 				"words": ["ORACLE", "AMAZON", "META", "ADOBE"]
 			},
-			{ "id": "colours", "label": "Colours", "words": ["SCARLET", "AMBER", "OLIVE", "JADE"] }
+			{
+				"id": "colours",
+				"label": "Colours",
+				"words": ["SCARLET", "AMBER", "OLIVE", "JADE"]
+			}
 		]
 	},
 	{
@@ -24,8 +36,16 @@
 		"name": "All in",
 		"language": "en",
 		"groups": [
-			{ "id": "board", "label": "___ BOARD", "words": ["CHESS", "SURF", "DASH", "SCORE"] },
-			{ "id": "poker", "label": "Poker terms", "words": ["FLOP", "RIVER", "BLIND", "ANTE"] },
+			{
+				"id": "board",
+				"label": "___ BOARD",
+				"words": ["CHESS", "SURF", "DASH", "SCORE"]
+			},
+			{
+				"id": "poker",
+				"label": "Poker terms",
+				"words": ["FLOP", "RIVER", "BLIND", "ANTE"]
+			},
 			{
 				"id": "rivers",
 				"label": "Major rivers",
@@ -36,7 +56,11 @@
 				"label": "Things you do to a phone",
 				"words": ["CALL", "TEXT", "DIAL", "RING"]
 			},
-			{ "id": "way", "label": "___ WAY", "words": ["HALL", "DRIVE", "SUB", "HIGH"] }
+			{
+				"id": "way",
+				"label": "___ WAY",
+				"words": ["HALL", "DRIVE", "SUB", "HIGH"]
+			}
 		]
 	},
 	{
@@ -49,10 +73,26 @@
 				"label": "Espresso drinks",
 				"words": ["LATTE", "MOCHA", "CORTADO", "AMERICANO"]
 			},
-			{ "id": "chess", "label": "Chess pieces", "words": ["KING", "BISHOP", "ROOK", "PAWN"] },
-			{ "id": "bees", "label": "Beehive words", "words": ["QUEEN", "DRONE", "HIVE", "COMB"] },
-			{ "id": "birds", "label": "Birds", "words": ["CRANE", "SWIFT", "KITE", "RAVEN"] },
-			{ "id": "black", "label": "BLACK ___", "words": ["BOARD", "BIRD", "SMITH", "MAIL"] }
+			{
+				"id": "chess",
+				"label": "Chess pieces",
+				"words": ["KING", "BISHOP", "ROOK", "PAWN"]
+			},
+			{
+				"id": "bees",
+				"label": "Beehive words",
+				"words": ["QUEEN", "DRONE", "HIVE", "COMB"]
+			},
+			{
+				"id": "birds",
+				"label": "Birds",
+				"words": ["CRANE", "SWIFT", "KITE", "RAVEN"]
+			},
+			{
+				"id": "black",
+				"label": "BLACK ___",
+				"words": ["BOARD", "BIRD", "SMITH", "MAIL"]
+			}
 		]
 	},
 	{
@@ -60,13 +100,21 @@
 		"name": "Last dance",
 		"language": "en",
 		"groups": [
-			{ "id": "light", "label": "___ LIGHT", "words": ["FLASH", "SPOT", "MOON", "DAY"] },
+			{
+				"id": "light",
+				"label": "___ LIGHT",
+				"words": ["FLASH", "SPOT", "MOON", "DAY"]
+			},
 			{
 				"id": "dances",
 				"label": "Ballroom dances",
 				"words": ["TANGO", "WALTZ", "RUMBA", "MAMBO"]
 			},
-			{ "id": "dips", "label": "Dips", "words": ["SALSA", "HUMMUS", "QUESO", "RANCH"] },
+			{
+				"id": "dips",
+				"label": "Dips",
+				"words": ["SALSA", "HUMMUS", "QUESO", "RANCH"]
+			},
 			{
 				"id": "nato",
 				"label": "NATO alphabet",
@@ -76,6 +124,166 @@
 				"id": "playground",
 				"label": "Playground",
 				"words": ["SWING", "SLIDE", "SEESAW", "SANDBOX"]
+			}
+		]
+	},
+	{
+		"id": "gen-20260905-054612-01",
+		"name": "Strings Attached",
+		"language": "en",
+		"groups": [
+			{
+				"id": "bowed-string-instruments",
+				"label": "Bowed string instruments",
+				"words": ["VIOLIN", "CELLO", "VIOLA", "FIDDLE"]
+			},
+			{
+				"id": "words-hiding-a-tree",
+				"label": "Words hiding a tree",
+				"words": ["CLOAK", "HELMET", "SPINE", "STEAK"]
+			},
+			{
+				"id": "types-of-seal",
+				"label": "Types of seal",
+				"words": ["HARP", "ELEPHANT", "MONK", "FUR"]
+			},
+			{
+				"id": "royal-headwear",
+				"label": "Royal headwear",
+				"words": ["CROWN", "TIARA", "DIADEM", "CORONET"]
+			},
+			{
+				"id": "barbecue-equipment",
+				"label": "Barbecue equipment",
+				"words": ["GRILL", "TONGS", "APRON", "COALS"]
+			}
+		]
+	},
+	{
+		"id": "gen-20260905-054612-03",
+		"name": "Second Look",
+		"language": "en",
+		"groups": [
+			{
+				"id": "days-named-after-norse-deities",
+				"label": "Days named after Norse deities",
+				"words": ["TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"]
+			},
+			{
+				"id": "driver",
+				"label": "___ DRIVER",
+				"words": ["SCREW", "PILE", "SUNDAY", "BACKSEAT"]
+			},
+			{
+				"id": "woodwinds-with-reeds",
+				"label": "Woodwinds with reeds",
+				"words": ["CLARINET", "OBOE", "BASSOON", "SAXOPHONE"]
+			},
+			{
+				"id": "styles-of-drinking-glasses",
+				"label": "Styles of drinking glasses",
+				"words": ["TUMBLER", "GOBLET", "SNIFTER", "FLUTE"]
+			},
+			{
+				"id": "exterior-car-parts",
+				"label": "Exterior car parts",
+				"words": ["BUMPER", "FENDER", "GRILLE", "HOOD"]
+			}
+		]
+	},
+	{
+		"id": "gen-20260905-054612-04",
+		"name": "FITTING NAMES",
+		"language": "en",
+		"groups": [
+			{
+				"id": "orchestral-brass-instruments",
+				"label": "Orchestral brass instruments",
+				"words": ["HORN", "TROMBONE", "TRUMPET", "TUBA"]
+			},
+			{
+				"id": "words-derived-from-people-s-names",
+				"label": "Words derived from people's names",
+				"words": ["BOYCOTT", "CARDIGAN", "DIESEL", "SAXOPHONE"]
+			},
+			{
+				"id": "words-meaning-to-officially-forbid",
+				"label": "Words meaning to officially forbid",
+				"words": ["BAN", "OUTLAW", "PROHIBIT", "VETO"]
+			},
+			{
+				"id": "cuts-of-jeans",
+				"label": "Cuts of jeans",
+				"words": ["BOOTCUT", "FLARE", "SKINNY", "STRAIGHT"]
+			},
+			{
+				"id": "sleeveless-tops",
+				"label": "Sleeveless tops",
+				"words": ["HALTER", "TANK", "TUBE", "VEST"]
+			}
+		]
+	},
+	{
+		"id": "gen-20260905-054612-06",
+		"name": "Moving Parts",
+		"language": "en",
+		"groups": [
+			{
+				"id": "internal-engine-components",
+				"label": "Internal engine components",
+				"words": ["CAMSHAFT", "CRANKSHAFT", "PISTON", "VALVE"]
+			},
+			{
+				"id": "musical-instruments",
+				"label": "Musical instruments",
+				"words": ["DRUM", "HORN", "ORGAN", "TRIANGLE"]
+			},
+			{
+				"id": "quadrilaterals",
+				"label": "Quadrilaterals",
+				"words": ["RECTANGLE", "RHOMBUS", "SQUARE", "TRAPEZOID"]
+			},
+			{
+				"id": "water",
+				"label": "___ WATER",
+				"words": ["HOLY", "SALT", "SPRING", "TAP"]
+			},
+			{
+				"id": "clergy-titles",
+				"label": "Clergy titles",
+				"words": ["DEACON", "PASTOR", "POPE", "PRIEST"]
+			}
+		]
+	},
+	{
+		"id": "gen-20260905-054612-07",
+		"name": "Natural Order",
+		"language": "en",
+		"groups": [
+			{
+				"id": "living-amphibians",
+				"label": "Living amphibians",
+				"words": ["FROG", "NEWT", "SALAMANDER", "TOAD"]
+			},
+			{
+				"id": "hound-dog-breeds",
+				"label": "Hound dog breeds",
+				"words": ["BASSET", "BEAGLE", "BLOODHOUND", "GREYHOUND"]
+			},
+			{
+				"id": "undergraduate-class-years",
+				"label": "Undergraduate class years",
+				"words": ["FRESHMAN", "JUNIOR", "SENIOR", "SOPHOMORE"]
+			},
+			{
+				"id": "adjectives-meaning-principal",
+				"label": "Adjectives meaning 'principal'",
+				"words": ["CHIEF", "MAIN", "MAJOR", "PRIME"]
+			},
+			{
+				"id": "clip",
+				"label": "___ CLIP",
+				"words": ["ALLIGATOR", "BINDER", "BULLDOG", "PAPER"]
 			}
 		]
 	}
