@@ -2,11 +2,10 @@ import { join } from 'node:path';
 import puzzles from '$lib/data/puzzles.json';
 import type { Puzzle } from '$lib/game/types';
 import { cachePuzzles } from './cache';
-import { systemClock } from './day';
 import { connect, firestoreFeedback, firestorePuzzles, firestoreRuns } from './firestore';
 import { jsonFeedback, jsonRuns } from './json';
 import { memoryPuzzles } from './memory';
-import type { Day, PuzzleStore, Stores } from './ports';
+import type { Stores } from './ports';
 
 /**
  * The one place that decides which adapter answers a port.
@@ -31,33 +30,13 @@ export const DATA_DIR = process.env.CONNECTRIS_DATA_DIR ?? '.data';
  */
 const project = process.env.GOOGLE_CLOUD_PROJECT ?? '';
 
-const clock = systemClock;
-const boards = puzzles as Puzzle[];
-
-/** The bundled boards, rescheduled when the day turns over rather than at boot. */
-const bundled: PuzzleStore = (() => {
-	let held: { day: Day; store: PuzzleStore } | undefined;
-
-	const forToday = () => {
-		const day = clock.today();
-		if (held?.day !== day) held = { day, store: memoryPuzzles(boards, day) };
-		return held.store;
-	};
-
-	return {
-		scheduledFor: (day) => forToday().scheduledFor(day),
-		published: (day, limit) => forToday().published(day, limit),
-		byId: (id) => forToday().byId(id)
-	};
-})();
-
 let built: Stores | undefined;
 
 function build(): Stores {
 	if (!project) {
 		return {
-			clock,
-			puzzles: bundled,
+			// The boards compiled into the bundle, in the order they are written down.
+			puzzles: memoryPuzzles(puzzles as Puzzle[]),
 			runs: jsonRuns(join(DATA_DIR, 'runs')),
 			feedback: jsonFeedback(join(DATA_DIR, 'feedback'))
 		};
@@ -65,7 +44,6 @@ function build(): Stores {
 
 	const db = connect({ projectId: project });
 	return {
-		clock,
 		puzzles: cachePuzzles(firestorePuzzles(db)),
 		runs: firestoreRuns(db),
 		feedback: firestoreFeedback(db)

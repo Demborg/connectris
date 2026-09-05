@@ -6,20 +6,19 @@ import { BACKLOG, stores } from './stores';
  * What both game routes need: a dealt board with nothing attached that grades it, and the
  * list of boards reachable from it.
  *
- * One query answers both questions. The newest published board is today's when there is
- * one, and the same list is the only thing the picker may reach into — a board scheduled
- * for tomorrow is in neither, whoever wrote it there.
+ * One query answers both questions, and the same list is the only thing the picker may
+ * reach into — so whatever the pipeline is still arguing with itself about cannot be
+ * navigated to, because it is not in here.
  */
 export async function gameData(wanted?: string) {
-	const { puzzles, clock } = stores();
-	const published = await puzzles.published(clock.today(), BACKLOG);
+	const live = await stores().puzzles.live(BACKLOG);
 
-	const puzzle = wanted ? published.find((p) => p.id === wanted) : published[0];
+	const puzzle = wanted ? live.find((p) => p.id === wanted) : live[0];
 	if (wanted && !puzzle) error(404, 'No such puzzle');
-	if (!puzzle) error(503, 'No puzzle has been published yet');
+	if (!puzzle) error(503, 'No puzzles yet');
 
 	return {
 		board: boardOf(puzzle),
-		backlog: published.map(({ id, name }) => ({ id, name }))
+		backlog: live.map(({ id, name }) => ({ id, name }))
 	};
 }

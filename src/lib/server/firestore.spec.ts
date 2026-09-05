@@ -9,7 +9,6 @@ import {
 	puzzleDoc
 } from './firestore';
 import type { Feedback, RunRecord } from './ports';
-import { scheduleEndingToday } from './memory';
 
 /**
  * The Firestore adapters, against the emulator, held to the same contract as the in-memory
@@ -30,14 +29,14 @@ describe.skipIf(!emulating)('firestore stores', () => {
 	}
 
 	describe('puzzles', () => {
-		puzzleStoreContract(async (given, today) => {
+		puzzleStoreContract(async (given) => {
 			await wipe(collections.puzzles);
 			await Promise.all(
-				[...scheduleEndingToday(given, today)].map(([day, p]) =>
+				given.map((p, i) =>
 					db
 						.collection(collections.puzzles)
 						.doc(p.id)
-						.set(puzzleDoc(p, day, 'contract'))
+						.set(puzzleDoc(p, i, 'contract'))
 				)
 			);
 			return firestorePuzzles(db);

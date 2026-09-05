@@ -1,6 +1,6 @@
 import { Firestore, type Settings } from '@google-cloud/firestore';
 import type { Puzzle } from '$lib/game/types';
-import type { Day, Feedback, FeedbackStore, PuzzleStore, RunRecord, RunStore } from './ports';
+import type { Feedback, FeedbackStore, PuzzleStore, RunRecord, RunStore } from './ports';
 
 /**
  * Firestore, over REST.
@@ -39,20 +39,10 @@ export function firestorePuzzles(db: Firestore): PuzzleStore {
 	const puzzles = db.collection(collections.puzzles);
 
 	return {
-		async scheduledFor(day) {
-			const found = await puzzles.where('scheduledFor', '==', day).limit(1).get();
-			const doc = found.docs[0];
-			return doc ? puzzleOf(doc.id, doc.data()) : null;
-		},
-
-		async published(day, limit) {
-			// A single-field index, which Firestore keeps automatically — no composite
-			// index to declare and none to forget when deploying.
-			const found = await puzzles
-				.where('scheduledFor', '<=', day)
-				.orderBy('scheduledFor', 'desc')
-				.limit(limit)
-				.get();
+		async live(limit) {
+			// Ordered by a single field, which Firestore indexes automatically — no
+			// composite index to declare and none to forget when deploying.
+			const found = await puzzles.orderBy('order').limit(limit).get();
 			return found.docs.map((d) => puzzleOf(d.id, d.data()));
 		},
 
@@ -76,15 +66,15 @@ export function firestoreFeedback(db: Firestore): FeedbackStore {
 	return { record: async (f: Feedback) => void (await feedback.doc(f.runId).set(f)) };
 }
 
-/** Boards, as the pipeline and the seeding tool write them. */
-export type PuzzleDoc = Omit<Puzzle, 'id'> & { scheduledFor: Day; source: string };
+/** Boards, as the pipeline and the seeding tool write them. The id lives in the path. */
+export type PuzzleDoc = Omit<Puzzle, 'id'> & { order: number; source: string };
 
-export function puzzleDoc(puzzle: Puzzle, scheduledFor: Day, source: string): PuzzleDoc {
+export function puzzleDoc(puzzle: Puzzle, order: number, source: string): PuzzleDoc {
 	return {
 		name: puzzle.name,
 		language: puzzle.language,
 		groups: puzzle.groups,
-		scheduledFor,
+		order,
 		source
 	};
 }

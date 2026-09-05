@@ -257,10 +257,19 @@ client gets twenty words and no answer key; every check is a POST that answers w
 and the categories that cleared. Runs and a two-question survey are recorded, because the
 question this phase exists to answer is how real people play.
 
-Two things the original sketch listed are not here. The **shared leaderboard** is not
+Three things the original sketch listed are not here. The **shared leaderboard** is not
 built — see the note on stateless checks below, which is what it would have to pay for.
 **Sharing a link to family** is half-built: boards have their own URLs, but named invites
-are not in yet.
+are not in yet. And there is **no daily rollover**: boards are an ordered set, not a
+calendar.
+
+That last one was built and then removed. With nothing scheduling ahead, every board's
+date was in the past, so "today's puzzle" was a fixed board with a date attached that
+never changed — and the picker was doing all the actual work. The isolation argument for
+dates did not survive either: the pipeline writes to its own collection and promotion
+means copying into `puzzles`, so unfinished boards are kept out by being somewhere else,
+not by being dated. Dates come back with the nightly job, which is the first thing that
+gives them anything to do.
 
 **Phase 2 — generated puzzles** _(pipeline built, unproven)_. Below, and in `pipeline/`.
 

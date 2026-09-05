@@ -10,7 +10,7 @@ and clearing several rows at once — is what keeps them.
 
 **Play it:** https://connectris-214765692756.europe-north1.run.app
 
-Phase 1: a SvelteKit app on Cloud Run backed by Firestore, serving a board a day. The
+Phase 1: a SvelteKit app on Cloud Run backed by Firestore, serving a small set of boards. The
 client never holds the answer key — it gets twenty words, and every check is graded by the
 server. Runs and a two-question survey are recorded, because the point of this phase is to
 find out how real people play. The reasoning behind every rule, what is deliberately
@@ -93,6 +93,7 @@ no key anywhere; only this repository may exchange a token.
 `ci.yml` runs lint, type check, tests and a build, holds the Firestore adapters to the same
 store contract against the emulator, and runs the pipeline's own checks.
 
-Boards live in the `puzzles` collection with a `scheduledFor` date. `scripts/seed.mjs` puts
-the bundled ones there; scheduling moves to the pipeline when `cli export` learns to write
-to the database.
+Boards live in the `puzzles` collection, ordered by an `order` field — roughly easiest
+first. `scripts/seed.mjs` puts the bundled ones there. There is deliberately no date on
+them yet: nothing schedules ahead, so a daily rollover would be a concept with nothing to
+do. It arrives with the nightly job, in the same commit that gives it something to mean.

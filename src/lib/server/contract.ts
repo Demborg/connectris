@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import puzzles from '$lib/data/puzzles.json';
 import type { Puzzle } from '$lib/game/types';
-import type { Day, Feedback, FeedbackStore, PuzzleStore, RunRecord, RunStore } from './ports';
+import type { Feedback, FeedbackStore, PuzzleStore, RunRecord, RunStore } from './ports';
 
 /**
  * One suite per port, run against every adapter.
@@ -12,8 +12,6 @@ import type { Day, Feedback, FeedbackStore, PuzzleStore, RunRecord, RunStore } f
  */
 
 export const boards = puzzles as Puzzle[];
-
-const TODAY: Day = '2026-09-05';
 
 export function runOf(over: Partial<RunRecord> = {}): RunRecord {
 	return {
@@ -44,38 +42,30 @@ export function feedbackOf(over: Partial<Feedback> = {}): Feedback {
 	};
 }
 
-export function puzzleStoreContract(make: (boards: Puzzle[], today: Day) => Promise<PuzzleStore>) {
-	const store = () => make(boards, TODAY);
+export function puzzleStoreContract(make: (boards: Puzzle[]) => Promise<PuzzleStore>) {
+	const store = () => make(boards);
 
-	it('serves the board scheduled for a day', async () => {
-		// Newest last, so the final board in the list is the one for today.
-		expect(await (await store()).scheduledFor(TODAY)).toEqual(boards.at(-1));
+	it('lists the boards in the order they are written down', async () => {
+		// The order is the order a player should meet them in, so it has to survive the
+		// trip through a store rather than being whatever the database felt like.
+		const listed = await (await store()).live(boards.length);
+		expect(listed.map((p) => p.id)).toEqual(boards.map((p) => p.id));
 	});
 
-	it('has nothing to serve for a day with no board', async () => {
-		expect(await (await store()).scheduledFor('2030-01-01')).toBeNull();
+	it('hands back whole boards, answer key included', async () => {
+		// A store is the one place that holds the solution. Stripping it is the request
+		// path's job, and it cannot strip what it was never given.
+		expect((await (await store()).live(1))[0]).toEqual(boards[0]);
+	});
+
+	it('honours a limit', async () => {
+		expect(await (await store()).live(1)).toHaveLength(1);
 	});
 
 	it('finds a board by id, and admits when it cannot', async () => {
 		const s = await store();
-		expect(await s.byId(boards[0].id)).toEqual(boards[0]);
+		expect(await s.byId(boards[1].id)).toEqual(boards[1]);
 		expect(await s.byId('no-such-board')).toBeNull();
-	});
-
-	it('lists the backlog newest first', async () => {
-		const listed = await (await store()).published(TODAY, boards.length);
-		expect(listed.map((p) => p.id)).toEqual([...boards].reverse().map((p) => p.id));
-	});
-
-	it('never lists a board scheduled after the day asked for', async () => {
-		// The whole isolation between a batch job that schedules ahead and a request path
-		// that serves: a board with tomorrow's date is not published yet, whoever wrote it.
-		const yesterday = await (await store()).published('2026-09-04', boards.length);
-		expect(yesterday.map((p) => p.id)).not.toContain(boards.at(-1)!.id);
-	});
-
-	it('honours a limit', async () => {
-		expect(await (await store()).published(TODAY, 1)).toHaveLength(1);
 	});
 }
 

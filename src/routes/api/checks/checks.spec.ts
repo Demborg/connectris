@@ -6,8 +6,7 @@ import type { CheckOutcome, Puzzle } from '$lib/game/types';
 import { POST } from './+server';
 
 const boards = puzzles as Puzzle[];
-// The schedule ends today with the last board in the file, so this is the live one.
-const today = boards.at(-1)!;
+const board = boards[0];
 
 /** The solution to a board, as the tile ids a client would post. */
 function solution(p: Puzzle): number[][] {
@@ -39,8 +38,8 @@ async function status(body: unknown): Promise<number> {
 }
 
 const check = (over: Record<string, unknown> = {}) => ({
-	puzzleId: today.id,
-	rows: solution(today),
+	puzzleId: board.id,
+	rows: solution(board),
 	checksUsed: 1,
 	...over
 });
@@ -52,31 +51,31 @@ describe('POST /api/checks', () => {
 
 		const outcome = (await res.json()) as CheckOutcome;
 		expect(outcome.locked).toBe(ROWS);
-		expect(outcome.cleared.map((g) => g.id)).toEqual(today.groups.map((g) => g.id));
+		expect(outcome.cleared.map((g) => g.id)).toEqual(board.groups.map((g) => g.id));
 	});
 
 	it('answers with counts and categories, never with the board it graded', async () => {
 		// The response is the whole surface the answer key could escape through, so what
 		// it may contain is worth pinning rather than assuming.
-		const outcome = (await (await post(check({ rows: solution(today).slice(1) }))).json()) as
+		const outcome = (await (await post(check({ rows: solution(board).slice(1) }))).json()) as
 			CheckOutcome | Record<string, unknown>;
 		expect(Object.keys(outcome).sort()).toEqual(['cleared', 'correctCount', 'locked', 'missed']);
 	});
 
 	it('refuses a tile sent twice', async () => {
-		const rows = solution(today);
+		const rows = solution(board);
 		rows[1][0] = rows[0][0];
 		expect(await status(check({ rows }))).toBe(400);
 	});
 
 	it('refuses a tile that is not on this board', async () => {
-		const rows = solution(today);
+		const rows = solution(board);
 		rows[0][0] = 9999;
 		expect(await status(check({ rows }))).toBe(400);
 	});
 
 	it('refuses a row that is not four tiles', async () => {
-		const rows = solution(today);
+		const rows = solution(board);
 		rows[0] = rows[0].slice(1);
 		expect(await status(check({ rows }))).toBe(400);
 	});

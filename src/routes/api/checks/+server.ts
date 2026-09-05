@@ -65,11 +65,10 @@ export const POST: RequestHandler = async ({ request }) => {
 	const body = await request.json().catch(() => error(400, 'Expected JSON'));
 	const { puzzleId, rows, checksUsed } = parse(body);
 
-	const { puzzles, clock } = stores();
-	// Only a published board can be graded. Asking about tomorrow's is how you would find
-	// out what tomorrow's is.
-	const published = await puzzles.published(clock.today(), BACKLOG);
-	const puzzle = published.find((p) => p.id === puzzleId);
+	// Only a board that is in play can be graded — the same list the page offers, so a
+	// board nobody can navigate to is also a board nobody can probe.
+	const live = await stores().puzzles.live(BACKLOG);
+	const puzzle = live.find((p) => p.id === puzzleId);
 	if (!puzzle) error(404, 'No such puzzle');
 
 	const tiles = boardOf(puzzle).rows.flat();
