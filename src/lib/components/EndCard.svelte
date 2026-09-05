@@ -11,17 +11,30 @@
 	}: { session: Session; onnext: () => void; onanswer: AnswerReporter } = $props();
 
 	let won = $derived(session.status === 'won');
-	let best = $derived(session.best);
+
 	// Time is a score once the run is over; it was only corrosive as a clock ticking while
 	// you think. Moves and checks stay in the log and off the card — showing them is what
-	// made the game read as a move-optimisation puzzle. A previous best is only worth
-	// showing when it differs from this run, otherwise it just reads as noise.
-	let stats = $derived(
-		[
-			{ label: 'Time', value: formatTime(session.elapsedMs), was: best && formatTime(best.timeMs) },
-			{ label: 'Checks left', value: `${session.left}`, was: best && `${best.checksLeft}` }
-		].map((s) => ({ ...s, was: won && s.was !== s.value ? s.was : undefined }))
+	// made the game read as a move-optimisation puzzle. One line rather than a grid: the
+	// board behind this card is the thing worth the space.
+	let score = $derived(`${formatTime(session.elapsedMs)} · ${session.left} left`);
+	let best = $derived(
+		won && session.best && session.best.timeMs !== session.elapsedMs
+			? `best ${formatTime(session.best.timeMs)}`
+			: ''
 	);
+
+	/**
+	 * Whether the questions are showing.
+	 *
+	 * The board is exactly as tall as the screen — solved rows keep a full row's height so
+	 * nothing resizes mid-game — so anything at the bottom covers categories. That is
+	 * merely annoying for the stats and actively self-defeating for the questions: asking
+	 * whether a board was fair while hiding the board is asking someone to guess.
+	 *
+	 * So the card opens with the questions up, because an unseen question is an unanswered
+	 * one, and gets out of the way in one tap.
+	 */
+	let asking = $state(true);
 
 	/**
 	 * The two things a run cannot tell us about itself.
@@ -62,69 +75,71 @@
 <!-- The scrim is a sibling of the card, never its ancestor: a filtered ancestor drags
      everything inside it into the same blurred layer, which is what was making the
      card's own text unreadable. -->
-<div class="scrim" aria-hidden="true"></div>
+<div class="scrim" class:thin={!asking} aria-hidden="true"></div>
 
 <div class="sheet">
 	<div class="card" class:lost={!won}>
-		<p class="outcome">{won ? 'Solved' : 'Out of checks'}</p>
-		{#if !won}
-			<p class="sub">The categories you missed are shown above.</p>
+		<!-- The whole header is the toggle. It is the one control on this card a player
+		     wants before they have decided anything, so it gets the biggest target. -->
+		<button class="head" onclick={() => (asking = !asking)} aria-expanded={asking}>
+			<span class="outcome">{won ? 'Solved' : 'Out of checks'}</span>
+			<span class="score"
+				>{score}{#if best}<span class="best"> · {best}</span>{/if}</span
+			>
+			<span class="chev" class:up={!asking} aria-hidden="true">▾</span>
+			<span class="sr"
+				>{asking ? 'Hide the questions and see the board' : 'Show the questions'}</span
+			>
+		</button>
+
+		{#if asking}
+			<div class="asks">
+				<fieldset>
+					<legend>How was that?</legend>
+					<div class="choices">
+						{#each LEVELS as level (level.value)}
+							<button
+								class="choice"
+								class:picked={difficulty === level.value}
+								aria-pressed={difficulty === level.value}
+								onclick={() => rate(level.value)}
+							>
+								{level.label}
+							</button>
+						{/each}
+					</div>
+				</fieldset>
+
+				<fieldset>
+					<legend>Was it fair?</legend>
+					<div class="choices">
+						<button
+							class="choice"
+							class:picked={fair === true}
+							aria-pressed={fair === true}
+							aria-label="Yes, it was fair"
+							onclick={() => judge(true)}>Yes</button
+						>
+						<button
+							class="choice"
+							class:picked={fair === false}
+							aria-pressed={fair === false}
+							aria-label="No, it was not fair"
+							onclick={() => judge(false)}>No</button
+						>
+					</div>
+				</fieldset>
+
+				<!-- Posted on blur rather than on every keystroke: one record per thought,
+				     not per letter. -->
+				<textarea
+					class="comment"
+					rows="2"
+					placeholder="Anything else? (optional)"
+					bind:value={comment}
+					onblur={answer}></textarea>
+			</div>
 		{/if}
-
-		<dl class="stats">
-			{#each stats as s (s.label)}
-				<div>
-					<dt>{s.label}</dt>
-					<dd>{s.value}</dd>
-					{#if s.was}<dd class="best">best {s.was}</dd>{/if}
-				</div>
-			{/each}
-		</dl>
-
-		<fieldset>
-			<legend>How was that?</legend>
-			<div class="choices">
-				{#each LEVELS as level (level.value)}
-					<button
-						class="choice"
-						class:picked={difficulty === level.value}
-						aria-pressed={difficulty === level.value}
-						onclick={() => rate(level.value)}
-					>
-						{level.label}
-					</button>
-				{/each}
-			</div>
-		</fieldset>
-
-		<fieldset>
-			<legend>Was it fair?</legend>
-			<div class="choices">
-				<button
-					class="choice"
-					class:picked={fair === true}
-					aria-pressed={fair === true}
-					aria-label="Yes, it was fair"
-					onclick={() => judge(true)}>Yes</button
-				>
-				<button
-					class="choice"
-					class:picked={fair === false}
-					aria-pressed={fair === false}
-					aria-label="No, it was not fair"
-					onclick={() => judge(false)}>No</button
-				>
-			</div>
-		</fieldset>
-
-		<!-- Posted on blur rather than on every keystroke: one record per thought, not per
-		     letter. -->
-		<textarea
-			class="comment"
-			rows="2"
-			placeholder="Anything else? (optional)"
-			bind:value={comment}
-			onblur={answer}></textarea>
 
 		<button class="next" onclick={onnext}>Next puzzle</button>
 	</div>
@@ -205,7 +220,14 @@
 		inset: 0;
 		background: linear-gradient(180deg, rgb(6 8 12 / 15%) 0%, rgb(6 8 12 / 82%) 62%);
 		animation: fade 260ms ease both;
+		transition: opacity 240ms ease;
 		z-index: 10;
+	}
+
+	/* With the questions down the board is what the player came back for, so stop
+	   dimming it. */
+	.scrim.thin {
+		opacity: 0.35;
 	}
 
 	.sheet {
@@ -223,7 +245,7 @@
 		pointer-events: auto;
 		width: 100%;
 		max-width: 440px;
-		padding: 20px;
+		padding: 16px;
 		border-radius: 20px;
 		background: linear-gradient(180deg, #161d27, #10151d);
 		outline: 1px solid var(--tile-edge);
@@ -232,8 +254,19 @@
 		animation: rise 420ms var(--snap) both;
 	}
 
+	/* One tap target across the whole width: outcome, score, and the affordance that
+	   gets the card out of the way. */
+	.head {
+		display: flex;
+		align-items: baseline;
+		gap: 10px;
+		width: 100%;
+		padding: 0 0 12px;
+		color: inherit;
+		text-align: left;
+	}
+
 	.outcome {
-		margin: 0;
 		font-size: var(--fs-lg);
 		font-weight: 700;
 		letter-spacing: -0.01em;
@@ -244,38 +277,42 @@
 		color: var(--danger);
 	}
 
-	.sub {
-		margin: 4px 0 18px;
+	.score {
+		flex: 1;
 		font-size: var(--fs-sm);
+		font-variant-numeric: tabular-nums;
 		color: var(--muted);
 	}
 
-	.stats {
-		display: grid;
-		grid-template-columns: repeat(2, 1fr);
-		gap: 8px;
-		margin: 0 0 18px;
-	}
-
-	dt {
-		font-size: var(--fs-xs);
-		font-weight: 600;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
+	.best {
 		color: var(--dim);
 	}
 
-	dd {
-		margin: 3px 0 0;
-		font-size: var(--fs-lg);
-		font-weight: 700;
-		font-variant-numeric: tabular-nums;
+	.chev {
+		font-size: var(--fs-sm);
+		color: var(--muted);
+		transition: transform 200ms var(--snap);
 	}
 
-	dd.best {
-		font-size: var(--fs-xs);
-		font-weight: 500;
-		color: var(--muted);
+	.chev.up {
+		transform: rotate(180deg);
+	}
+
+	/* Said out loud, never shown: the chevron carries it visually. */
+	.sr {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+
+	/* Never more than a bit over half the screen, and scrolls inside itself if a small
+	   phone in landscape makes even that too much. */
+	.asks {
+		max-height: 52dvh;
+		overflow-y: auto;
 	}
 
 	.next {
