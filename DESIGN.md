@@ -251,10 +251,16 @@ The first puzzles are hand-written on purpose — you learn more about what make
 category in an hour of writing them than in a week of prompt engineering, and the pipeline
 needs a target to be judged against.
 
-**Phase 1 — real play**
-Server-side puzzle delivery and check validation, shared leaderboard, share a link to
-family. The client must never hold the answer key, or the leaderboard is decorative;
-retrofitting this later means reworking the state model.
+**Phase 1 — real play** _(built)_
+Server-side puzzle delivery and check validation, on Cloud Run against Firestore. The
+client gets twenty words and no answer key; every check is a POST that answers with counts
+and the categories that cleared. Runs and a two-question survey are recorded, because the
+question this phase exists to answer is how real people play.
+
+Two things the original sketch listed are not here. The **shared leaderboard** is not
+built — see the note on stateless checks below, which is what it would have to pay for.
+**Sharing a link to family** is half-built: boards have their own URLs, but named invites
+are not in yet.
 
 **Phase 2 — generated puzzles** _(pipeline built, unproven)_. Below, and in `pipeline/`.
 
@@ -407,9 +413,26 @@ separate service buys a deploy unit, a CORS config and duplicated types in excha
 nothing. The generation pipeline is a separate Python batch job (Cloud Run Job + Cloud
 Scheduler) because that's where the tooling lives and it's offline anyway.
 
-**Database: Postgres.** The whole app is leaderboards, and "rank me among N, show the
-distribution" is window functions — exactly what Firestore is bad at. Also wanted for
-analysing pipeline output.
+**Database: Firestore.** _Overturns the Postgres decision below, which is kept because the
+reasoning is still right about the thing it was reasoning about._
+
+The Postgres case rested on one sentence: the whole app is leaderboards, and "rank me among
+N, show the distribution" is window functions — exactly what Firestore is bad at. That is
+true, and it is about a scale this game will not reach. Ten players is a surprising day.
+Ranking at that size is fetch-a-puzzle's-runs-and-sort-in-process.
+
+Against it: Cloud SQL's smallest instance is ~$10 a month whether anyone plays or not, and
+this is a for-fun project where the standing cost matters more than the query shape.
+Firestore's free quota — 1 GiB, 50k reads and 20k writes a day — is permanent and about
+three orders of magnitude above what this app does. It stays inside the same project, it
+authenticates with ADC so there is no secret to hold, and it has no connection pool, so it
+_removes_ a cold-start component rather than adding one.
+
+Worth knowing what was actually traded: the dominant cost here was never the database. At
+$4.15 a run for ~2 shippable boards, nightly generation is ~$60 a month — six times the
+Cloud SQL bill this avoided. Demand-gating generation is where the money is.
+
+Revisit if a puzzle ever passes ~1000 plays. Until then this is buying nothing.
 
 **Models: Vertex AI**, and only Vertex. The pipeline runs as a Cloud Run Job in the same
 project, so ADC is already there and there is no key to manage; supporting AI Studio
@@ -426,3 +449,18 @@ temperature left alone, 2.5 takes a token _budget_ and does not.
 
 **Auth: deferred.** A display name in localStorage is enough to compete with family. Google
 sign-in when it's needed. Shape the score payload now so a user id can be attached later.
+_Done:_ a random id is minted on first play and travels with every run.
+
+**Checks are graded statelessly, and that is a deliberate hole.** The server holds the
+answer key and the client posts an arrangement; there is no game document. `deal` is a pure
+function of the puzzle id, so the key is re-derived per request rather than stored, which
+means a check costs one cached read and no writes — that is what makes scaling to zero
+cheap enough to do without thinking about it.
+
+What is not delivered: the server does not enforce the check budget, and nothing in a
+recorded run was witnessed. The client counts its own four. That is only exploitable
+against a leaderboard, and a leaderboard is exactly what would pay for the game documents
+that would close it. Building it now would be paying for a guarantee nothing yet needs.
+
+The property that mattered is delivered in full: the client cannot see the answer, and per
+pin 1 the 3×10¹¹ arrangement space makes probing worthless.
