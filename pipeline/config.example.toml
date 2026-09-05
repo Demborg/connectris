@@ -1,0 +1,46 @@
+# Everything here is optional; absent keys keep the defaults in config.py.
+# Copy to config.toml and pass with --config.
+
+concurrency = 8
+max_retries = 3
+
+# One deliberately weak model, three attempts. Three models were redundant (they
+# correlated 0.71-0.85); one attempt was too few (recovery quantises to steps of 0.2 and
+# the gate reading it stops being a band).
+attempts = 3
+
+# How many categories to invent when the pool cannot cover a batch. Bulk is fine here —
+# a category is a one-line idea, unlike a board.
+invent_batch = 40
+
+# Gemini 3 models take `thinking_level` = "low" | "medium" | "high". ("minimal" exists in
+# the API but 3.8 Flash rejects it.) Gemini 2.5 models take `thinking_budget` in tokens,
+# 0 to switch thinking off. Set one or the other, never both.
+#
+# `temperature` is deliberately absent everywhere below. Google's Gemini 3 guidance is to
+# leave it at its default of 1.0 — lower values loop and degrade on reasoning tasks — so
+# attempt-to-attempt variety comes from `seed` instead. Set it only on a 2.5-family model.
+
+[proposer]
+name = "gemini-3.8-flash"
+thinking_level = "high"
+
+[red_team]
+name = "gemini-3.8-flash"
+thinking_level = "high"
+
+[grader]
+name = "gemini-3.8-flash"
+thinking_level = "high"
+
+[solver]
+name = "gemini-3.1-flash-lite"
+thinking_level = "low"
+
+# Three gates. The other four were measured across a real run: none of them ever
+# changed a verdict, because the grader had already decided. The evidence they were
+# gating on still reaches the grader as prose.
+[thresholds]
+max_mean_recovery = 0.80
+min_fairness = 4
+min_elegance = 3

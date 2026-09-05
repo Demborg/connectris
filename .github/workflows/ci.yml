@@ -31,3 +31,32 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  pipeline:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pipeline
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      # Offline: a scripted double stands in for the model, so this needs no credentials
+      # and makes no network calls. --locked so the tools cannot drift with the calendar.
+      - name: Lint
+        run: |
+          uv run --locked --extra dev ruff check .
+          uv run --locked --extra dev ruff format --check .
+
+      - name: Type check
+        run: uv run --locked --extra dev ty check .
+
+      - name: Test
+        run: uv run --locked --extra dev pytest -q
+
+      # No --extra dev on purpose: this also proves the package works on runtime deps alone.
+      - name: Puzzle rules still agree with the game's
+        run: uv run --locked python -m connectris_pipeline.cli check

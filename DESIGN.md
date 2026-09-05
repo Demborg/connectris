@@ -253,40 +253,144 @@ Server-side puzzle delivery and check validation, shared leaderboard, share a li
 family. The client must never hold the answer key, or the leaderboard is decorative;
 retrofitting this later means reworking the state model.
 
-**Phase 2 — generated puzzles** (below).
+**Phase 2 — generated puzzles** _(pipeline built, unproven)_. Below, and in `pipeline/`.
 
 **Phase 3 — accounts and histograms.** Percentile distributions once a puzzle has ~30 plays.
 
 ---
 
-## Puzzle generation pipeline (phase 2 sketch)
+## Puzzle generation pipeline
 
 Offline batch, nightly, one puzzle a day — cost rounds to nothing, and it constrains nothing
-about the serving stack.
+about the serving stack. Built as a separate Python job in `pipeline/`; that README is the
+operational detail, this is what was decided and why.
 
-1. **Generate** — strong model, batches of candidates, with the trap design stated
-   explicitly: which word is the decoy and which category it's baiting.
-2. **Solve** — an ensemble of deliberately weak models, N attempts each at temperature.
-   Yields a solve rate → difficulty proxy. Target a band; 0% and 100% both get pruned.
-3. **Name** — solvers state the category they think they found; compare to the true label by
-   embedding similarity. This measures _legibility_. A puzzle where solvers find the grouping
-   but name it differently is fine; one where nobody can articulate why is unfair, and this
-   is the only stage that catches it.
-4. **Red-team** — a separate model whose only job is to find an alternative consistent
-   partition, or a word that legitimately fits two categories. **This is the critical stage
-   and it is not the same as solving.** Ambiguity is the failure mode that makes players
-   furious, and a solver that happens to find the intended answer won't surface it.
-5. **Dedupe** — against previously shipped words and category concepts.
+1. **Propose** — strong model, structured output, with the trap design stated explicitly:
+   which word is the decoy and which category it's baiting.
+2. **Validate** — deterministic, free, and before a single solver token. Mirrors `engine.ts`
+   and the `puzzle data` block in `engine.spec.ts`, plus dedupe against shipped words and
+   category concepts.
+3. **Solve** — one deliberately weak model. Yields a solve rate → difficulty proxy.
+4. **Name** — the solver states the category it thinks it found; compare to the true label.
+   This measures _legibility_. A puzzle where the grouping is found but named differently is
+   fine; one where nobody can articulate why is unfair, and this is the only stage that
+   catches it.
+5. **Red-team** — a separate model whose only job is to find an alternative consistent
+   partition. **This is the critical stage and it is not the same as solving.** Ambiguity is
+   the failure mode that makes players furious, and a solver that happens to find the
+   intended answer won't surface it.
+6. **Grade** — the only stage that sees the board, the traps, the solver evidence and the
+   red-team report at once. Rates, and says what is wrong.
 
 Auto-accept above thresholds, everything else into a review queue.
 
 Mixing providers in the solver ensemble is a feature — it stops puzzle quality being
 overfitted to one model's blind spots.
 
+### Decided while building it
+
+**One puzzle per call, not a batch.** A call asked for ten boards spends its attention on
+the first two and then reuses their vocabulary. Independent calls also buy independent
+retries and cheap parallelism, and the cost of twenty calls a night is not a number worth
+optimising. Variety comes from the input instead: each call draws two domains and a
+wordplay device from rotating lists, which is a more reliable diversity lever than asking
+a model to be varied.
+
+**Temperature is left alone.** The original sketch said "N attempts each at temperature".
+Gemini 3's guidance is to keep temperature at its default of 1.0, because below that the
+models loop and degrade on exactly the kind of reasoning this stage measures. The board is
+still shuffled before the solver sees it, so recovery measures the puzzle rather than the
+proposer's formatting.
+
+**Dedupe runs during proposal, not after it.** Each board folds into the corpus as it
+lands, so the fifth proposal of a night knows what the first four used. Deduping a
+finished batch tells you about a collision when there is nothing left to do about it.
+
+**The accept/review/reject call is a pure function over a stored record.** Every stage
+writes what it learned to disk and nothing decides anything until the end, so thresholds
+can be re-tuned and old runs re-decided for free — which is exactly what the honest caveat
+below says will be needed. This is pin 10 applied to the pipeline rather than to play.
+
+**Low recovery never rejects on its own.** Hard and broken look identical from the solve
+stage, and the red team is the tiebreaker. The review queue exists precisely so that this
+ambiguity does not have to be resolved by a threshold.
+
+**There is a mock provider that plays every role.** The whole pipeline runs end to end
+with no credentials, which is what makes the orchestration testable and lets thresholds be
+exercised against a known answer key. It is a fixture, not a puzzle designer.
+
 **The honest caveat:** cheap-model difficulty is not human difficulty, and the mapping is
 unknown until there is human data. Until then the pipeline is a filter for _broken_ puzzles,
-not a difficulty oracle. Bootstrap by logging real runs and fitting model-solve-rate against
-human-solve-rate once there are a few dozen puzzles.
+not a difficulty oracle, and every threshold in it is reasoned rather than measured.
+Bootstrap by logging real runs and fitting model-solve-rate against human-solve-rate once
+there are a few dozen puzzles.
+
+### What the first real run changed
+
+_20 candidates, 306 calls, $4.15, 2 boards at hand-written quality._
+
+**The evidence stages earn their place as grader input, not as gates.** Of seven
+thresholds, four never changed a verdict across 20 candidates — the grader had already
+decided, and its rejections were specific and correct. So solver recovery, legibility and
+the red-team report all still run and all still reach the grader as prose, and only three
+thresholds survive. The one that matters most is the one the grader structurally cannot
+supply: a board can read as elegant and still be trivial, because the grader never sees it
+played.
+
+**Trap categories, not trap words.** _This is the sharpest thing the runs taught, and it
+changes what a good board is._
+
+The original rules asked every category to contain a decoy: a word that plainly belongs to
+another row until you find the row that needs it more. That produces boards where the only
+thing separating two readings is that the other row is already full — the puzzle resolves
+by arithmetic, and a player who reads it the other way is right and is told they are wrong.
+The second run shipped exactly that on an accepted board: SANCTION and WARRANT each
+genuinely fit both "words meaning to authorize" and "court orders and filings", a complete
+second solution nothing caught.
+
+The better device is a category that reads wider than it is. APPLE, PEACH, PLUM, MANGO and
+OLIVE on one board: the row is not "fruit", it is **stone fruit** — the other four are
+drupes and an apple is a pome, so APPLE is freed for the tech companies. Nothing is
+resolved by counting seats. The player notices that the category is narrower than they
+read it, and that noticing _is_ the puzzle.
+
+So: the misdirection belongs in the label, never in the word. A word that genuinely
+satisfies two labels is a construction defect rather than intended difficulty.
+
+This simplifies the red team rather than complicating it. It had been asked, in turn, to
+report every decoy (which made it a mirror of the proposer's own trap list — all 37 of its
+findings were traps the proposer had declared) and then to prove a decoy survived the
+full-partition rule (seat-counting again). Now the question is flat: does any word satisfy
+two of these five labels under a precise reading? It also reports labels written wider than
+their row, which is how the defect starts.
+
+**Nine solver calls a board bought nothing that one call did not.** Three models
+correlating 0.71–0.85 is a capability ladder, not independent blind spots.
+
+**Embeddings lost to token overlap.** 344 calls, no decisions changed, and the free
+version was stricter and more accurate — the embedder charged 0.13 cosine for a
+capitalisation change, wider than the band being cut.
+
+**The grader would not repair its own boards.** The revision loop fired 6 times in 20, cost
+22% of the batch, and the grader rejected its own rewrite in 4 of those 6. Proposing fresh
+is one call; re-evaluating a rewrite is three.
+
+### Open
+
+- **Whether the three surviving thresholds are anywhere near right.** They are reasoned,
+  not fitted, and no human has played a generated board yet.
+- **Whether the single solver is weak enough.** If it solves everything the difficulty
+  proxy is measuring nothing; if it solves nothing the grader is carrying the pipeline
+  alone.
+- **Whether the sharpened red team finds anything at all.** It found zero alternative
+  partitions in 20 boards — the stage this document calls critical has not yet fired. That
+  may be 20 being too few for a rare-but-fatal event, or it may be the stage not working.
+  Re-check at n=100 before trusting either reading.
+- **Cost per shippable puzzle.** At a 10% hit rate and $4 a run, that is roughly $40 of
+  thinking tokens per board worth keeping. Fine for one a day; worth knowing.
+- **Swedish.** The word-length cap will bite on compounds, and LLM generation for Swedish
+  idiom and wordplay is expected to be noticeably weaker — human review stays in the loop
+  longer.
 
 ---
 
@@ -304,8 +408,18 @@ Scheduler) because that's where the tooling lives and it's offline anyway.
 distribution" is window functions — exactly what Firestore is bad at. Also wanted for
 analysing pipeline output.
 
-**Models: Vertex AI.** Note that Vertex serves Claude as well as Gemini, so "stay
-Google-native" does not force a single model family; auth is plain GCP ADC either way.
+**Models: Vertex AI**, and only Vertex. The pipeline runs as a Cloud Run Job in the same
+project, so ADC is already there and there is no key to manage; supporting AI Studio
+alongside it bought a second code path for a second set of failure modes, and was cut.
+Generation goes through `models.generate_content` — Vertex's newer Interactions endpoint
+answers `Unsupported model interaction` for every Gemini model, so the legacy surface is
+the only one actually available there. Note that Vertex serves Claude as well as Gemini,
+so "stay Google-native" does not force a single model family, and mixing families in the
+solver ensemble is a feature rather than a compromise.
+
+Model names are the fastest-ageing thing in this repo and live in config, not in code. The
+generation split matters more than the names: Gemini 3 takes a thinking _level_ and wants
+temperature left alone, 2.5 takes a token _budget_ and does not.
 
 **Auth: deferred.** A display name in localStorage is enough to compete with family. Google
 sign-in when it's needed. Shape the score payload now so a user id can be attached later.

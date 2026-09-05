@@ -1,0 +1,130 @@
+"""Structured-output schemas.
+
+Every model call in the pipeline returns one of these. The field descriptions are not
+documentation — they are shipped to the model as part of the JSON schema and are the
+cheapest prompt surface there is, so they carry real instruction.
+
+Deliberately plain: no unions, no optionals, no dicts. Vertex's structured output is a
+JSON-schema subset, and "empty list" survives that subset where "null" does not.
+"""
+
+from __future__ import annotations
+
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+
+class InventedCategory(BaseModel):
+    """A category for the pool, judged before any board is built from it."""
+
+    label: str = Field(
+        description="The category as a player would read it once the row clears. Short. "
+        "Prefer one that narrows: 'Stone fruit' rather than 'Fruit'."
+    )
+    reads_as: str = Field(
+        description="The wider category a player will mistake this for, and the word that "
+        "mistake would pull in. 'Reads as fruit, so it pulls APPLE.' This is the trap, and "
+        "it belongs to the category rather than to any word."
+    )
+
+
+class InventedCategories(BaseModel):
+    categories: list[InventedCategory] = Field(description="Distinct from each other.")
+
+
+class ProposedGroup(BaseModel):
+    label: str = Field(
+        description="The category, as the player sees it once the row clears. Short. "
+        "Use '___ WORD' or 'WORD ___' for word-joining categories."
+    )
+    words: list[str] = Field(
+        description="Exactly 4 words, uppercase, at most 12 characters each, no spaces "
+        "unless the entry genuinely has one."
+    )
+    trap: str = Field(
+        description="Which word in this group is the decoy, and which other category on "
+        "this board it is baiting. Say 'none' only if this group has no decoy at all."
+    )
+
+
+class ProposedPuzzle(BaseModel):
+    name: str = Field(description="A two or three word title for the puzzle.")
+    groups: list[ProposedGroup] = Field(description="Exactly 5 groups of 4 words.")
+
+
+class SolvedGroup(BaseModel):
+    category: str = Field(description="What you think these four words have in common.")
+    words: list[str] = Field(description="Exactly 4 of the words from the board, copied exactly.")
+
+
+class SolveAttempt(BaseModel):
+    groups: list[SolvedGroup] = Field(
+        description="Exactly 5 groups of 4, using all 20 words, each word exactly once."
+    )
+
+
+class AmbiguousWord(BaseModel):
+    """A word that genuinely satisfies two of the board's five labels.
+
+    Not a word that a category merely *tempts* — categories are built to read wider than
+    they are, and that temptation is the puzzle. This is a word both labels actually
+    admit, which makes the board unsolvable rather than hard.
+    """
+
+    word: str = Field(description="The word that two labels both genuinely admit.")
+    intended_label: str = Field(description="The category it is filed under in the answer key.")
+    also_fits: str = Field(description="The other label on this board that also admits it.")
+    why: str = Field(
+        description="Why the second reading is defensible on the label's own terms. Do not "
+        "argue from how many words a row has left — that is not a resolution."
+    )
+
+
+class LooseLabel(BaseModel):
+    """A label written wider than the row it names, which is how the defect above starts."""
+
+    label: str = Field(description="The label as written.")
+    invites: str = Field(description="The word it invites but does not mean.")
+    tighten_to: str = Field(description="A precise rewording that excludes that word.")
+
+
+class AlternativePartition(BaseModel):
+    """A second consistent way to cut the board into five fours.
+
+    Finding one of these is fatal to a puzzle: the player is right and the game says no.
+    """
+
+    groups: list[SolvedGroup] = Field(description="A full alternative solution: 5 groups of 4.")
+    why: str = Field(description="Why this partition holds together as well as the intended one.")
+
+
+class RedTeamReport(BaseModel):
+    ambiguous_words: list[AmbiguousWord] = Field(
+        description="Words two labels both genuinely admit. Empty if none — and empty is "
+        "the expected answer for a well-built board."
+    )
+    loose_labels: list[LooseLabel] = Field(
+        description="Labels written wider than the row they name. Empty if none."
+    )
+    alternatives: list[AlternativePartition] = Field(
+        description="Full alternative solutions you found. Empty if none. Do not force one."
+    )
+    verdict: Literal["clean", "soft", "broken"] = Field(
+        description="'clean' = one solution only. 'soft' = a defensible second reading of one "
+        "word. 'broken' = a whole alternative partition holds."
+    )
+
+
+class Grade(BaseModel):
+    verdict: Literal["accept", "review", "reject"] = Field(
+        description="'accept' ships it as it stands. 'reject' kills it. 'review' means "
+        "the board is sound but something specific is wrong with it — say what in "
+        "`reasons`, and a human will decide what to do."
+    )
+    fairness: int = Field(
+        description="1-5. Can a careful player get here from the words alone, with no "
+        "outside knowledge they could not reasonably have?"
+    )
+    elegance: int = Field(description="1-5. Does the click of getting it feel earned?")
+    reasons: str = Field(description="Two or three sentences. What is wrong, or what is good.")
