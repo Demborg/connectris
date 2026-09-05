@@ -57,7 +57,7 @@ async def test_every_candidate_comes_out_shippable():
 async def test_every_candidate_carries_the_solver_evidence_it_was_judged_on():
     for c in (await run()).candidates:
         assert c.stats is not None
-        assert c.stats.attempts == 1
+        assert c.stats.attempts == CONFIG.attempts
 
 
 async def test_a_candidate_is_never_deduped_against_itself():
@@ -187,3 +187,16 @@ async def test_a_run_killed_part_way_keeps_what_it_paid_for(tmp_path):
     survived = [json.loads(line) for line in partial.read_text().splitlines() if line.strip()]
     assert survived, "a killed run left nothing behind"
     assert survived[0]["decision"] is not None
+
+
+async def test_two_candidates_sharing_a_row_are_both_flagged():
+    """In-batch dedupe, which the first fix for self-dedupe silently disabled.
+
+    Every proposal starts before any has landed at the default concurrency, so the corpus
+    a board was *proposed* against cannot be the corpus it is *checked* against. Two
+    boards shipped byte-identical rows to accepted.json before this.
+    """
+    twins = [BOARDS[0], BOARDS[0]]
+    result = await run(count=2, llm=ScriptedLLM(boards=twins))
+    for c in result.candidates:
+        assert "stale-words" in [p.code for p in c.problems], c.warnings

@@ -80,7 +80,7 @@ def test_the_grade_schemas_enum_survives_into_the_json_schema():
     """Literal -> enum is what keeps the grader's verdict parseable."""
     assert set(Grade.model_json_schema()["properties"]["verdict"]["enum"]) == {
         "accept",
-        "revise",
+        "review",
         "reject",
     }
 

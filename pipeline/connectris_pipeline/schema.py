@@ -87,9 +87,10 @@ class RedTeamReport(BaseModel):
 
 
 class Grade(BaseModel):
-    verdict: Literal["accept", "revise", "reject"] = Field(
-        description="'accept' ships it. 'reject' kills it. 'revise' means the board is "
-        "sound but one word is doing damage — say which in `reasons`; a human will look."
+    verdict: Literal["accept", "review", "reject"] = Field(
+        description="'accept' ships it as it stands. 'reject' kills it. 'review' means "
+        "the board is sound but something specific is wrong with it — say what in "
+        "`reasons`, and a human will decide what to do."
     )
     fairness: int = Field(
         description="1-5. Can a careful player get here from the words alone, with no "

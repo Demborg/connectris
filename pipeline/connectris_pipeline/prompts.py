@@ -215,8 +215,9 @@ def grade(
     warnings: list[str],
 ) -> tuple[str, str]:
     system = (
-        "You are the editor. You decide whether a puzzle ships, gets one revision, or is "
-        "killed, using evidence gathered by other models.\n\n"
+        "You are the editor. You decide whether a puzzle ships as it stands, goes to a "
+        "human, or is killed, using evidence gathered by other models. Nothing rewrites "
+        "the board after you — there is no revision step, so do not ask for one.\n\n"
         + GAME_BRIEF
         + "\n"
         + CONSTRUCTION_RULES
@@ -224,9 +225,9 @@ def grade(
         "A low recovery rate means hard OR broken, and it is your job to say which — the "
         "red-team report is the tiebreaker. A category the solvers found but could not "
         "name is the specific shape of unfair that nothing else in this pipeline catches.\n"
-        "Use 'revise' when the board is sound and one word is doing the damage — name "
-        "that word in your reasons; a human decides what to do about it. Use 'reject' "
-        "when fixing it would need two categories rewritten."
+        "Use 'review' when the board is sound but something specific is wrong — name it "
+        "in your reasons, precisely enough that a human can check the claim in seconds. "
+        "Use 'reject' when the board is not worth a human's time."
     )
     rows = "\n".join(
         f"{g.label}: {', '.join(g.words)}   [intended trap: {traps.get(g.id, 'none stated')}]"

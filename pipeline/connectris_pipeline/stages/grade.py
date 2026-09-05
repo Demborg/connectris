@@ -2,7 +2,8 @@
 
 The only stage that sees everything at once: the board, the intended traps, what the weak
 ensemble did with it, and what the red team found. It rates, and where one word is doing
-the damage it rewrites — a revision goes back around from validation, once.
+the damage it names it. Nothing rewrites the board after this: the grader's verdict is
+the last word a model gets, and anything short of `accept` goes to a human.
 """
 
 from __future__ import annotations

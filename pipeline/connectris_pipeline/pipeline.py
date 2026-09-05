@@ -110,20 +110,18 @@ async def run(
     rng = random.Random(seed)
     seeds = [rng.randrange(1 << 30) for _ in range(count)]
 
-    # Pass one: propose, folding each board into the corpus as it lands. No lock: the
-    # blocks that touch `corpus` contain no await, and asyncio only switches tasks at an
-    # await, so they are already atomic.
+    # Pass one: propose, folding each board into the corpus as it lands so later prompts
+    # avoid earlier boards. No lock: the blocks that touch `corpus` contain no await, and
+    # asyncio only switches tasks at an await, so they are already atomic.
     #
-    # Each candidate keeps the corpus snapshot it was proposed against — exactly what its
-    # prompt was told to avoid. Pass two validates against that, not against the live
-    # corpus, which contains the candidate itself by then.
-    proposed_against: dict[str, Corpus] = {}
+    # This is best-effort, not the dedupe check. With concurrency >= count every proposal
+    # starts before any has landed, so it prevents nothing at a default batch size; it is
+    # here to save tokens when it can, and `everything_but` below is what actually decides.
+    shipped = Corpus(set(corpus.words), set(corpus.labels))
 
     async def one(index: int) -> Candidate:
         async with gate:
             cid = f"gen-{stamp}-{index:02d}"
-            snapshot = Corpus(set(corpus.words), set(corpus.labels))
-            proposed_against[cid] = snapshot
             try:
                 candidate = await propose(
                     llm,
@@ -131,7 +129,7 @@ async def run(
                     candidate_id=cid,
                     rng=random.Random(seeds[index]),
                     examples=examples,
-                    corpus=snapshot,
+                    corpus=Corpus(set(corpus.words), set(corpus.labels)),
                 )
             except Exception:
                 log.exception("proposal %s failed", cid)
@@ -145,6 +143,22 @@ async def run(
 
     candidates = list(await asyncio.gather(*map(one, range(count))))
 
+    def everything_but(candidate: Candidate) -> Corpus:
+        """What this board must be new against: everything shipped, plus its siblings.
+
+        Not the live corpus, which contains the candidate itself — that bug flagged all
+        20 boards of a run as stale. Not the snapshot it was proposed against either: at
+        concurrency >= count every proposal snapshots the same shipped-only corpus, so
+        four of ten boards in the next run shared words with a sibling unflagged, two of
+        them byte-identical rows that reached accepted.json. Rebuilding per candidate is
+        O(n^2) on a batch of twenty, which is free.
+        """
+        against = Corpus(set(shipped.words), set(shipped.labels))
+        for other in candidates:
+            if other.id != candidate.id and not other.error:
+                against.extend(other.puzzle)
+        return against
+
     # Pass two: the candidates no longer interact, so evaluate them all at once. Each
     # writes itself out as it lands, so a run that is killed part-way keeps what it paid
     # for rather than discarding the batch.
@@ -154,7 +168,7 @@ async def run(
         if not candidate.error:
             async with gate:
                 try:
-                    candidate = await evaluate(llm, cfg, candidate, proposed_against[candidate.id])
+                    candidate = await evaluate(llm, cfg, candidate, everything_but(candidate))
                 except Exception:
                     log.exception("%s failed during evaluation", candidate.id)
                     candidate.error = _last_error()

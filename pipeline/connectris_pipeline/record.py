@@ -33,8 +33,6 @@ class Candidate:
     #: group id -> the decoy the proposer says it planted. Shown to the red team and grader.
     traps: dict[str, str] = field(default_factory=dict)
     seed: dict[str, str] = field(default_factory=dict)
-    #: 0 for a first draft, 1+ for a grader's rewrite.
-    revision: int = 0
     problems: list[Problem] = field(default_factory=list)
     attempts: list[Attempt] = field(default_factory=list)
     stats: SolveStats | None = None
@@ -51,7 +49,6 @@ class Candidate:
     def to_json(self) -> dict:
         return {
             "id": self.id,
-            "revision": self.revision,
             "seed": self.seed,
             "puzzle": self.puzzle.to_game_json(),
             "traps": self.traps,
@@ -79,7 +76,6 @@ class Candidate:
             puzzle=puzzle,
             traps=raw.get("traps", {}),
             seed=raw.get("seed", {}),
-            revision=raw.get("revision", 0),
             problems=[Problem(**x) for x in raw.get("problems", [])],
             attempts=[Attempt(**a) for a in raw.get("attempts", [])],
             stats=stats,
@@ -146,8 +142,8 @@ def decide(candidate: Candidate, t: Thresholds) -> Decision:
         if g.verdict == "reject":
             reject = True
             reasons.append(f"grader rejected: {g.reasons}")
-        elif g.verdict == "revise":
-            review.append(f"grader wants a word changed: {g.reasons}")
+        elif g.verdict == "review":
+            review.append(f"grader sent it to review: {g.reasons}")
         if g.fairness < t.min_fairness:
             review.append(f"grader scored fairness {g.fairness}/5")
         if g.elegance < t.min_elegance:

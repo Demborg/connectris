@@ -82,17 +82,20 @@ class Config:
     #: One puzzle per call — see README on why not batches. Thinking all the way up:
     #: this is the stage where a night's quality is decided and it runs twenty times.
     proposer: ModelSpec = ModelSpec("gemini-3.8-flash", thinking_level="high")
-    #: One weak model, one attempt. The original ensemble was three models at three
-    #: attempts each, on the theory that mixing families stops quality overfitting to one
-    #: model's blind spots. The first real run falsified it: the three correlated 0.71 to
-    #: 0.85 — a capability ladder measuring one latent variable, not independent blind
-    #: spots — and three attempts reproduced nine on 20 verdicts out of 20, mean recovery
-    #: differing by 0.044. Nine calls a board bought nothing a single call did not.
+    #: One weak model, three attempts. It was three models at three attempts, and the
+    #: evidence for cutting it was that *three* attempts reproduced *nine* on 20 verdicts
+    #: out of 20 — so the three correlated models were redundant. Cutting to one attempt
+    #: went further than that evidence reached, and the next run showed the cost: a
+    #: single attempt quantises recovery to multiples of 0.2, which turns the surviving
+    #: `max_mean_recovery` gate into "did the weak model ace it" rather than a difficulty
+    #: band. Re-scoring the earlier batch on one attempt would have rejected 4 boards as
+    #: too easy where the ensemble rejected 1. Three attempts costs about 2 cents a board.
     #:
     #: 3.1-flash-lite is kept for having the highest mean and the widest spread. If a
     #: second family ever joins, it should be a genuinely different one, and it should be
     #: added because a run showed the single solver missing something.
     solver: ModelSpec = ModelSpec("gemini-3.1-flash-lite", thinking_level="low")
+    attempts: int = 3
     #: The critical stage. Strong model, and not the same call as solving.
     red_team: ModelSpec = ModelSpec("gemini-3.8-flash", thinking_level="high")
     grader: ModelSpec = ModelSpec("gemini-3.8-flash", thinking_level="high")
@@ -126,7 +129,7 @@ def load(path: Path | None) -> Config:
         return replace(current, **raw[key]) if key in raw else current
 
     thresholds = Thresholds(**raw["thresholds"]) if "thresholds" in raw else cfg.thresholds
-    top = {k: v for k, v in raw.items() if k in {"concurrency", "max_retries"}}
+    top = {k: v for k, v in raw.items() if k in {"attempts", "concurrency", "max_retries"}}
 
     return replace(
         cfg,
