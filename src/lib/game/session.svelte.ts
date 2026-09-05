@@ -1,5 +1,7 @@
+import { randomId } from '$lib/user';
 import { CHECKS, swapTiles } from './engine';
 import { recordBest, saveRun, type Best, type EventInput, type GameEvent } from './log';
+import { noReporter, type Reporter } from './report';
 import type {
 	Board,
 	CheckOutcome,
@@ -57,8 +59,14 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, reducedMotion() ? 
 
 export class Session {
 	readonly puzzle: PuzzleMeta;
+	/**
+	 * This run's id, minted before it starts because feedback is filed against it — the
+	 * answers to "how was that" belong to the run that provoked them.
+	 */
+	readonly id = randomId();
 	/** Whoever holds the answer key. This class never sees it. */
 	private readonly grade: Checker;
+	private readonly report: Reporter;
 
 	rows = $state<Row[]>([]);
 	solved = $state<SolvedRow[]>([]);
@@ -109,10 +117,11 @@ export class Session {
 	private busy = false;
 	private comboTimer: ReturnType<typeof setTimeout> | undefined;
 
-	constructor(board: Board, grade: Checker) {
+	constructor(board: Board, grade: Checker, report: Reporter = noReporter) {
 		this.puzzle = board.puzzle;
 		this.rows = board.rows;
 		this.grade = grade;
+		this.report = report;
 	}
 
 	get elapsedMs(): number {
@@ -319,6 +328,7 @@ export class Session {
 			events: this.events
 		};
 		saveRun(run);
+		this.report(this.id, run);
 		if (outcome === 'won') this.best = recordBest(this.puzzle.id, run);
 	}
 }

@@ -7,6 +7,7 @@
 	import EndCard from '$lib/components/EndCard.svelte';
 	import Verdict from '$lib/components/Verdict.svelte';
 	import { httpChecker } from '$lib/game/checker';
+	import { httpReporter } from '$lib/game/report';
 	import { Session } from '$lib/game/session.svelte';
 	import type { Board as Dealt } from '$lib/game/types';
 
@@ -16,7 +17,7 @@
 
 	// A new board means a new run. `board` is a fresh object on every navigation, so
 	// picking a puzzle rebuilds the session and nothing has to reset it by hand.
-	let session = $derived.by(() => new Session(board, httpChecker(board.puzzle.id)));
+	let session = $derived.by(() => new Session(board, httpChecker(board.puzzle.id), httpReporter()));
 	let rulesOpen = $state(false);
 
 	// Nothing counts up on screen while you play. Time, moves and checks are all still
