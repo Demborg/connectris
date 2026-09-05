@@ -7,7 +7,7 @@
 	import EndCard from '$lib/components/EndCard.svelte';
 	import Verdict from '$lib/components/Verdict.svelte';
 	import { httpChecker } from '$lib/game/checker';
-	import { httpReporter } from '$lib/game/report';
+	import { httpAnswers, httpReporter } from '$lib/game/report';
 	import { Session } from '$lib/game/session.svelte';
 	import type { Board as Dealt } from '$lib/game/types';
 
@@ -121,7 +121,11 @@
 	<!-- Hold the card back while a combo is on screen. The winning move is the one clear
 	     worth celebrating, and it is exactly the one the card would otherwise cover. -->
 	{#if session.over && !session.combo}
-		<EndCard {session} onnext={() => open(next().id)} />
+		<EndCard
+			{session}
+			onnext={() => open(next().id)}
+			onanswer={httpAnswers(session.id, session.puzzle.id)}
+		/>
 	{/if}
 </div>
 

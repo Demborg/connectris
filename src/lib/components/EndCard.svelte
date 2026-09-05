@@ -1,8 +1,14 @@
 <script lang="ts">
-	import type { Session } from '$lib/game/session.svelte';
 	import { formatTime } from '$lib/format';
+	import type { AnswerReporter } from '$lib/game/report';
+	import type { Session } from '$lib/game/session.svelte';
+	import type { Difficulty } from '$lib/game/types';
 
-	let { session, onnext }: { session: Session; onnext: () => void } = $props();
+	let {
+		session,
+		onnext,
+		onanswer
+	}: { session: Session; onnext: () => void; onanswer: AnswerReporter } = $props();
 
 	let won = $derived(session.status === 'won');
 	let best = $derived(session.best);
@@ -16,6 +22,41 @@
 			{ label: 'Checks left', value: `${session.left}`, was: best && `${best.checksLeft}` }
 		].map((s) => ({ ...s, was: won && s.was !== s.value ? s.was : undefined }))
 	);
+
+	/**
+	 * The two things a run cannot tell us about itself.
+	 *
+	 * Everything else worth knowing — how long, how many checks, which rows went first,
+	 * where the player hesitated — is already in the log. Difficulty is the one answer the
+	 * generation pipeline needs and cannot infer, because cheap-model difficulty is not
+	 * human difficulty and nothing maps between them yet. Fairness is the one a losing
+	 * player is uniquely qualified to give, and the red team's whole job is finding boards
+	 * that are unfair in a way solving cannot reveal.
+	 *
+	 * Both post the moment they are tapped rather than on a submit, so leaving without
+	 * finishing still tells us something. Neither blocks the way out.
+	 */
+	const LEVELS: { value: Difficulty; label: string }[] = [
+		{ value: 'easy', label: 'Too easy' },
+		{ value: 'right', label: 'Just right' },
+		{ value: 'hard', label: 'Too hard' }
+	];
+
+	let difficulty = $state<Difficulty | null>(null);
+	let fair = $state<boolean | null>(null);
+	let comment = $state('');
+
+	const answer = () => onanswer({ difficulty, fair, comment: comment.trim() });
+
+	function rate(value: Difficulty) {
+		difficulty = value;
+		answer();
+	}
+
+	function judge(value: boolean) {
+		fair = value;
+		answer();
+	}
 </script>
 
 <!-- The scrim is a sibling of the card, never its ancestor: a filtered ancestor drags
@@ -26,11 +67,9 @@
 <div class="sheet">
 	<div class="card" class:lost={!won}>
 		<p class="outcome">{won ? 'Solved' : 'Out of checks'}</p>
-		<p class="sub">
-			{won
-				? 'Every row cleared from the top.'
-				: 'The remaining categories are shown above — take a look at what you missed.'}
-		</p>
+		{#if !won}
+			<p class="sub">The categories you missed are shown above.</p>
+		{/if}
 
 		<dl class="stats">
 			{#each stats as s (s.label)}
@@ -42,11 +81,123 @@
 			{/each}
 		</dl>
 
+		<fieldset>
+			<legend>How was that?</legend>
+			<div class="choices">
+				{#each LEVELS as level (level.value)}
+					<button
+						class="choice"
+						class:picked={difficulty === level.value}
+						aria-pressed={difficulty === level.value}
+						onclick={() => rate(level.value)}
+					>
+						{level.label}
+					</button>
+				{/each}
+			</div>
+		</fieldset>
+
+		<fieldset>
+			<legend>Was it fair?</legend>
+			<div class="choices">
+				<button
+					class="choice"
+					class:picked={fair === true}
+					aria-pressed={fair === true}
+					aria-label="Yes, it was fair"
+					onclick={() => judge(true)}>Yes</button
+				>
+				<button
+					class="choice"
+					class:picked={fair === false}
+					aria-pressed={fair === false}
+					aria-label="No, it was not fair"
+					onclick={() => judge(false)}>No</button
+				>
+			</div>
+		</fieldset>
+
+		<!-- Posted on blur rather than on every keystroke: one record per thought, not per
+		     letter. -->
+		<textarea
+			class="comment"
+			rows="2"
+			placeholder="Anything else? (optional)"
+			bind:value={comment}
+			onblur={answer}></textarea>
+
 		<button class="next" onclick={onnext}>Next puzzle</button>
 	</div>
 </div>
 
 <style>
+	fieldset {
+		margin: 0 0 12px;
+		padding: 0;
+		border: 0;
+	}
+
+	legend {
+		padding: 0;
+		margin-bottom: 6px;
+		font-size: var(--fs-xs);
+		font-weight: 600;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--dim);
+	}
+
+	.choices {
+		display: flex;
+		gap: 6px;
+	}
+
+	/* Unhued. Colour on this board means category, and an answer about the board is not
+	   one — see the palette note in Board.svelte. */
+	.choice {
+		flex: 1;
+		padding: 11px 6px;
+		border-radius: 10px;
+		background: rgb(255 255 255 / 6%);
+		outline: 1px solid var(--tile-edge);
+		outline-offset: -1px;
+		color: var(--text);
+		font-size: var(--fs-sm);
+		font-weight: 600;
+		transition:
+			background 160ms ease,
+			transform 140ms var(--snap);
+	}
+
+	.choice:active {
+		transform: scale(0.97);
+	}
+
+	.choice.picked {
+		background: rgb(255 255 255 / 18%);
+		outline-color: rgb(255 255 255 / 42%);
+	}
+
+	.comment {
+		display: block;
+		width: 100%;
+		margin-bottom: 14px;
+		padding: 10px;
+		border: 0;
+		border-radius: 10px;
+		background: rgb(255 255 255 / 6%);
+		outline: 1px solid var(--tile-edge);
+		outline-offset: -1px;
+		color: var(--text);
+		font: inherit;
+		font-size: var(--fs-sm);
+		resize: none;
+	}
+
+	.comment::placeholder {
+		color: var(--dim);
+	}
+
 	/* Graded rather than uniform: the solved rows are the answer, so they stay readable
 	   at the top while the card gets real contrast behind it at the bottom. */
 	.scrim {

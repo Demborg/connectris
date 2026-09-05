@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 import type { GameEvent } from '$lib/game/log';
-import type { RunRecord } from './ports';
+import type { Difficulty } from '$lib/game/types';
+import type { Feedback, RunRecord } from './ports';
 
 /**
  * Turn a browser's word for what happened into a record worth keeping.
@@ -61,5 +62,36 @@ export function parseRun(body: unknown): RunRecord {
 		// metrics we have not committed to, which means not filtering it down to the ones
 		// we have.
 		events: b.events as GameEvent[]
+	};
+}
+
+/** Long enough for a real thought, short enough not to be a payload. */
+const MAX_COMMENT = 2000;
+
+const DIFFICULTIES: Difficulty[] = ['easy', 'right', 'hard'];
+
+/**
+ * What a player said about a board.
+ *
+ * Every answer is allowed to be missing, because the screen is skippable and arrives one
+ * tap at a time. Only the three ids are required — without them there is nothing to file
+ * the opinion against, which is the one thing that would make it worthless.
+ */
+export function parseFeedback(body: unknown): Feedback {
+	if (typeof body !== 'object' || body === null) error(400, 'Expected an object');
+	const b = body as Record<string, unknown>;
+
+	if (b.difficulty != null && !DIFFICULTIES.includes(b.difficulty as Difficulty)) {
+		error(400, 'difficulty is not one of the three');
+	}
+	if (b.fair != null && typeof b.fair !== 'boolean') error(400, 'fair is not a yes or a no');
+
+	return {
+		runId: id(b.runId, 'runId'),
+		userId: id(b.userId, 'userId'),
+		puzzleId: str(b.puzzleId, 'puzzleId', 64),
+		difficulty: (b.difficulty ?? null) as Difficulty | null,
+		fair: (b.fair ?? null) as boolean | null,
+		comment: str(b.comment ?? '', 'comment', MAX_COMMENT)
 	};
 }

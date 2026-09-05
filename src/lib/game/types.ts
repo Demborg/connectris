@@ -15,6 +15,12 @@ export type Puzzle = {
 	groups: Group[];
 };
 
+/**
+ * How a board landed. Three answers because a fourth costs more than it earns: the screen
+ * asking has to be answerable in one tap by someone who wants to be playing.
+ */
+export type Difficulty = 'easy' | 'right' | 'hard';
+
 /** A puzzle as a player may see it: which board this is, never what is on it. */
 export type PuzzleMeta = Pick<Puzzle, 'id' | 'name' | 'language'>;
 

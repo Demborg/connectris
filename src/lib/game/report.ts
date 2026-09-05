@@ -1,5 +1,6 @@
 import { displayName, userId } from '$lib/user';
 import type { Run } from './log';
+import type { Difficulty } from './types';
 
 /**
  * Where a finished run goes. Best-effort by design: a run that fails to send is still a
@@ -19,6 +20,40 @@ export function httpReporter(send: typeof fetch = fetch): Reporter {
 		}).catch(() => {
 			// A lost run is a lost data point, not a lost game. Pin 10 keeps the local copy
 			// precisely so this can be allowed to fail quietly.
+		});
+	};
+}
+
+/** What the end screen can be told. Every field optional: the screen is skippable. */
+export type Answers = {
+	difficulty: Difficulty | null;
+	fair: boolean | null;
+	comment: string;
+};
+
+export type AnswerReporter = (answers: Answers) => void;
+
+export const noAnswers: AnswerReporter = () => {};
+
+/**
+ * Send what a player said about a board.
+ *
+ * Called on every tap rather than on a submit, so a completed form arrives as a series of
+ * partial ones. The store keys by run, so the last one wins and someone who answers the
+ * first question and leaves has still told us the thing most worth knowing.
+ */
+export function httpAnswers(
+	runId: string,
+	puzzleId: string,
+	send: typeof fetch = fetch
+): AnswerReporter {
+	return (answers) => {
+		void send('/api/feedback', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ ...answers, runId, puzzleId, userId: userId() })
+		}).catch(() => {
+			// An opinion that did not arrive is not worth interrupting a game over.
 		});
 	};
 }

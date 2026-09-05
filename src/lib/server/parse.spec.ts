@@ -1,14 +1,14 @@
 import { isHttpError } from '@sveltejs/kit';
 import { describe, expect, it } from 'vitest';
-import { runOf } from './contract';
-import { parseRun } from './parse';
+import { feedbackOf, runOf } from './contract';
+import { parseFeedback, parseRun } from './parse';
 
 /** A run as it arrives on the wire, before anything has vouched for it. */
 const sent = (over: Record<string, unknown> = {}) => ({ ...runOf(), ...over });
 
-function rejects(body: unknown): number {
+function rejects(body: unknown, parse = parseRun as (b: unknown) => unknown): number {
 	try {
-		parseRun(body);
+		parse(body);
 		return 200;
 	} catch (e) {
 		if (isHttpError(e)) return e.status;
@@ -60,5 +60,45 @@ describe('parseRun', () => {
 	it('refuses a body that is not an object', async () => {
 		expect(rejects('a run, honestly')).toBe(400);
 		expect(rejects(null)).toBe(400);
+	});
+});
+
+/** Answers as they arrive on the wire, one tap at a time. */
+const said = (over: Record<string, unknown> = {}) => ({ ...feedbackOf(), ...over });
+const rejectsAnswer = (body: unknown) => rejects(body, parseFeedback);
+
+describe('parseFeedback', () => {
+	it('accepts a full answer', async () => {
+		expect(parseFeedback(said())).toEqual(feedbackOf());
+	});
+
+	it('accepts an answer to only the first question', async () => {
+		// The screen posts on every tap and is skippable, so this is the common shape, not
+		// a degraded one. Difficulty alone is the answer most worth having.
+		const partial = parseFeedback({
+			runId: 'run-1',
+			userId: 'user-1',
+			puzzleId: 'p',
+			difficulty: 'hard'
+		});
+		expect(partial).toMatchObject({ difficulty: 'hard', fair: null, comment: '' });
+	});
+
+	it('refuses a difficulty outside the three', async () => {
+		expect(rejectsAnswer(said({ difficulty: 'brutal' }))).toBe(400);
+	});
+
+	it('refuses a fairness that is not a yes or a no', async () => {
+		expect(rejectsAnswer(said({ fair: 'sort of' }))).toBe(400);
+	});
+
+	it('refuses an essay', async () => {
+		expect(rejectsAnswer(said({ comment: 'x'.repeat(2001) }))).toBe(400);
+	});
+
+	it('insists on something to file the opinion against', async () => {
+		// An opinion with no run is not evidence about anything.
+		expect(rejectsAnswer(said({ runId: undefined }))).toBe(400);
+		expect(rejectsAnswer(said({ puzzleId: undefined }))).toBe(400);
 	});
 });

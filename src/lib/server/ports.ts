@@ -8,7 +8,7 @@
  */
 
 import type { Run } from '$lib/game/log';
-import type { Puzzle } from '$lib/game/types';
+import type { Difficulty, Puzzle } from '$lib/game/types';
 
 /** A calendar day in the game's own timezone, as `YYYY-MM-DD`. */
 export type Day = string;
@@ -20,9 +20,6 @@ export type RunRecord = Run & {
 	/** Set only for an invited tester; everyone else is an anonymous id. */
 	displayName: string | null;
 };
-
-/** How the board landed. Three answers, because a fourth would cost more than it earns. */
-export type Difficulty = 'easy' | 'right' | 'hard';
 
 /**
  * What a player said about a board once it was over. Every field is optional because the
