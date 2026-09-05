@@ -1,6 +1,6 @@
 import { CHECKS, check, deal, swapTiles } from './engine';
 import { recordBest, saveRun, type Best, type EventInput, type GameEvent } from './log';
-import type { Group, Position, Puzzle, Row, SolvedRow } from './types';
+import type { Answer, Group, Position, Puzzle, Row, SolvedRow } from './types';
 
 export type Status = 'idle' | 'playing' | 'won' | 'lost';
 
@@ -48,6 +48,7 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, reducedMotion() ? 
 
 export class Session {
 	readonly puzzle: Puzzle;
+	private readonly answer: Answer;
 
 	rows = $state<Row[]>([]);
 	solved = $state<SolvedRow[]>([]);
@@ -62,6 +63,12 @@ export class Session {
 	verdict = $state<Verdict | null>(null);
 	/** True while the top row is lifting off. Drives the tile clear animation. */
 	lifting = $state(false);
+	/**
+	 * The category of the row currently lifting. The board needs it to land those tiles on
+	 * the colour their solved bar will use — and it is the only category the player is
+	 * allowed to know about before the row has cleared.
+	 */
+	liftingGroup = $state<Group | null>(null);
 	/** Rows in the clear currently playing, for how hard it lands. 0 when nothing is. */
 	clearing = $state(0);
 	/** True while the press is travelling up the board. */
@@ -87,7 +94,13 @@ export class Session {
 
 	constructor(puzzle: Puzzle) {
 		this.puzzle = puzzle;
-		this.rows = deal(puzzle);
+		const { rows, answer } = deal(puzzle);
+		this.rows = rows;
+		this.answer = answer;
+	}
+
+	private groupOf(row: Row): Group {
+		return this.puzzle.groups.find((g) => g.id === this.answer.get(row[0].id))!;
 	}
 
 	get elapsedMs(): number {
@@ -172,7 +185,7 @@ export class Session {
 		this.begin();
 		this.clearSelection();
 
-		const result = check(this.rows);
+		const result = check(this.rows, this.answer);
 		this.checks++;
 		// Drop the previous verdict and callout now, so neither is left standing over the
 		// clear animation this check is about to play.
@@ -237,20 +250,17 @@ export class Session {
 		this.clearing = count;
 
 		for (let i = 0; i < count; i++) {
+			const [row, ...rest] = this.rows;
+			const group = this.groupOf(row);
+
+			this.liftingGroup = group;
 			this.lifting = true;
 			await wait(LOCK_MS);
 
-			const [row, ...rest] = this.rows;
 			this.rows = rest;
-			this.solved = [
-				...this.solved,
-				{
-					group: this.puzzle.groups.find((g) => g.id === row[0].group)!,
-					check: this.checks,
-					order: i
-				}
-			];
+			this.solved = [...this.solved, { group, check: this.checks, order: i }];
 			this.lifting = false;
+			this.liftingGroup = null;
 
 			// Only from the second row on is there anything to shout about, and from there
 			// the shout grows with the tally rather than waiting for the final figure.

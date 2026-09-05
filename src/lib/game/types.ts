@@ -19,8 +19,17 @@ export type Puzzle = {
 export type Tile = {
 	id: number;
 	word: string;
-	group: string;
 };
+
+/**
+ * Tile id to group id: the answer key, kept beside the board rather than on it.
+ *
+ * It used to ride on every tile, which meant a board and its solution were the same
+ * object — there was no way to hand a player one without the other. A row is now just
+ * tiles, and only whoever holds this map can say whether one is complete, which is what
+ * lets the check live somewhere the player cannot read.
+ */
+export type Answer = Map<number, string>;
 
 export type Row = Tile[];
 

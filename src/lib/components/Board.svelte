@@ -18,8 +18,13 @@
 	 * the `settle` keyframes in Tile.svelte, so a tile that is not locking has no use for
 	 * its category's colour — and handing it one anyway writes the whole answer key into
 	 * the DOM, where an inspector reads it off an uncleared board.
+	 *
+	 * The category comes from the session rather than from the tile, because a tile no
+	 * longer knows which group it belongs to. Only a row that has been graded does.
 	 */
 	const isLocking = (row: number) => session.lifting && row === 0;
+	const lockingColour = (row: number) =>
+		isLocking(row) && session.liftingGroup ? colourOf(session.liftingGroup.id) : 'var(--accent)';
 
 	/**
 	 * Rows the player is finished with: cleared first, then the ones revealed by a loss.
@@ -192,7 +197,7 @@
 				crash={crashAmp(cell.row)}
 				crashDelay={cell.row * RIPPLE_STEP}
 				impact={cell.row === 0}
-				colour={isLocking(cell.row) ? colourOf(cell.tile.group) : 'var(--accent)'}
+				colour={lockingColour(cell.row)}
 				disabled={session.over}
 				row={cell.row}
 				col={cell.col}
