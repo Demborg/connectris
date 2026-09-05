@@ -153,7 +153,7 @@ def test_a_red_team_that_never_ran_reads_as_absent_not_as_clean() -> None:
         puzzle=PUZZLE,
         traps={},
         solver_digest="",
-        red=RedTeamReport(ambiguous_words=[], alternatives=[], verdict="clean"),
+        red=RedTeamReport(ambiguous_words=[], loose_labels=[], alternatives=[], verdict="clean"),
         warnings=[],
     )
     assert "did not run" not in clean

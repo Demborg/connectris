@@ -47,20 +47,28 @@ class SolveAttempt(BaseModel):
 
 
 class AmbiguousWord(BaseModel):
-    """A word whose second reading survives the full-partition rule.
+    """A word that genuinely satisfies two of the board's five labels.
 
-    Not merely a word that looks like it belongs elsewhere — every category is built to
-    contain one of those. This is one the finished board fails to resolve.
+    Not a word that a category merely *tempts* — categories are built to read wider than
+    they are, and that temptation is the puzzle. This is a word both labels actually
+    admit, which makes the board unsolvable rather than hard.
     """
 
-    word: str = Field(description="The word whose second placement the whole board allows.")
+    word: str = Field(description="The word that two labels both genuinely admit.")
     intended_label: str = Field(description="The category it is filed under in the answer key.")
-    also_fits: str = Field(description="The other category on this board it fits just as well.")
-    completion: str = Field(
-        description="The four words the row it left would have instead, proving the rest of "
-        "the board still completes. Without this the finding is just a decoy doing its job."
+    also_fits: str = Field(description="The other label on this board that also admits it.")
+    why: str = Field(
+        description="Why the second reading is defensible on the label's own terms. Do not "
+        "argue from how many words a row has left — that is not a resolution."
     )
-    why: str = Field(description="One sentence for why the second reading is legitimate.")
+
+
+class LooseLabel(BaseModel):
+    """A label written wider than the row it names, which is how the defect above starts."""
+
+    label: str = Field(description="The label as written.")
+    invites: str = Field(description="The word it invites but does not mean.")
+    tighten_to: str = Field(description="A precise rewording that excludes that word.")
 
 
 class AlternativePartition(BaseModel):
@@ -75,7 +83,11 @@ class AlternativePartition(BaseModel):
 
 class RedTeamReport(BaseModel):
     ambiguous_words: list[AmbiguousWord] = Field(
-        description="Words that legitimately fit two categories on this board. Empty if none."
+        description="Words two labels both genuinely admit. Empty if none — and empty is "
+        "the expected answer for a well-built board."
+    )
+    loose_labels: list[LooseLabel] = Field(
+        description="Labels written wider than the row they name. Empty if none."
     )
     alternatives: list[AlternativePartition] = Field(
         description="Full alternative solutions you found. Empty if none. Do not force one."

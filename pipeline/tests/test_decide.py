@@ -10,6 +10,7 @@ from connectris_pipeline.schema import (
     AlternativePartition,
     AmbiguousWord,
     Grade,
+    LooseLabel,
     RedTeamReport,
     SolvedGroup,
 )
@@ -39,7 +40,7 @@ def candidate(**kwargs) -> Candidate:
         id="c",
         puzzle=Puzzle("c", "C", [Group("g", "G", ["A", "B", "C", "D"])]),
         stats=stats(),
-        red=RedTeamReport(ambiguous_words=[], alternatives=[], verdict="clean"),
+        red=RedTeamReport(ambiguous_words=[], loose_labels=[], alternatives=[], verdict="clean"),
         grade=Grade(verdict="accept", fairness=5, elegance=4, reasons=""),
     )
     return replace(base, **kwargs)
@@ -52,6 +53,7 @@ def test_clean_through_every_stage_is_accepted():
 def test_an_alternative_partition_is_fatal():
     red = RedTeamReport(
         ambiguous_words=[],
+        loose_labels=[],
         alternatives=[AlternativePartition(groups=[SolvedGroup(category="x", words=[])], why="")],
         verdict="broken",
     )
@@ -65,10 +67,10 @@ def test_one_ambiguous_word_blocks_auto_accept_without_killing_the_puzzle():
                 word="SOLE",
                 intended_label="Fish",
                 also_fits="Shoes",
-                completion="PERCH, BASS, SKATE, RAY",
                 why="the board completes with SOLE in either row",
             )
         ],
+        loose_labels=[],
         alternatives=[],
         verdict="soft",
     )
@@ -113,3 +115,16 @@ def test_thresholds_are_the_only_thing_that_changed_between_these_two():
     c = candidate(grade=Grade(verdict="accept", fairness=4, elegance=3, reasons=""))
     assert decide(c, Thresholds()).verdict == "accept"
     assert decide(c, Thresholds(min_fairness=5)).verdict == "review"
+
+
+def test_a_loose_label_goes_to_review():
+    """How a genuine dual membership starts: a label written wider than its row."""
+    red = RedTeamReport(
+        ambiguous_words=[],
+        loose_labels=[LooseLabel(label="Fruit", invites="APPLE", tighten_to="Stone fruit")],
+        alternatives=[],
+        verdict="soft",
+    )
+    decision = decide(candidate(red=red), T)
+    assert decision.verdict == "review"
+    assert any("Fruit" in r for r in decision.reasons)

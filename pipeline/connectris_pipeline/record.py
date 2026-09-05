@@ -110,12 +110,14 @@ def decide(candidate: Candidate, t: Thresholds) -> Decision:
             reject = True
             reasons.append(f"red team found {len(red.alternatives)} alternative partition(s)")
         if red.ambiguous_words:
-            # No threshold: the red team now has to prove a second placement completes
-            # the board, so one finding is one too many. It reviews rather than rejects
-            # because a model can still be wrong about a completion, and a human reading
-            # the four words it names can tell in seconds.
+            # A word two labels both admit is a construction defect, not difficulty, so
+            # one finding is one too many. It reviews rather than rejects because a model
+            # can still be wrong about a definition, and a human can check in seconds.
             words = ", ".join(a.word for a in red.ambiguous_words)
-            review.append(f"red team flagged ambiguous words: {words}")
+            review.append(f"red team says two labels both admit: {words}")
+        if red.loose_labels:
+            labels = ", ".join(repr(x.label) for x in red.loose_labels)
+            review.append(f"red team says these labels read wider than their row: {labels}")
     else:
         review.append("no red-team report")
 

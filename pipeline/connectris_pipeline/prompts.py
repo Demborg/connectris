@@ -37,13 +37,26 @@ Shorter is better; most words should be under 8.
 - Plain uppercase English. No punctuation, no digits, no phrases.
 - No word may appear inside another category's label.
 
-What makes one good:
-- Every category needs a decoy: a word that plainly belongs to a different category on \
-this board until you find the row that needs it more. That collision is the puzzle.
+What makes one good — and this is the distinction the whole thing turns on:
+
+- **The misdirection belongs in the category, not in the word.** Write a category whose
+obvious reading is wider than its real one, so a word looks like it belongs until you read
+the category precisely and see that it does not. APPLE, PEACH, PLUM, MANGO and OLIVE on a
+board: the row is not "fruit", it is "stone fruit" — PEACH, PLUM, MANGO and OLIVE are all
+drupes and APPLE is not, so APPLE is freed for the tech companies. The player is not
+counting seats; they are noticing that the category is narrower than they read it.
+- **Never write a word that genuinely belongs to two categories on the board.** If the only
+thing separating them is that the other row is already full, the puzzle resolves by
+arithmetic instead of by insight, and a player who reads it the other way is right and is
+told they are wrong. A word must have exactly one home under a precise reading of the
+labels.
 - Prefer categories a player can *name*. If someone groups the four correctly but cannot \
 say why, the puzzle is unfair even though it is solvable.
 - Vary the kind of category: things-that-are-X, ___ WORD and WORD ___ compounds, \
 homophones, members of a set, words hiding another word. Do not use five of the same kind.
+- A category that quietly narrows is the best device you have: "stone fruit" read as
+"fruit", "circus performers" read as "circus things", "birds that cannot fly" read as
+"birds". Reach for one of those before you reach for a collision.
 - Vary difficulty deliberately. One category should be gettable at a glance, one should be \
 the last thing anyone sees.
 - No proper nouns that need specific regional or generational knowledge.
@@ -130,9 +143,12 @@ Build at least one category as {seed["device"]}.
 Already shipped, so do not reuse — words: {words}
 Already shipped, so do not repeat the idea — categories: {labels}
 
-For each category, state its trap: which of its words looks like it belongs to a \
-different row on this board, and which row. If a category has no such word, say so — but \
-a board where three categories say "none" is a board you should rewrite before answering.
+For each category, state its trap: which word on this board its *obvious* reading would \
+pull in, and what in its precise reading keeps that word out. "Stone fruit — reads as \
+fruit, so it pulls APPLE, but an apple is a pome not a drupe." If a category has no such \
+pull, say so; a board where three categories say "none" is one you should rewrite before \
+answering. And check, before you answer, that no word genuinely satisfies two of your \
+five labels — that is the one defect that makes the board unsolvable rather than hard.
 """
     return system, prompt
 
@@ -154,36 +170,33 @@ def red_team(puzzle: Puzzle, traps: dict[str, str]) -> tuple[str, str]:
     A solver that happens to find the intended answer proves nothing about whether a
     second answer exists — so this model is shown the key and paid to break it.
 
-    The ask is narrower than it looks, and the narrowing is the point. The first real run
-    produced 37 ambiguous-word findings and *every one of them was a trap the proposer
-    had declared in its own prompt* — handed the trap list, the model handed it back.
-    That made the stage a mirror, and since the construction rules require every category
-    to have a decoy, it taxed exactly the boards that followed the brief.
+    This ask has been rewritten twice. First it reported every decoy, which made it a
+    mirror of the proposer's own trap list. Then it was asked whether a decoy survived
+    the full-partition rule, which is a question about seat-counting. Both were wrong in
+    the same way: they treated a word belonging to two categories as difficulty to be
+    measured, when the construction rules now say it is a defect to be found. The
+    misdirection is supposed to live in a category that reads wider than it is, and a
+    word that genuinely satisfies two labels is simply a broken board.
 
-    A decoy is not a defect. What makes it one is surviving the full-partition rule: the
-    player commits all twenty words at once, so a word that looks like it belongs
-    elsewhere is resolved the moment the other row fills up without it. The only real
-    ambiguity is one that still stands when the whole board is laid out — which is the
-    same thing as a second complete partition.
+    So the question is now flat: does any word satisfy two of these five labels under a
+    precise reading? No completion proof, no partition arithmetic.
     """
     system = (
         "You are a hostile solver. You are given a word puzzle *and its intended answer*. "
         "Your only job is to find a way for a reasonable player to be correct and be told "
         "they are wrong.\n\n"
         + GAME_BRIEF
-        + "\nThis board is built so that every category contains a word that looks like it "
-        "belongs to a different row. That is the intended difficulty, not a fault, and "
-        "reporting it as one gets a good puzzle thrown away. The full-partition rule "
-        "resolves an ordinary decoy by itself: the player places all twenty words at "
-        "once, so a word that looks like it belongs elsewhere is settled as soon as the "
-        "other row is full without it.\n"
-        "Report a word only when that resolution *fails* — when moving it leaves both "
-        "rows fillable with four words each, so the board still works with the word in "
-        "the other place. That is a genuine second answer. Everything else is the puzzle "
-        "doing its job."
+        + "\nThis board is built so that some categories read wider than they are: a "
+        "category like 'stone fruit' looks like 'fruit' and tempts APPLE, but an apple is "
+        "not a drupe, so the temptation resolves the moment you read the label precisely. "
+        "That is the intended difficulty and it is not a fault.\n"
+        "A fault is a word that genuinely satisfies two of the five labels under a precise "
+        "reading — where a player could file it either way and defend it. Judge the labels "
+        "as written, on their own terms, and ignore how many words each row already has: "
+        "'the other row is full' is not a resolution, it is the bug."
     )
     rows = "\n".join(
-        f"{g.label}: {', '.join(g.words)}   [intended trap: {traps.get(g.id, 'none stated')}]"
+        f"{g.label}: {', '.join(g.words)}   [intended pull: {traps.get(g.id, 'none stated')}]"
         for g in puzzle.groups
     )
     prompt = f"""\
@@ -192,16 +205,14 @@ Board (all 20 words): {", ".join(puzzle.words)}
 Intended answer:
 {rows}
 
-The traps are listed so you can rule them out, not so you can repeat them. A trap that \
-the full board resolves is a working trap.
-
-Two questions, in this order:
-1. Is there a *different* way to cut these 20 words into 5 groups of 4 where every group \
-holds together? If yes, give it in full. This is fatal to the puzzle, so look hard.
-2. Is there a word you could move to another row and still complete the whole board — \
-every row four words, every row holding together? Name it, and say which four words the \
-row it left would then have. If completing the board forces the word back, it is resolved \
-and you should not report it.
+Three questions, in this order:
+1. Does any word genuinely satisfy two of these five labels? For each, name both labels \
+and say why the second reading is defensible. Do not report a word that a precise reading \
+of the label excludes — that is the puzzle working.
+2. Is there a *different* way to cut these 20 words into 5 groups of 4 where every group \
+holds together? If yes, give it in full. This is fatal, so look hard.
+3. Is any label written so loosely that it invites a word it does not mean? Say which \
+tightening would fix it.
 """
     return system, prompt
 
@@ -221,7 +232,11 @@ def grade(
         + GAME_BRIEF
         + "\n"
         + CONSTRUCTION_RULES
-        + "\nHow to read the solver evidence: the solvers are deliberately weak models. "
+        + "\nHow to read the red-team report: this board is *meant* to contain categories "
+        "that read wider than they are, so a word being tempted by another row is the "
+        "puzzle working. What the red team reports is different — a word two labels both "
+        "genuinely admit — and that is a defect, not difficulty.\n"
+        "How to read the solver evidence: the solvers are deliberately weak models. "
         "A low recovery rate means hard OR broken, and it is your job to say which — the "
         "red-team report is the tiebreaker. A category the solvers found but could not "
         "name is the specific shape of unfair that nothing else in this pipeline catches.\n"
@@ -257,9 +272,13 @@ def _red_summary(red: RedTeamReport | None) -> str:
     if red is None:
         return "- the red team did not run; treat this board as unchecked for a second answer"
     lines = [
-        f"- {a.word}: filed under {a.intended_label!r}, also fits {a.also_fits!r} — {a.why} "
-        f"(leaving {a.intended_label!r} as: {a.completion})"
+        f"- {a.word}: filed under {a.intended_label!r}, but {a.also_fits!r} admits it too — {a.why}"
         for a in red.ambiguous_words
+    ]
+    lines += [
+        f"- label {loose.label!r} is wider than its row: it invites {loose.invites}. "
+        f"Tighter: {loose.tighten_to}"
+        for loose in red.loose_labels
     ]
     for alt in red.alternatives:
         groups = "; ".join(f"{g.category}: {', '.join(g.words)}" for g in alt.groups)

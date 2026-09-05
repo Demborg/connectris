@@ -337,12 +337,32 @@ thresholds survive. The one that matters most is the one the grader structurally
 supply: a board can read as elegant and still be trivial, because the grader never sees it
 played.
 
-**A decoy is not an ambiguity, and the red team had to be told so.** All 37 of its
-findings were traps the proposer had declared in its own prompt — handed the trap list, it
-handed it back. Since the construction rules require a decoy per category, the stage was
-taxing exactly the boards that followed the brief, and the only two boards that would have
-auto-accepted got there by having traps it happened to miss. The full-partition rule is
-what resolves an ordinary decoy; the red team now has to show that resolution failing.
+**Trap categories, not trap words.** _This is the sharpest thing the runs taught, and it
+changes what a good board is._
+
+The original rules asked every category to contain a decoy: a word that plainly belongs to
+another row until you find the row that needs it more. That produces boards where the only
+thing separating two readings is that the other row is already full — the puzzle resolves
+by arithmetic, and a player who reads it the other way is right and is told they are wrong.
+The second run shipped exactly that on an accepted board: SANCTION and WARRANT each
+genuinely fit both "words meaning to authorize" and "court orders and filings", a complete
+second solution nothing caught.
+
+The better device is a category that reads wider than it is. APPLE, PEACH, PLUM, MANGO and
+OLIVE on one board: the row is not "fruit", it is **stone fruit** — the other four are
+drupes and an apple is a pome, so APPLE is freed for the tech companies. Nothing is
+resolved by counting seats. The player notices that the category is narrower than they
+read it, and that noticing _is_ the puzzle.
+
+So: the misdirection belongs in the label, never in the word. A word that genuinely
+satisfies two labels is a construction defect rather than intended difficulty.
+
+This simplifies the red team rather than complicating it. It had been asked, in turn, to
+report every decoy (which made it a mirror of the proposer's own trap list — all 37 of its
+findings were traps the proposer had declared) and then to prove a decoy survived the
+full-partition rule (seat-counting again). Now the question is flat: does any word satisfy
+two of these five labels under a precise reading? It also reports labels written wider than
+their row, which is how the defect starts.
 
 **Nine solver calls a board bought nothing that one call did not.** Three models
 correlating 0.71–0.85 is a capability ladder, not independent blind spots.
