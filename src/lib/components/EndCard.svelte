@@ -37,6 +37,55 @@
 	let asking = $state(true);
 
 	/**
+	 * Dragging the sheet.
+	 *
+	 * A grabber promises a swipe. When only a tap was listening, the browser took the
+	 * gesture instead and pulled the page down to refresh — which throws away the run the
+	 * card is reporting on. An affordance that lies is worse than no affordance, so the
+	 * swipe is real: `touch-action: none` on the header takes the gesture off the browser,
+	 * and the card follows the finger.
+	 *
+	 * A tap still toggles. Only a real drag suppresses it, the same way the board tells a
+	 * drag from a tap.
+	 */
+	const THROW = 44;
+
+	let dragged = $state(0);
+	// Reactive: it decides whether the card is following a finger or springing back.
+	let pulling = $state(false);
+	let from = 0;
+	let moved = false;
+
+	/** Down closes when the questions are up; up opens them when they are down. */
+	const allowed = (dy: number) => (asking ? Math.max(0, dy) : Math.min(0, dy));
+
+	function grab(e: PointerEvent) {
+		pulling = true;
+		moved = false;
+		from = e.clientY;
+		dragged = 0;
+		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+	}
+
+	function pull(e: PointerEvent) {
+		if (!pulling) return;
+		dragged = allowed(e.clientY - from);
+		if (Math.abs(dragged) > 4) moved = true;
+	}
+
+	function release() {
+		if (!pulling) return;
+		pulling = false;
+		if (Math.abs(dragged) > THROW) asking = !asking;
+		dragged = 0;
+	}
+
+	function toggle() {
+		if (moved) return;
+		asking = !asking;
+	}
+
+	/**
 	 * The two things a run cannot tell us about itself.
 	 *
 	 * Everything else worth knowing — how long, how many checks, which rows went first,
@@ -91,7 +140,17 @@
 		<!-- The whole header is the toggle, and it has to look like one. The global button
 		     reset strips every affordance a button normally carries, so a chevron alone
 		     read as decoration — the grabber says "sheet" and the words say what happens. -->
-		<button class="head" onclick={() => (asking = !asking)} aria-expanded={asking}>
+		<button
+			class="head"
+			class:pulling
+			style:--dragged="{dragged}px"
+			onclick={toggle}
+			onpointerdown={grab}
+			onpointermove={pull}
+			onpointerup={release}
+			onpointercancel={release}
+			aria-expanded={asking}
+		>
 			<span class="grab" aria-hidden="true"></span>
 			<span class="line">
 				<span class="outcome">{won ? 'Solved' : 'Out of checks'}</span>
@@ -275,6 +334,14 @@
 		padding: 0 0 12px;
 		color: inherit;
 		text-align: left;
+		/* The gesture belongs to this card, not to the browser's pull-to-refresh. */
+		touch-action: none;
+		transform: translateY(var(--dragged, 0));
+	}
+
+	/* Follows the finger while held, springs back when let go under the threshold. */
+	.head:not(.pulling) {
+		transition: transform 220ms var(--snap);
 	}
 
 	/* The one shape that says "this sheet moves" without a word. */

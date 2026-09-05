@@ -67,6 +67,14 @@ body {
 	height: 100%;
 }
 
+/* Pull-to-refresh would throw away a run in progress, and a game whose board is dragged
+   around with a finger invites exactly that gesture. Both elements: Chrome takes the
+   gesture from whichever one defines the viewport, which is not always `body`. */
+html,
+body {
+	overscroll-behavior: none;
+}
+
 body {
 	background: radial-gradient(120% 60% at 50% -10%, var(--bg-glow) 0%, transparent 60%), var(--bg);
 	color: var(--text);
@@ -80,7 +88,6 @@ body {
 		Helvetica,
 		Arial,
 		sans-serif;
-	overscroll-behavior: none;
 }
 
 button {
