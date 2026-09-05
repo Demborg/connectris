@@ -1,5 +1,5 @@
 import { CHECKS, check, deal } from './engine';
-import type { Checker, Group, Puzzle, Row } from './types';
+import type { CheckOutcome, Checker, Group, Puzzle, Row } from './types';
 
 /**
  * Grade against a puzzle held in this process.
@@ -31,5 +31,27 @@ export function localChecker(puzzle: Puzzle): Checker {
 		const missed = over && !solved ? puzzle.groups.filter((g) => unfound.has(g.id)) : [];
 
 		return { locked, correctCount, cleared, missed };
+	};
+}
+
+/**
+ * Grade over the wire. The half that keeps the answer where the player cannot read it.
+ *
+ * Errors are left to propagate: a check that never came back is not a check, and the
+ * session refunds it rather than charging the player for the network.
+ */
+export function httpChecker(puzzleId: string, send: typeof fetch = fetch): Checker {
+	return async (rows, checksUsed) => {
+		const res = await send('/api/checks', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({
+				puzzleId,
+				rows: rows.map((row) => row.map((t) => t.id)),
+				checksUsed
+			})
+		});
+		if (!res.ok) throw new Error(`check failed: ${res.status} ${res.statusText}`);
+		return (await res.json()) as CheckOutcome;
 	};
 }

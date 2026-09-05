@@ -1,6 +1,15 @@
 import { CHECKS, swapTiles } from './engine';
 import { recordBest, saveRun, type Best, type EventInput, type GameEvent } from './log';
-import type { Board, Checker, Group, Position, PuzzleMeta, Row, SolvedRow } from './types';
+import type {
+	Board,
+	CheckOutcome,
+	Checker,
+	Group,
+	Position,
+	PuzzleMeta,
+	Row,
+	SolvedRow
+} from './types';
 
 export type Status = 'idle' | 'playing' | 'won' | 'lost';
 
@@ -88,6 +97,11 @@ export class Session {
 	best = $state<Best | undefined>(undefined);
 	/** Categories never found, revealed once the run is lost. Only a grader can name them. */
 	missed = $state<Group[]>([]);
+	/**
+	 * Set when a check could not be graded at all. The run is not over and the check was
+	 * refunded — but the player pressed a button and nothing happened, so say why.
+	 */
+	fault = $state<string | null>(null);
 
 	startedAt = 0;
 	endedAt = 0;
@@ -177,6 +191,7 @@ export class Session {
 		this.begin();
 		this.clearSelection();
 
+		this.fault = null;
 		this.checks++;
 		const grading = this.grade(this.rows, this.checks);
 
@@ -192,7 +207,18 @@ export class Session {
 		// The anticipation sweep is also the latency budget. It has to run before anything
 		// resolves anyway, so a grader that answers inside it is one the player never waits
 		// for — which is what makes grading somewhere else affordable.
-		const [result] = await Promise.all([grading, wait(SWEEP_LEAD)]);
+		let result: CheckOutcome;
+		try {
+			[result] = await Promise.all([grading, wait(SWEEP_LEAD)]);
+		} catch {
+			// A check that never came back is not a check. Refund it and let the player try
+			// again: an unreachable grader is not a wrong answer, and charging for one would
+			// end runs that the puzzle never beat. Pin 5.
+			this.checks--;
+			this.fault = 'Could not reach the scorer. Try again.';
+			this.busy = false;
+			return;
+		}
 
 		if (result.locked > 0) {
 			await this.roll(result.cleared);
