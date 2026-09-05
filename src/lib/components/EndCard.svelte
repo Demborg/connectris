@@ -75,21 +75,31 @@
 <!-- The scrim is a sibling of the card, never its ancestor: a filtered ancestor drags
      everything inside it into the same blurred layer, which is what was making the
      card's own text unreadable. -->
-<div class="scrim" class:thin={!asking} aria-hidden="true"></div>
+<!-- Tapping outside a sheet to dismiss it is the thing everyone tries first, so it had
+     better work. A button rather than a div with a handler: it is a real control, and it
+     should answer to a keyboard like one. -->
+<button
+	class="scrim"
+	class:thin={!asking}
+	tabindex="-1"
+	aria-label="See the board"
+	onclick={() => (asking = false)}
+></button>
 
 <div class="sheet">
 	<div class="card" class:lost={!won}>
-		<!-- The whole header is the toggle. It is the one control on this card a player
-		     wants before they have decided anything, so it gets the biggest target. -->
+		<!-- The whole header is the toggle, and it has to look like one. The global button
+		     reset strips every affordance a button normally carries, so a chevron alone
+		     read as decoration — the grabber says "sheet" and the words say what happens. -->
 		<button class="head" onclick={() => (asking = !asking)} aria-expanded={asking}>
-			<span class="outcome">{won ? 'Solved' : 'Out of checks'}</span>
-			<span class="score"
-				>{score}{#if best}<span class="best"> · {best}</span>{/if}</span
-			>
-			<span class="chev" class:up={!asking} aria-hidden="true">▾</span>
-			<span class="sr"
-				>{asking ? 'Hide the questions and see the board' : 'Show the questions'}</span
-			>
+			<span class="grab" aria-hidden="true"></span>
+			<span class="line">
+				<span class="outcome">{won ? 'Solved' : 'Out of checks'}</span>
+				<span class="score"
+					>{score}{#if best}<span class="best"> · {best}</span>{/if}</span
+				>
+				<span class="toggle">{asking ? 'See the board' : 'Questions'}</span>
+			</span>
 		</button>
 
 		{#if asking}
@@ -218,6 +228,9 @@
 	.scrim {
 		position: fixed;
 		inset: 0;
+		display: block;
+		width: 100%;
+		cursor: default;
 		background: linear-gradient(180deg, rgb(6 8 12 / 15%) 0%, rgb(6 8 12 / 82%) 62%);
 		animation: fade 260ms ease both;
 		transition: opacity 240ms ease;
@@ -257,13 +270,46 @@
 	/* One tap target across the whole width: outcome, score, and the affordance that
 	   gets the card out of the way. */
 	.head {
-		display: flex;
-		align-items: baseline;
-		gap: 10px;
+		display: block;
 		width: 100%;
 		padding: 0 0 12px;
 		color: inherit;
 		text-align: left;
+	}
+
+	/* The one shape that says "this sheet moves" without a word. */
+	.grab {
+		display: block;
+		width: 36px;
+		height: 4px;
+		margin: 0 auto 12px;
+		border-radius: 2px;
+		background: rgb(255 255 255 / 26%);
+	}
+
+	.line {
+		display: flex;
+		align-items: baseline;
+		gap: 10px;
+	}
+
+	/* Words, because the chevron did not carry it. Styled as the control it is rather
+	   than inheriting the reset that makes every button look like text. */
+	.toggle {
+		flex: none;
+		padding: 5px 10px;
+		border-radius: 999px;
+		background: rgb(255 255 255 / 10%);
+		outline: 1px solid var(--tile-edge);
+		outline-offset: -1px;
+		font-size: var(--fs-xs);
+		font-weight: 600;
+		color: var(--text);
+		white-space: nowrap;
+	}
+
+	.head:active .toggle {
+		background: rgb(255 255 255 / 20%);
 	}
 
 	.outcome {
@@ -279,6 +325,7 @@
 
 	.score {
 		flex: 1;
+		min-width: 0;
 		font-size: var(--fs-sm);
 		font-variant-numeric: tabular-nums;
 		color: var(--muted);
@@ -286,26 +333,6 @@
 
 	.best {
 		color: var(--dim);
-	}
-
-	.chev {
-		font-size: var(--fs-sm);
-		color: var(--muted);
-		transition: transform 200ms var(--snap);
-	}
-
-	.chev.up {
-		transform: rotate(180deg);
-	}
-
-	/* Said out loud, never shown: the chevron carries it visually. */
-	.sr {
-		position: absolute;
-		width: 1px;
-		height: 1px;
-		overflow: hidden;
-		clip-path: inset(50%);
-		white-space: nowrap;
 	}
 
 	/* Never more than a bit over half the screen, and scrolls inside itself if a small
