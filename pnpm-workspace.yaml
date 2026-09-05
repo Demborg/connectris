@@ -1,2 +1,5 @@
 allowBuilds:
   esbuild: true
+  # Pulled in by @google-cloud/firestore. Its install step generates the protobuf loader;
+  # the client fails to import without it, even on the REST transport.
+  protobufjs: true
