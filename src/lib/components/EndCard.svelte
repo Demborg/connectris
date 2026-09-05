@@ -37,55 +37,6 @@
 	let asking = $state(true);
 
 	/**
-	 * Dragging the sheet.
-	 *
-	 * A grabber promises a swipe. When only a tap was listening, the browser took the
-	 * gesture instead and pulled the page down to refresh — which throws away the run the
-	 * card is reporting on. An affordance that lies is worse than no affordance, so the
-	 * swipe is real: `touch-action: none` on the header takes the gesture off the browser,
-	 * and the card follows the finger.
-	 *
-	 * A tap still toggles. Only a real drag suppresses it, the same way the board tells a
-	 * drag from a tap.
-	 */
-	const THROW = 44;
-
-	let dragged = $state(0);
-	// Reactive: it decides whether the card is following a finger or springing back.
-	let pulling = $state(false);
-	let from = 0;
-	let moved = false;
-
-	/** Down closes when the questions are up; up opens them when they are down. */
-	const allowed = (dy: number) => (asking ? Math.max(0, dy) : Math.min(0, dy));
-
-	function grab(e: PointerEvent) {
-		pulling = true;
-		moved = false;
-		from = e.clientY;
-		dragged = 0;
-		(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-	}
-
-	function pull(e: PointerEvent) {
-		if (!pulling) return;
-		dragged = allowed(e.clientY - from);
-		if (Math.abs(dragged) > 4) moved = true;
-	}
-
-	function release() {
-		if (!pulling) return;
-		pulling = false;
-		if (Math.abs(dragged) > THROW) asking = !asking;
-		dragged = 0;
-	}
-
-	function toggle() {
-		if (moved) return;
-		asking = !asking;
-	}
-
-	/**
 	 * The two things a run cannot tell us about itself.
 	 *
 	 * Everything else worth knowing — how long, how many checks, which rows went first,
@@ -137,27 +88,18 @@
 
 <div class="sheet">
 	<div class="card" class:lost={!won}>
-		<!-- The whole header is the toggle, and it has to look like one. The global button
-		     reset strips every affordance a button normally carries, so a chevron alone
-		     read as decoration — the grabber says "sheet" and the words say what happens. -->
-		<button
-			class="head"
-			class:pulling
-			style:--dragged="{dragged}px"
-			onclick={toggle}
-			onpointerdown={grab}
-			onpointermove={pull}
-			onpointerup={release}
-			onpointercancel={release}
-			aria-expanded={asking}
-		>
-			<span class="grab" aria-hidden="true"></span>
-			<span class="line">
-				<span class="outcome">{won ? 'Solved' : 'Out of checks'}</span>
-				<span class="score"
-					>{score}{#if best}<span class="best"> · {best}</span>{/if}</span
-				>
-				<span class="toggle">{asking ? 'See the board' : 'Questions'}</span>
+		<!-- The whole header is the toggle. No swipe: a grabber promised a gesture that
+		     took real work to honour on the web and was not worth it for a control that
+		     only has two states. A chevron and a word do the same job and cannot be got
+		     half right. -->
+		<button class="head" onclick={() => (asking = !asking)} aria-expanded={asking}>
+			<span class="outcome">{won ? 'Solved' : 'Out of checks'}</span>
+			<span class="score"
+				>{score}{#if best}<span class="best"> · {best}</span>{/if}</span
+			>
+			<span class="toggle">
+				<span class="chev" class:up={!asking} aria-hidden="true">▾</span>
+				{asking ? 'See the board' : 'Questions'}
 			</span>
 		</button>
 
@@ -329,40 +271,22 @@
 	/* One tap target across the whole width: outcome, score, and the affordance that
 	   gets the card out of the way. */
 	.head {
-		display: block;
+		display: flex;
+		align-items: baseline;
+		gap: 10px;
 		width: 100%;
 		padding: 0 0 12px;
 		color: inherit;
 		text-align: left;
-		/* The gesture belongs to this card, not to the browser's pull-to-refresh. */
-		touch-action: none;
-		transform: translateY(var(--dragged, 0));
 	}
 
-	/* Follows the finger while held, springs back when let go under the threshold. */
-	.head:not(.pulling) {
-		transition: transform 220ms var(--snap);
-	}
-
-	/* The one shape that says "this sheet moves" without a word. */
-	.grab {
-		display: block;
-		width: 36px;
-		height: 4px;
-		margin: 0 auto 12px;
-		border-radius: 2px;
-		background: rgb(255 255 255 / 26%);
-	}
-
-	.line {
-		display: flex;
-		align-items: baseline;
-		gap: 10px;
-	}
-
-	/* Words, because the chevron did not carry it. Styled as the control it is rather
-	   than inheriting the reset that makes every button look like text. */
+	/* A chevron and a word. The chevron alone read as decoration — every button here is
+	   stripped to bare text by the global reset — so it is drawn as the control it is,
+	   and the word says which way it goes. */
 	.toggle {
+		display: flex;
+		align-items: center;
+		gap: 5px;
 		flex: none;
 		padding: 5px 10px;
 		border-radius: 999px;
@@ -377,6 +301,16 @@
 
 	.head:active .toggle {
 		background: rgb(255 255 255 / 20%);
+	}
+
+	.chev {
+		display: block;
+		line-height: 1;
+		transition: transform 200ms var(--snap);
+	}
+
+	.chev.up {
+		transform: rotate(180deg);
 	}
 
 	.outcome {
