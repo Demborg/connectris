@@ -106,14 +106,18 @@ gcloud run jobs execute connectris-generator --region=europe-north1 --wait
 
 # Then, and only then, turn it on. 22:00 UTC: today's board has had most of a day, and
 # what this writes goes live at midnight.
+#
+# `europe-west1`, not the job's own `europe-north1` — Cloud Scheduler is not offered
+# there. It only makes an HTTPS call to the Run Admin API, so where it runs from is
+# independent of where the job runs.
 gcloud scheduler jobs create http connectris-nightly \
-  --location=europe-north1 --schedule="0 22 * * *" --time-zone=UTC \
+  --location=europe-west1 --schedule="0 22 * * *" --time-zone=UTC \
   --uri="https://europe-north1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/connectris-507519/jobs/connectris-generator:run" \
   --http-method=POST \
   --oauth-service-account-email=connectris-deploy@connectris-507519.iam.gserviceaccount.com
 
 # And to stop it, at any time, without deleting anything:
-gcloud scheduler jobs pause connectris-nightly --location=europe-north1
+gcloud scheduler jobs pause connectris-nightly --location=europe-west1
 ```
 
 `--task-timeout=45m` is sized for the ceiling, not the average. A candidate takes about
