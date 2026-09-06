@@ -33,3 +33,6 @@ vite.config.ts.timestamp-*
 
 # Play data captured by a local run. Real sessions, not fixtures.
 .data/
+
+# Agent worktrees, not part of the project.
+.claude/worktrees/
