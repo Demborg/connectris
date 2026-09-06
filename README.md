@@ -71,18 +71,23 @@ Write real traps — a word that looks like it belongs to another group, where t
 already full without it. And check there is no _second_ valid partition; that's the failure
 mode that makes players furious.
 
-Or generate one. `pipeline/` is an offline batch job that proposes boards with a strong
-model, has a quorum of weak ones try to solve them, red-teams the survivors for that second
-partition, and grades what's left. Its tests run offline against a scripted stand-in for the
+Or generate one. `pipeline/` is an offline job that proposes a board with a strong model,
+has a weak one try to solve it, red-teams it for that second partition, and grades what
+survives — one board at a time, stopping at the first that is accepted. Run nightly it
+publishes tomorrow's board, and it does that only if somebody finished today's, so a game
+nobody is playing costs nothing. Its tests run offline against a scripted stand-in for the
 model, with no credentials:
 
 ```sh
 cd pipeline && uv run --locked --extra dev pytest -q
 ```
 
-See [pipeline/README.md](./pipeline/README.md), and
-[DESIGN.md](./DESIGN.md#puzzle-generation-pipeline) for why it is shaped that way. It is
-unproven against real models — its thresholds are reasoned, not measured.
+See [pipeline/README.md](./pipeline/README.md) for how to run and deploy it,
+[docs/generation-cost.md](./docs/generation-cost.md) for what it costs, and
+[DESIGN.md](./DESIGN.md#puzzle-generation-pipeline) for why it is shaped that way. The
+honest caveat: it is a filter for **broken** boards, not a difficulty oracle — its
+thresholds are reasoned, not fitted to human play, and they stay that way until there is
+enough of it to fit them to.
 
 ## Deployment
 
@@ -93,7 +98,13 @@ no key anywhere; only this repository may exchange a token.
 `ci.yml` runs lint, type check, tests and a build, holds the Firestore adapters to the same
 store contract against the emulator, and runs the pipeline's own checks.
 
-Boards live in the `puzzles` collection, ordered by an `order` field — roughly easiest
-first. `scripts/seed.mjs` puts the bundled ones there. There is deliberately no date on
-them yet: nothing schedules ahead, so a daily rollover would be a concept with nothing to
-do. It arrives with the nightly job, in the same commit that gives it something to mean.
+Boards live in the `puzzles` collection, each with a `liveOn` date. Today's board is the
+most recent one dated on or before today, so a board stays up until a later one is due and
+a night that generates nothing repeats a day rather than leaving a hole.
+`scripts/seed.mjs` puts the bundled boards there, dated one a day ending today; the
+generator adds one a night after that.
+
+The generator is a second Cloud Run Job, deployed by `.github/workflows/deploy-pipeline.yml`.
+**Deploying it does not start it** — a job that is never executed costs nothing, and the
+`gcloud scheduler` command that turns it on is in `pipeline/README.md`, to be run on
+purpose.

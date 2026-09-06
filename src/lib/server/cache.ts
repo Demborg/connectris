@@ -10,7 +10,9 @@ import type { PuzzleStore } from './ports';
  * without thinking about it.
  *
  * The window is short because the set changes when a board is added, and waiting a minute
- * to see it is fine while waiting for an instance to recycle is not.
+ * to see it is fine while waiting for an instance to recycle is not. It is also what
+ * bounds how late a warm instance is to the day rolling over: the answer holds `liveOn <=
+ * today` from when it was asked, so a new board is at most one window behind midnight.
  *
  * Promises are cached rather than values, so a burst of first requests makes one query
  * instead of racing. A failed lookup is dropped rather than remembered — a store that is
@@ -35,8 +37,5 @@ export function cachePuzzles(inner: PuzzleStore, ttlMs = 60_000, now = Date.now)
 		return asked;
 	}
 
-	return {
-		live: (limit) => fresh(`live:${limit}`, () => inner.live(limit)),
-		byId: (id) => fresh(`id:${id}`, () => inner.byId(id))
-	};
+	return { live: (limit) => fresh(`live:${limit}`, () => inner.live(limit)) };
 }

@@ -260,18 +260,29 @@ question this phase exists to answer is how real people play.
 Three things the original sketch listed are not here. The **shared leaderboard** is not
 built — see the note on stateless checks below, which is what it would have to pay for.
 **Sharing a link to family** is half-built: boards have their own URLs, but named invites
-are not in yet. And there is **no daily rollover**: boards are an ordered set, not a
-calendar.
+are not in yet. And **daily rollover** was removed and has now come back — see below.
 
-That last one was built and then removed. With nothing scheduling ahead, every board's
-date was in the past, so "today's puzzle" was a fixed board with a date attached that
-never changed — and the picker was doing all the actual work. The isolation argument for
-dates did not survive either: the pipeline writes to its own collection and promotion
-means copying into `puzzles`, so unfinished boards are kept out by being somewhere else,
-not by being dated. Dates come back with the nightly job, which is the first thing that
-gives them anything to do.
+Rollover was built, removed, and rebuilt, and the removal was right at the time. With
+nothing scheduling ahead, every board's date was in the past, so "today's puzzle" was a
+fixed board with a date attached that never changed, and the picker was doing all the
+actual work. The note left behind said dates would come back with the nightly job, which
+is the first thing that gives them anything to do; that is exactly what happened.
 
-**Phase 2 — generated puzzles** _(pipeline built, unproven)_. Below, and in `pipeline/`.
+A board now carries a `liveOn` date in the store — not on `Puzzle` itself, because when a
+board is played is a fact about the schedule rather than about the board, and putting it
+on the object would date `puzzles.json`, the pipeline's few-shot examples and
+`engine.spec.ts`'s fixtures with values that are stale the moment they are written. The
+store answers with boards dated on or before today, newest first, so today's board is the
+head of that list and the picker reaches backwards through the archive. Two things fall
+out of it that an integer `order` could not do: the generator can write tomorrow's board
+tonight without it being playable tonight, and it can choose that key without reading the
+collection first to find the largest one.
+
+Boards are sticky, deliberately. A board stays up until a later one is due, so a night
+that generates nothing repeats a day rather than leaving a hole.
+
+**Phase 2 — generated puzzles** _(built; running nightly against the game's own
+database)_. Below, and in `pipeline/`.
 
 **Phase 3 — accounts and histograms.** Percentile distributions once a puzzle has ~30 plays.
 
@@ -279,9 +290,26 @@ gives them anything to do.
 
 ## Puzzle generation pipeline
 
-Offline batch, nightly, one puzzle a day — cost rounds to nothing, and it constrains nothing
-about the serving stack. Built as a separate Python job in `pipeline/`; that README is the
-operational detail, this is what was decided and why.
+Offline, nightly, one puzzle a day, and gated on somebody actually playing. Built as a
+separate Python job in `pipeline/`; that README is the operational detail, this is what was
+decided and why.
+
+Two decisions arrived late and are the ones that make it affordable to leave running.
+
+**It is a pipeline, not a batch.** Boards are proposed one at a time and the night stops
+at the first one accepted. `propose` is 69% of what a candidate costs, so a proposal not
+made is the only saving of any size there is; at the measured acceptance rate this is 1.8
+candidates a night where a batch sized for the same reliability would be 5.0. It also
+fixed something the batch could not: each board is meant to dedupe against the ones before
+it, which requires them to have landed, and run concurrently they all started against the
+same empty snapshot.
+
+**It asks whether anyone is playing before it spends anything.** A finished run — a win or
+a loss, which is the only thing the client ever posts — against the board that is
+currently live, within the last 36 hours. No players, no spend, without anyone remembering
+to switch it off. The window is the part that matters: "has this board ever been played"
+is true forever once it is true once, and a generator gated on that would keep billing a
+project whose last player left months ago.
 
 1. **Propose** — strong model, structured output, with the trap design stated explicitly:
    which word is the decoy and which category it's baiting.
@@ -437,9 +465,12 @@ three orders of magnitude above what this app does. It stays inside the same pro
 authenticates with ADC so there is no secret to hold, and it has no connection pool, so it
 _removes_ a cold-start component rather than adding one.
 
-Worth knowing what was actually traded: the dominant cost here was never the database. At
-$4.15 a run for ~2 shippable boards, nightly generation is ~$60 a month — six times the
-Cloud SQL bill this avoided. Demand-gating generation is where the money is.
+Worth knowing what was actually traded: the dominant cost here was never the database.
+Generation was ~$60 a month on the numbers this paragraph was first written against, six
+times the Cloud SQL bill Firestore avoided — so demand-gating generation was where the
+money was, and that is now what the nightly job does. A night is one or two candidates
+instead of twenty, and a night nobody played is nothing at all. The database is back to
+being the rounding error it looked like.
 
 Revisit if a puzzle ever passes ~1000 plays. Until then this is buying nothing.
 

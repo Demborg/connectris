@@ -1,5 +1,6 @@
 import { Firestore, type Settings } from '@google-cloud/firestore';
 import type { Puzzle } from '$lib/game/types';
+import { today } from './day';
 import type { Feedback, FeedbackStore, PuzzleStore, RunRecord, RunStore } from './ports';
 
 /**
@@ -35,20 +36,25 @@ function puzzleOf(id: string, data: FirebaseFirestore.DocumentData): Puzzle {
 	};
 }
 
-export function firestorePuzzles(db: Firestore): PuzzleStore {
+export function firestorePuzzles(db: Firestore, now: () => string = () => today()): PuzzleStore {
 	const puzzles = db.collection(collections.puzzles);
 
 	return {
 		async live(limit) {
-			// Ordered by a single field, which Firestore indexes automatically — no
-			// composite index to declare and none to forget when deploying.
-			const found = await puzzles.orderBy('order').limit(limit).get();
+			// Filtered and ordered on the same single field, which Firestore indexes
+			// automatically — no composite index to declare and none to forget when
+			// deploying. It is also why `liveOn` is a `YYYY-MM-DD` string: it compares as a
+			// date because it sorts as one.
+			//
+			// The nightly job writes tomorrow's board tonight, so there is normally one
+			// document ahead of this window. Excluding it here is what stops a board being
+			// playable the evening before it is due, and it costs a range bound.
+			const found = await puzzles
+				.where('liveOn', '<=', now())
+				.orderBy('liveOn', 'desc')
+				.limit(limit)
+				.get();
 			return found.docs.map((d) => puzzleOf(d.id, d.data()));
-		},
-
-		async byId(id) {
-			const doc = await puzzles.doc(id).get();
-			return doc.exists ? puzzleOf(doc.id, doc.data()!) : null;
 		}
 	};
 }
@@ -66,15 +72,27 @@ export function firestoreFeedback(db: Firestore): FeedbackStore {
 	return { record: async (f: Feedback) => void (await feedback.doc(f.runId).set(f)) };
 }
 
-/** Boards, as the pipeline and the seeding tool write them. The id lives in the path. */
-export type PuzzleDoc = Omit<Puzzle, 'id'> & { order: number; source: string };
+/**
+ * Boards, as the pipeline and the seeding tool write them. The id lives in the path.
+ *
+ * `liveOn` replaced an integer `order`, and does two jobs the integer could not: it says
+ * *when* a board is due rather than only what follows what, so the generator can write
+ * tomorrow's board tonight without it being playable tonight; and it is a key the
+ * generator can pick without reading the collection first to find the largest one.
+ *
+ * The date is not on `Puzzle` itself. When a board is played is a fact about the
+ * schedule, not about the board — keeping it here is what leaves `puzzles.json`, the
+ * pipeline's few-shot examples and `engine.spec.ts`'s fixtures free of dates that would
+ * be stale the moment they were written.
+ */
+export type PuzzleDoc = Omit<Puzzle, 'id'> & { liveOn: string; source: string };
 
-export function puzzleDoc(puzzle: Puzzle, order: number, source: string): PuzzleDoc {
+export function puzzleDoc(puzzle: Puzzle, liveOn: string, source: string): PuzzleDoc {
 	return {
 		name: puzzle.name,
 		language: puzzle.language,
 		groups: puzzle.groups,
-		order,
+		liveOn,
 		source
 	};
 }

@@ -18,16 +18,114 @@ Vertex, ADC, nothing to leak:
 gcloud auth application-default login
 export GOOGLE_CLOUD_PROJECT=your-project GOOGLE_CLOUD_LOCATION=global
 
-uv run --python 3.12 python -m connectris_pipeline.cli run --count 8
+uv run --python 3.12 python -m connectris_pipeline.cli nightly
 ```
 
-| Command                                                             | Does                                                  |
-| ------------------------------------------------------------------- | ----------------------------------------------------- |
-| `... cli run --count N`                                             | The whole pipeline, into `runs/<timestamp>/`          |
-| `... cli regrade runs/<stamp>`                                      | Re-decide a finished run under new thresholds. Free.  |
-| `... cli export runs/<stamp>`                                       | Append accepted boards to `src/lib/data/puzzles.json` |
-| `... cli check`                                                     | Run the pipeline's rules over the shipped puzzles     |
-| `uv run --with pytest --with pytest-asyncio --with pydantic pytest` | Tests, all offline                                    |
+| Command                              | Does                                                     |
+| ------------------------------------ | -------------------------------------------------------- |
+| `... cli nightly`                    | The scheduled job: gate, generate, publish one board     |
+| `... cli run --count N`              | The generator alone, into `runs/<timestamp>/`. No writes |
+| `... cli run --count N --all`        | Same, but without stopping at the first accept           |
+| `... cli regrade runs/<stamp>`       | Re-decide a finished run under new thresholds. Free.     |
+| `... cli export runs/<stamp>`        | Append accepted boards to `src/lib/data/puzzles.json`    |
+| `... cli check`                      | Run the pipeline's rules over the shipped puzzles        |
+| `uv run --locked --extra dev pytest` | Tests, all offline                                       |
+
+## One night
+
+`nightly` is the whole job, and most of what it does is decide not to spend anything.
+
+```
+                                 no ─── nothing to do, $0
+tomorrow already written? ──────┤
+                                 yes
+                                  ↓
+                                 no ─── nobody is playing, $0
+anyone finished today's board? ──┤
+                                 yes
+                                  ↓
+     propose → validate → solve → red-team → grade → decide
+                                  ↓
+                        accepted? ─── no ── try again, up to `--count` times
+                                  ↓ yes
+                        publish for tomorrow, stop
+```
+
+**The demand gate is the point.** A night costs about $0.33 and this game may have nobody
+playing it. The signal is a _finished run_ — the client posts one from `finish()` and
+nowhere else, so a record is a player who saw a board through to a win or a loss — against
+the board that is currently live, within the last 36 hours. That window is what makes the
+job safe to leave running: "has this board ever been played" is true forever once it is
+true once, and a generator gated on that would keep billing a project whose last player
+left in March.
+
+Run it late in the evening and it publishes for tomorrow, which is what makes the gate
+fair: the board it measures has had most of a day in front of whoever was going to play
+it, and the board it writes does not go up for another couple of hours.
+
+**The ceiling is a reliability knob, not a cost one.** `--count` is how many boards it may
+propose, not how many it will: generation stops at the first accepted board. At the
+measured acceptance rate a ceiling of five costs about 1.8 candidates and lands a board on
+98% of nights, where proposing five every night would cost 5.0 for the same 98%.
+
+**A night that accepts nothing publishes nothing, and is not retried.** The board that is
+up stays up — a day repeated is a smaller failure than a day missing, and a retry would
+only spend the same money on the same bad idea. `nightly` exits 0 for both of the outcomes
+that publish nothing, so a non-zero exit really is something broken.
+
+## Deploying it
+
+The job image is built and deployed by `.github/workflows/deploy-pipeline.yml` on any push
+that touches `pipeline/`. **Deploying it does not start it** — a Cloud Run Job that is
+never executed costs nothing, and starting a nightly bill should be something a person
+does on purpose:
+
+```sh
+# One-time, and before the deploy workflow first runs, or it is red: the identity the job
+# runs as, and the deploying account's permission to act as it.
+GEN=connectris-generator@connectris-507519.iam.gserviceaccount.com
+gcloud iam service-accounts create connectris-generator --project=connectris-507519
+for role in roles/datastore.user roles/aiplatform.user; do
+  gcloud projects add-iam-policy-binding connectris-507519 \
+    --member="serviceAccount:$GEN" --role=$role
+done
+gcloud iam service-accounts add-iam-policy-binding "$GEN" \
+  --member=serviceAccount:connectris-deploy@connectris-507519.iam.gserviceaccount.com \
+  --role=roles/iam.serviceAccountUser --project=connectris-507519
+
+# Required once, and before deploying the game: boards are now found by `liveOn <= today`,
+# and Firestore range filters skip documents that do not have the field at all. Every board
+# already in the collection was written with an `order` and no date, so until this is run
+# the query matches nothing and the game answers 503. `set` replaces the document, so this
+# also clears the `order` field it is replacing.
+GOOGLE_CLOUD_PROJECT=connectris-507519 node scripts/seed.mjs --dry-run   # read it first
+GOOGLE_CLOUD_PROJECT=connectris-507519 node scripts/seed.mjs
+
+# Try it once, by hand, and read what it decided before trusting it with a schedule.
+gcloud run jobs execute connectris-generator --region=europe-north1 --wait
+
+# Then, and only then, turn it on. 22:00 UTC: today's board has had most of a day, and
+# what this writes goes live at midnight.
+gcloud scheduler jobs create http connectris-nightly \
+  --location=europe-north1 --schedule="0 22 * * *" --time-zone=UTC \
+  --uri="https://europe-north1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/connectris-507519/jobs/connectris-generator:run" \
+  --http-method=POST \
+  --oauth-service-account-email=connectris-deploy@connectris-507519.iam.gserviceaccount.com
+
+# And to stop it, at any time, without deleting anything:
+gcloud scheduler jobs pause connectris-nightly --location=europe-north1
+```
+
+`--task-timeout=45m` is sized for the ceiling, not the average. A candidate takes about
+five minutes end to end and `propose` is three and a half of them — the same stage that is
+two thirds of the bill is three quarters of the wall clock — so a typical night is five to
+ten minutes and a night that proposes five boards and accepts none is about twenty-five.
+
+The run directory is written inside the container and dies with the task, so `nightly`
+prints its ledger to stdout, where Cloud Logging keeps it for a month for nothing, and
+logs the accepted board in full just before writing it. Those two lines are the only
+record that survives the task: one of what the night cost, one that makes a board
+recoverable by hand if the publish itself is what failed.
 
 ## The stages
 
@@ -36,17 +134,18 @@ asked for ten boards spends its attention on the first two and reuses their voca
 independent calls also buy independent retries and cheap parallelism. Each call is handed
 a diversity seed (two domains and a wordplay device drawn from rotating lists) and the
 words and categories already shipped, and is required to state each category's _trap_:
-which of its words looks like it belongs to another row on this board. Twenty calls a
-night costs nothing.
+which of its words looks like it belongs to another row on this board. It is also two
+thirds of what a board costs, which is why the generator stops as soon as one is good
+enough: the only saving of any size available here is a proposal not made.
 
 **2. Validate** — free, deterministic, and before any solver spends a token. Mirrors
 `engine.ts` and the `puzzle data` block in `engine.spec.ts`: five rows of four, twenty
 distinct words, nothing over twelve characters. A generated puzzle must never be able to
-turn CI red. Dedupe against shipped words and categories lives here too, and it runs
-in-batch as well — proposals fold into the corpus as they land, so the fifth board of a
-night already knows what the first four used.
+turn CI red. Dedupe against published words and categories lives here too, and it runs
+in-batch as well — candidates are proposed one at a time and each folds into the corpus
+as it lands, so a second draft cannot repeat the first.
 
-**3. Solve** — the weak ensemble, several attempts each. Yields _recovery_: what fraction
+**3. Solve** — one deliberately weak model, three attempts. Yields _recovery_: what fraction
 of attempts reproduced each intended four exactly. Both ends of the band get pruned,
 because 0% and 100% are both "not a puzzle". The solver prompt is deliberately bare — no
 rules, no traps, no mention that the words were constructed — because every extra sentence
@@ -73,9 +172,12 @@ answer key and paid to break it: a whole alternative partition is fatal, a singl
 double-filed word blocks auto-accept.
 
 **6. Grade** — the only stage that sees everything at once. Rates fairness and elegance,
-and where one word is doing the damage, rewrites the board. A revision goes back around
-from validation, once; a puzzle that needs three rewrites was a bad idea rather than a bad
-draft.
+and says so. There was a revision loop here — a grader that wanted one word changed handed
+back a rewritten board, which went round again from validation — and a real run retired
+it: it fired on 6 candidates in 20, cost 22% of the batch's calls, and the grader rejected
+its own rewrite in 4 of those 6. Proposing a fresh board is one call and re-evaluating a
+rewrite is three, so a grader that wants a revision now just says so and the board goes to
+review.
 
 **7. Decide** — `record.decide`, a pure function over the stored record. The bar for
 _reject_ is evidence the puzzle is wrong; the bar for _accept_ is evidence it is right;
@@ -110,8 +212,8 @@ is a Pydantic class handed to `response_schema` and parsed back by the SDK; the 
 part of that schema.
 
 Defaults are `gemini-3.8-flash` at `thinking_level: "high"` for the three jobs where
-quality decides the night — propose, red-team, grade — and a mixed weak ensemble of
-`gemini-3.5-flash-lite`, `gemini-3.1-flash-lite` and `gemini-2.5-flash-lite` for solving.
+quality decides the night — propose, red-team, grade — and `gemini-3.1-flash-lite` at
+`low` for solving.
 Gemini 3 takes a thinking _level_; 2.5 takes a token _budget_; `ModelSpec` carries both and
 sends whichever is set. All of it is overridable in `config.toml` — see
 `config.example.toml`, and expect the model names to age faster than anything else here.
@@ -119,14 +221,23 @@ sends whichever is set. All of it is overridable in `config.toml` — see
 `tests/test_request_shape.py` covers the parts of the request that are pure. It is there
 because this shape has already moved once.
 
-## What one real run cost, and taught
+## What it costs
 
-20 candidates, 306 model calls, 25 minutes, **$4.15** — of which 94% was thinking tokens on
-the three strong-model stages. `propose` alone was half the bill. The solve stage was 76%
-of the calls and 5.3% of the cost, which is the opposite of what everyone guesses.
+[docs/generation-cost.md](../docs/generation-cost.md) is the ledger-by-ledger account.
+The short version, measured across 26 candidates and then across consecutive simulated
+nights of the shape that ships today:
 
-It produced 2 boards at hand-written quality out of 20. Everything deleted since was
-deleted because that run showed it changing no outcome.
+- **A candidate is $0.18**, of which `propose` is 69%, `red_team` 22%, `grade` 8% and
+  `solve` under 1%. Thinking tokens are 96% of it; every input token in a run is under 2%.
+  The stage everyone guesses is expensive is the cheap one.
+- **A night is one to two candidates**, because generation stops at the first accept.
+- **A night nobody played is $0**, because the gate runs before the first token.
+
+The three-stage split is why `red_team` stays at `high` and is not a candidate for
+economising: over 26 candidates it found 2 complete alternative partitions and 10 words
+that two labels both admit, including one the grader had waved through as "change one
+word". It is 22% of the bill and it is the only stage that catches the failure this
+pipeline exists to prevent.
 
 **The honest caveat still stands:** cheap-model difficulty is not human difficulty, and the
 mapping is unknown until there is human data. This is a filter for **broken** puzzles, not
@@ -145,7 +256,10 @@ connectris_pipeline/prompts.py   Prompts, and the seed vocabulary that keeps a b
 connectris_pipeline/llm.py       Provider seam + token ledger. Vertex, via generate_content.
 connectris_pipeline/scoring.py   Recovery and legibility.
 connectris_pipeline/record.py    The per-candidate record, and `decide`.
-connectris_pipeline/pipeline.py  Orchestration, artifacts, regrade.
+connectris_pipeline/pipeline.py  The generator: propose, evaluate, stop at the first accept.
+connectris_pipeline/nightly.py   The gate, and the night around it. Where money is decided.
+connectris_pipeline/store.py     The game's database, as the generator sees it. Two adapters.
+connectris_pipeline/day.py       Days as `YYYY-MM-DD`. The Python half of server/day.ts.
 connectris_pipeline/stages/      One module per stage.
 tests/conftest.py                A scripted stand-in for the model. Not a simulator.
 ```

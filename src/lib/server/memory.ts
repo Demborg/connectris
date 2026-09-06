@@ -7,14 +7,18 @@ import type { Feedback, FeedbackStore, PuzzleStore, RunRecord, RunStore } from '
  * This is what a dev machine with no cloud project plays against, so it is not a stub —
  * it is the reference reading of what the port means, and the shared contract suite holds
  * every other adapter to whatever this does.
+ *
+ * There is no calendar here and there does not need to be one. The port asks for published
+ * boards newest first, so a list in publication order answers it: the last board written
+ * down is today's, and anything past `published` is scheduled but not yet due. Dates are
+ * how Firestore answers that question, not what the question is.
+ *
+ * @param schedule Boards in publication order, oldest first.
+ * @param published How many of them are live. The rest are dated ahead and unreachable.
  */
-export function memoryPuzzles(puzzles: Puzzle[]): PuzzleStore {
-	const byId = new Map(puzzles.map((p) => [p.id, p]));
-
-	return {
-		live: async (limit) => puzzles.slice(0, limit),
-		byId: async (id) => byId.get(id) ?? null
-	};
+export function memoryPuzzles(schedule: Puzzle[], published = schedule.length): PuzzleStore {
+	const newestFirst = schedule.slice(0, published).reverse();
+	return { live: async (limit) => newestFirst.slice(0, limit) };
 }
 
 /** Runs kept for the life of the process. Readable, so a test can assert what landed. */

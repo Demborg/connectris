@@ -8,7 +8,9 @@ import { BACKLOG, stores } from './stores';
  *
  * One query answers both questions, and the same list is the only thing the picker may
  * reach into — so whatever the pipeline is still arguing with itself about cannot be
- * navigated to, because it is not in here.
+ * navigated to, because it is not in here. Nor can tomorrow's board, which by then is
+ * written and waiting in the same collection: the store only ever answers with days that
+ * have arrived, so `live[0]` is today's and everything after it is a day already played.
  */
 export async function gameData(wanted?: string) {
 	const live = await stores().puzzles.live(BACKLOG);

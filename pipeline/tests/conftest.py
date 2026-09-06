@@ -13,9 +13,11 @@ batch has to be found by running a real batch.
 from __future__ import annotations
 
 import random
+from datetime import date
 
 from connectris_pipeline.categories import DEVICES, Category, Slot
 from connectris_pipeline.config import Config, ModelSpec
+from connectris_pipeline.day import today
 from connectris_pipeline.llm import Call, Ledger
 from connectris_pipeline.schema import (
     Grade,
@@ -154,11 +156,13 @@ class MemoryCategorySource:
         return len(fresh)
 
     def allocate(self, count: int, *, rng) -> list[Slot]:
-        devices = list(DEVICES)
-        rng.shuffle(devices)
+        start = date.fromisoformat(today()).toordinal()
         themes = [c.label for c in self.categories]
         rng.shuffle(themes)
         return [
-            Slot(device=devices[i % len(devices)], theme=themes[i] if i < len(themes) else "")
+            Slot(
+                device=DEVICES[(start + i) % len(DEVICES)],
+                theme=themes[i] if i < len(themes) else "",
+            )
             for i in range(count)
         ]

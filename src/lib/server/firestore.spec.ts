@@ -1,6 +1,7 @@
 import { PassThroughClient } from 'google-auth-library';
 import { describe } from 'vitest';
 import { feedbackStoreContract, puzzleStoreContract, runStoreContract } from './contract';
+import { shift, today } from './day';
 import {
 	collections,
 	connect,
@@ -40,14 +41,18 @@ describe.skipIf(!emulating)('firestore stores', () => {
 	}
 
 	describe('puzzles', () => {
-		puzzleStoreContract(async (given) => {
+		// Dated backwards from today, one board a day, with anything upcoming dated after
+		// it — which is exactly what the schedule looks like the night after a run: one
+		// board ahead of the window and the rest behind it.
+		puzzleStoreContract(async (published, upcoming) => {
 			await wipe(collections.puzzles);
+			const schedule = [...published, ...upcoming];
 			await Promise.all(
-				given.map((p, i) =>
+				schedule.map((p, i) =>
 					db
 						.collection(collections.puzzles)
 						.doc(p.id)
-						.set(puzzleDoc(p, i, 'contract'))
+						.set(puzzleDoc(p, shift(today(), i - (published.length - 1)), 'contract'))
 				)
 			);
 			return firestorePuzzles(db);

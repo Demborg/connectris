@@ -1,13 +1,21 @@
 """Command line.
 
+    connectris-pipeline nightly
     connectris-pipeline run --count 8
     connectris-pipeline regrade runs/20260903-101500 --config strict.toml
     connectris-pipeline export runs/20260903-101500
     connectris-pipeline check
 
-`run` is the nightly job. `regrade` re-decides a finished run under different thresholds
-without spending anything, which is how the numbers in config.py get tuned. `export`
-appends accepted boards into the game's puzzles.json.
+`nightly` is the scheduled job and the only one that writes to the game: it checks whether
+anyone has played, generates until a board is accepted, and publishes that board for
+tomorrow. Everything it decides is in `nightly.py`; this file only turns flags into
+arguments and an outcome into an exit code.
+
+`run` is the same generator with no database attached — it writes a run directory and
+stops, which is what an experiment wants. `regrade` re-decides a finished run under
+different thresholds without spending anything, which is how the numbers in config.py get
+tuned. `export` appends accepted boards into the game's puzzles.json, which is where they
+go when there is no database to publish to.
 
 Typer rather than argparse: the options are already typed and the annotations carry the
 help text, so there is no second copy of the signature to keep in sync. It is Click
@@ -26,9 +34,11 @@ import typer
 
 from . import config as config_module
 from . import corpus as corpus_module
+from . import nightly as nightly_module
 from . import pipeline
 from .llm import GeminiLLM, Ledger
 from .spec import validate
+from .store import FirestoreCategories, FirestoreStore, connect
 
 DEFAULT_RUNS = Path(__file__).resolve().parents[1] / "runs"
 
@@ -55,23 +65,121 @@ def main_options(
     )
 
 
+Count = Annotated[
+    int,
+    typer.Option(
+        help="Ceiling on boards proposed. Generation stops at the first one accepted.",
+        min=1,
+    ),
+]
+Seed = Annotated[int, typer.Option(help="Makes a run reproducible.")]
+NightlySeed = Annotated[
+    int | None,
+    typer.Option(help="Makes a night reproducible. Default: derived from the date."),
+]
+
+
+def _llm(cfg: config_module.Config) -> GeminiLLM:
+    llm = GeminiLLM(ledger=Ledger(), max_retries=cfg.max_retries, concurrency=cfg.concurrency)
+    typer.secho(f"provider: {llm.backend}", err=True, fg=typer.colors.BRIGHT_BLACK)
+    return llm
+
+
 @app.command()
-def run(
-    count: Annotated[int, typer.Option(help="How many boards to propose.", min=1)] = 4,
+def nightly(
+    count: Count = 5,
     config: ConfigFile = None,
     out: Annotated[Path, typer.Option(help="Where to write the run directory.")] = DEFAULT_RUNS,
-    seed: Annotated[int, typer.Option(help="Makes a run reproducible.")] = 0,
+    seed: NightlySeed = None,
+    project: Annotated[
+        str | None,
+        typer.Option(
+            envvar="GOOGLE_CLOUD_PROJECT",
+            help="The game's Firestore project. Read from the environment on Cloud Run.",
+        ),
+    ] = None,
+    window_hours: Annotated[
+        int,
+        typer.Option(help="How far back a finished run still counts as somebody playing.", min=1),
+    ] = nightly_module.DEMAND_WINDOW_HOURS,
+    force: Annotated[
+        bool, typer.Option("--force", help="Generate even if nobody has played. Costs money.")
+    ] = False,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Generate, write the run directory, publish nothing.")
+    ] = False,
 ) -> None:
-    """Generate, solve, red-team and grade a batch."""
-    cfg = config_module.load(config)
-    llm = GeminiLLM(
-        ledger=Ledger(),
-        max_retries=cfg.max_retries,
-        concurrency=cfg.concurrency,
-    )
-    typer.secho(f"provider: {llm.backend}", err=True, fg=typer.colors.BRIGHT_BLACK)
+    """The scheduled job: publish tomorrow's board, if anyone is still playing today's.
 
-    result = asyncio.run(pipeline.run(llm, cfg, count=count, seed=seed, out_dir=out))
+    Exits 0 for every outcome it planned for, including the two that publish nothing — a
+    night with no players and a night where no board was good enough are both the system
+    working. Only a genuine failure exits non-zero, so that a Cloud Run Job's retry means
+    "something broke" rather than "try spending that again".
+    """
+    if not project:
+        typer.secho("GOOGLE_CLOUD_PROJECT is not set", err=True, fg=typer.colors.RED)
+        raise typer.Exit(2)
+
+    cfg = config_module.load(config)
+    # One client, two adapters on it: the game's boards and runs, and the generator's own
+    # category pool. The pool lives in the database rather than beside the code because a
+    # Cloud Run task's disk does not survive it, and a pool re-invented nightly is not a
+    # pool.
+    db = connect(project)
+    night = asyncio.run(
+        nightly_module.tonight(
+            _llm(cfg),
+            cfg,
+            FirestoreStore(db),
+            source=FirestoreCategories(db),
+            count=count,
+            seed=seed,
+            out_dir=out,
+            window_hours=window_hours,
+            force=force,
+            dry_run=dry_run,
+        )
+    )
+    typer.echo(night.summary())
+    if night.run is not None:
+        # The run directory lives in the container's filesystem and dies with the task, so
+        # the ledger goes to stdout as well. Cloud Logging keeps it for a month for
+        # nothing, and it is the only record of what a night cost.
+        typer.echo("\nledger: " + json.dumps(night.run.ledger.to_json()["summary"]))
+        if night.run.directory:
+            typer.echo(f"written to {night.run.directory}")
+
+
+@app.command()
+def run(
+    count: Count = 4,
+    config: ConfigFile = None,
+    out: Annotated[Path, typer.Option(help="Where to write the run directory.")] = DEFAULT_RUNS,
+    seed: Seed = 0,
+    all_of_them: Annotated[
+        bool,
+        typer.Option(
+            "--all",
+            help="Propose all `count` boards instead of stopping at the first accepted one.",
+        ),
+    ] = False,
+) -> None:
+    """Generate, solve, red-team and grade, into a run directory. Publishes nothing.
+
+    `--all` is for experiments: comparing two configurations wants a sample of a known
+    size, and a run that stops early gives a sample whose size is the result.
+    """
+    cfg = config_module.load(config)
+    result = asyncio.run(
+        pipeline.run(
+            _llm(cfg),
+            cfg,
+            count=count,
+            seed=seed,
+            out_dir=out,
+            stop_on_accept=not all_of_them,
+        )
+    )
     typer.echo(result.summary())
     if result.directory:
         typer.echo(f"\nwritten to {result.directory}")

@@ -68,12 +68,32 @@ def _puzzle_as_example(p: Puzzle) -> str:
     return f"{p.name}\n{rows}"
 
 
+def _sample(items: list[str], cap: int) -> list[str]:
+    """At most `cap` of them, spread across the alphabet rather than taken off the front.
+
+    These lists were capped and then sorted, which is fine until the corpus passes the cap
+    — at which point the proposer stops being told about anything after about the letter
+    C, and dedupe degrades without saying so. A board a day reaches 200 words in under two
+    months, so this is not a distant problem.
+
+    Evenly spaced rather than random, because the prompt is otherwise deterministic and a
+    reproducible seed should reproduce a run. The list is still sorted on the way out: a
+    caller passes a set, and a prompt that differs only in the order of a word list is a
+    prompt cache that never hits.
+    """
+    ordered = sorted(items)
+    if len(ordered) <= cap:
+        return ordered
+    step = len(ordered) / cap
+    return [ordered[int(i * step)] for i in range(cap)]
+
+
 def propose(
     *, slot: Slot, examples: list[Puzzle], avoid_words: list[str], avoid_labels: list[str]
 ) -> tuple[str, str]:
     shown = "\n\n".join(_puzzle_as_example(p) for p in examples)
-    words = ", ".join(sorted(avoid_words)[:200]) or "(nothing yet)"
-    labels = "; ".join(sorted(avoid_labels)[:80]) or "(nothing yet)"
+    words = ", ".join(_sample(avoid_words, 200)) or "(nothing yet)"
+    labels = "; ".join(_sample(avoid_labels, 80)) or "(nothing yet)"
     system = (
         "You are a puzzle constructor. You write one board at a time and you care more "
         "about whether it has exactly one answer than about whether it is clever.\n\n"

@@ -1,17 +1,22 @@
 """The orchestrator.
 
-Proposal is a first pass with the corpus growing as each one lands, so the fifth puzzle
-of a batch already knows what the first four used — in-batch dedupe has to happen while
-there is still something to change, not at the end. Evaluation is then embarrassingly
-parallel, because the candidates no longer interact.
+One candidate at a time, and stop at the first one accepted. The game ships one puzzle a
+day, so a night that gets a good board out of its first proposal has nothing to do with a
+second — and `propose` is two thirds of what a candidate costs, so a proposal not made is
+the only saving of any size on offer.
+
+Going sequential also fixes what parallel proposal could never do. Each board is supposed
+to dedupe against the ones proposed before it, which requires them to have landed; run
+concurrently they all start against the same empty snapshot, and a second, quadratic pass
+had to rebuild each candidate's sibling corpus afterwards to catch what the first pass
+missed. In a loop the corpus is simply correct when it is read.
 
 Deterministic checks run between proposal and the expensive stages: there is no point
-paying nine solver calls to discover a board has a word in it twice.
+paying solver calls to discover a board has a word in it twice.
 """
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 import random
@@ -96,7 +101,24 @@ async def run(
     corpus: Corpus | None = None,
     examples: list[Puzzle] | None = None,
     source: CategorySource | None = None,
+    stop_on_accept: bool = True,
 ) -> Run:
+    """Propose and evaluate one board at a time, stopping at the first that is accepted.
+
+    `count` is a ceiling, not a quantity. The game ships one puzzle a day, so a night that
+    accepts its first candidate has no use for a second — and since the whole bill is
+    `propose` calls that already happened, not proposing is the only real saving there is.
+    At the measured 55% acceptance a ceiling of five costs 1.78 candidates on average and
+    lands a board 98% of nights, against 5.00 candidates for the same 98% in batch. The
+    ceiling stopped being a cost knob and became a reliability one.
+
+    Sequential is also what the batch version was pretending to be. It folded each
+    proposal into the corpus as it landed so later boards would avoid earlier ones, then
+    noted in a comment that at `concurrency >= count` every proposal starts before any has
+    landed, so it prevented nothing — which is why `everything_but` had to rebuild a
+    per-candidate corpus afterwards to catch the siblings it had missed. One at a time,
+    the first mechanism simply works and the second is not needed.
+    """
     if corpus is None:
         corpus = load_corpus()[1]
     if examples is None:
@@ -106,93 +128,76 @@ async def run(
 
     stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     directory = None if out_dir is None else (out_dir / stamp)
-    gate = asyncio.Semaphore(cfg.concurrency)
 
-    # Drawn up front, not inside the tasks. Drawing from the shared rng inside a task
-    # makes each candidate's seed depend on scheduling order, so a "reproducible" run
-    # would only be reproducible while the semaphore happened not to suspend.
+    # Drawn up front so a seed reproduces a run. Nothing suspends between draws now, but
+    # the guarantee is worth keeping explicit.
     rng = random.Random(seed)
 
-    # Stage zero: top the pool up if it cannot cover the batch, then allocate. Novelty is
-    # settled here, before a single board is written, rather than by discarding boards the
-    # proposer has already thought hard about.
+    # Stage zero: top the pool up if it cannot cover the ceiling. Novelty is settled here,
+    # before a single board is written, rather than by discarding boards the proposer has
+    # already thought hard about.
     if len(source.known()) < count:
         try:
             banked = await invent(llm, cfg, source, count=cfg.invent_batch)
             log.info("banked %d new categories", banked)
         except Exception:
             log.exception("category invention failed; allocating from what the pool has")
-    slots = source.allocate(count, rng=rng)
 
-    # Pass one: propose, folding each board into the corpus as it lands so later prompts
-    # avoid earlier boards. No lock: the blocks that touch `corpus` contain no await, and
-    # asyncio only switches tasks at an await, so they are already atomic.
-    #
-    # This is best-effort, not the dedupe check. With concurrency >= count every proposal
-    # starts before any has landed, so it prevents nothing at a default batch size; it is
-    # here to save tokens when it can, and `everything_but` below is what actually decides.
-    shipped = Corpus(set(corpus.words), set(corpus.labels))
+    # Our own copy: `run` must not leave the caller's corpus carrying boards that were
+    # proposed and then thrown away.
+    against = Corpus(set(corpus.words), set(corpus.labels))
 
-    async def one(index: int) -> Candidate:
-        async with gate:
-            cid = f"gen-{stamp}-{index:02d}"
-            try:
-                candidate = await propose(
-                    llm,
-                    cfg,
-                    candidate_id=cid,
-                    slot=slots[index],
-                    examples=examples,
-                    corpus=Corpus(set(corpus.words), set(corpus.labels)),
-                )
-            except Exception:
-                log.exception("proposal %s failed", cid)
-                return Candidate(
-                    id=cid,
-                    puzzle=Puzzle(id=cid, name="(failed)", groups=[]),
-                    error=_last_error(),
-                )
-            corpus.extend(candidate.puzzle)
-            return candidate
-
-    candidates = list(await asyncio.gather(*map(one, range(count))))
-
-    def everything_but(candidate: Candidate) -> Corpus:
-        """What this board must be new against: everything shipped, plus its siblings.
-
-        Not the live corpus, which contains the candidate itself — that bug flagged all
-        20 boards of a run as stale. Not the snapshot it was proposed against either: at
-        concurrency >= count every proposal snapshots the same shipped-only corpus, so
-        four of ten boards in the next run shared words with a sibling unflagged, two of
-        them byte-identical rows that reached accepted.json. Rebuilding per candidate is
-        O(n^2) on a batch of twenty, which is free.
-        """
-        against = Corpus(set(shipped.words), set(shipped.labels))
-        for other in candidates:
-            if other.id != candidate.id and not other.error:
-                against.extend(other.puzzle)
-        return against
-
-    # Pass two: the candidates no longer interact, so evaluate them all at once. Each
-    # writes itself out as it lands, so a run that is killed part-way keeps what it paid
-    # for rather than discarding the batch.
     writer = _Writer(directory)
+    candidates: list[Candidate] = []
 
-    async def check(candidate: Candidate) -> Candidate:
+    for index in range(count):
+        cid = f"gen-{stamp}-{index:02d}"
+
+        # One slot at a time, because allocation marks a theme as recently used and a
+        # ceiling of five would otherwise burn five themes to ship one board. Two
+        # candidates in a night may now draw the same device; that costs nothing, because
+        # they are competing drafts of the same day's board rather than a series.
+        (slot,) = source.allocate(1, rng=rng)
+
+        try:
+            candidate = await propose(
+                llm,
+                cfg,
+                candidate_id=cid,
+                slot=slot,
+                examples=examples,
+                corpus=Corpus(set(against.words), set(against.labels)),
+            )
+        except Exception:
+            log.exception("proposal %s failed", cid)
+            candidate = Candidate(
+                id=cid, puzzle=Puzzle(id=cid, name="(failed)", groups=[]), error=_last_error()
+            )
+
         if not candidate.error:
-            async with gate:
-                try:
-                    candidate = await evaluate(llm, cfg, candidate, everything_but(candidate))
-                except Exception:
-                    log.exception("%s failed during evaluation", candidate.id)
-                    candidate.error = _last_error()
+            try:
+                # `against` holds everything shipped plus every sibling proposed tonight,
+                # and never this candidate: it is folded in below, after it is judged.
+                candidate = await evaluate(llm, cfg, candidate, against)
+            except Exception:
+                log.exception("%s failed during evaluation", candidate.id)
+                candidate.error = _last_error()
+
         if candidate.decision is None:
             candidate.decision = decide(candidate, cfg.thresholds)
-        writer.append(candidate)
-        return candidate
 
-    finished = list(await asyncio.gather(*(check(c) for c in candidates)))
-    result = Run(candidates=finished, ledger=llm.ledger, directory=directory)
+        # Written as it lands, so a run that is killed part-way keeps what it paid for.
+        writer.append(candidate)
+        candidates.append(candidate)
+
+        if not candidate.error:
+            against.extend(candidate.puzzle)
+
+        if stop_on_accept and candidate.decision.verdict == "accept":
+            log.info("accepted %s on candidate %d of at most %d", cid, index + 1, count)
+            break
+
+    result = Run(candidates=candidates, ledger=llm.ledger, directory=directory)
     if directory is not None:
         write(result, cfg, directory)
     return result
