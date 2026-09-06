@@ -188,10 +188,11 @@ game with this much traffic, that distinction is theoretical.
    is 750 ms better than the best Node option. It is also a second copy of the game rules.
    Revisit only if something else independently argues for Go.
 
-One note for whoever merges the backend PR: the live service currently runs **2 vCPU** while
-`deploy.yml` asks for **1 vCPU**, so the first deploy from `main` will quietly halve it. On
-this evidence that is fine — 1 vCPU measured no worse than 2, and cheaper — but it is a
-change, and it should be a decision rather than a surprise.
+One thing this measurement caught in passing: the live service had been running **2 vCPU**
+while `deploy.yml` asks for **1**, so merging the backend branch halved it (revision
+`connectris-00009`). On this evidence that is the right way round — 1 vCPU measured no worse
+than 2 and costs less — but it happened as a side effect of a deploy rather than as a
+decision, which is worth knowing.
 
 ## Reproducing
 
