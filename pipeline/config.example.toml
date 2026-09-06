@@ -1,6 +1,9 @@
 # Everything here is optional; absent keys keep the defaults in config.py.
 # Copy to config.toml and pass with --config.
 
+# In-flight model calls. Boards are generated one at a time, so this now only parallelises
+# the solver's attempts within a candidate; there is nothing left for a larger number to
+# overlap.
 concurrency = 8
 max_retries = 3
 
@@ -44,3 +47,18 @@ thinking_level = "low"
 max_mean_recovery = 0.80
 min_fairness = 4
 min_elegance = 3
+
+# --- on the two knobs that decide the bill -------------------------------------------
+#
+# `--count` is a ceiling on proposals, not a quantity: the night stops at the first board
+# accepted. At the measured 55% acceptance a ceiling of 5 costs 1.78 candidates on average
+# and lands a board on 98% of nights, where 3 costs 1.65 for 91%. Thirteen extra points of
+# reliability for two cents; raise it before you lower it.
+#
+# `[proposer] thinking_level` is the other one, and early exit changed the arithmetic on
+# it. Cost per shipped board is (1 / acceptance) x cost per candidate, so acceptance
+# multiplies where per-candidate cost only adds. `medium` measured 23% cheaper per
+# candidate at n=3 ($0.182 -> $0.157), which is only a saving while acceptance holds above
+# **47.4%**; below that it costs more per board than `high` does. Nobody has measured
+# acceptance at `medium` on a sample that could tell 55% from 47%, so the default stays
+# `high` and the experiment is still worth buying — see docs/generation-cost.md.

@@ -3,7 +3,9 @@ import { feedbackStoreContract, puzzleStoreContract, runStoreContract } from './
 import { memoryFeedback, memoryPuzzles, memoryRuns } from './memory';
 
 describe('memory puzzle store', () => {
-	puzzleStoreContract(async (given) => memoryPuzzles(given));
+	puzzleStoreContract(async (published, upcoming) =>
+		memoryPuzzles([...published, ...upcoming], published.length)
+	);
 });
 
 describe('memory run store', () => {

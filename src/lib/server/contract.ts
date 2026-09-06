@@ -42,30 +42,42 @@ export function feedbackOf(over: Partial<Feedback> = {}): Feedback {
 	};
 }
 
-export function puzzleStoreContract(make: (boards: Puzzle[]) => Promise<PuzzleStore>) {
-	const store = () => make(boards);
+/**
+ * @param make Publishes `published` one per day ending today, and dates `upcoming` after
+ *   it. Both are in publication order, oldest first.
+ */
+export function puzzleStoreContract(
+	make: (published: Puzzle[], upcoming: Puzzle[]) => Promise<PuzzleStore>
+) {
+	const store = (upcoming: Puzzle[] = []) =>
+		make(boards.slice(0, boards.length - upcoming.length), upcoming);
 
-	it('lists the boards in the order they are written down', async () => {
-		// The order is the order a player should meet them in, so it has to survive the
-		// trip through a store rather than being whatever the database felt like.
+	const newest = boards[boards.length - 1];
+
+	it('lists published boards newest first, so the head of the list is today', async () => {
+		// The nightly job adds a board a day. A store that answered oldest-first would put
+		// every new board at the far end of a windowed query, where nothing reads it.
 		const listed = await (await store()).live(boards.length);
-		expect(listed.map((p) => p.id)).toEqual(boards.map((p) => p.id));
+		expect(listed.map((p) => p.id)).toEqual([...boards].reverse().map((p) => p.id));
 	});
 
 	it('hands back whole boards, answer key included', async () => {
 		// A store is the one place that holds the solution. Stripping it is the request
 		// path's job, and it cannot strip what it was never given.
-		expect((await (await store()).live(1))[0]).toEqual(boards[0]);
+		expect((await (await store()).live(1))[0]).toEqual(newest);
 	});
 
 	it('honours a limit', async () => {
 		expect(await (await store()).live(1)).toHaveLength(1);
 	});
 
-	it('finds a board by id, and admits when it cannot', async () => {
-		const s = await store();
-		expect(await s.byId(boards[1].id)).toEqual(boards[1]);
-		expect(await s.byId('no-such-board')).toBeNull();
+	it('never lists a board that is not due yet', async () => {
+		// The generator writes tomorrow's board tonight, so at any moment there is a board
+		// in the collection that no player may see. There is no lookup beside this one, so
+		// a board being absent from here is a board that cannot be reached at all.
+		const listed = await (await store([newest])).live(boards.length);
+		expect(listed.map((p) => p.id)).not.toContain(newest.id);
+		expect(listed).toHaveLength(boards.length - 1);
 	});
 }
 

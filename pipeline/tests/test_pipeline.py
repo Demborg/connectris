@@ -30,8 +30,16 @@ async def run(
     cfg: Config = CONFIG,
     llm: ScriptedLLM | None = None,
     corpus: Corpus | None = None,
+    *,
+    stop_on_accept: bool = False,
     **kwargs,
 ) -> pipeline.Run:
+    """A whole batch by default.
+
+    Production stops at the first accepted board, but most of what is tested below is a
+    property of *every* candidate, and a helper that stops after one would quietly reduce
+    those to a sample of one. The early-exit tests ask for it explicitly.
+    """
     return await pipeline.run(
         llm or ScriptedLLM(),
         cfg,
@@ -40,6 +48,7 @@ async def run(
         corpus=Corpus() if corpus is None else corpus,
         examples=[],
         source=MemoryCategorySource(["Stone fruit", "Chess tactics", "Bed linen"]),
+        stop_on_accept=stop_on_accept,
         **kwargs,
     )
 
@@ -190,14 +199,72 @@ async def test_a_run_killed_part_way_keeps_what_it_paid_for(tmp_path):
     assert survived[0]["decision"] is not None
 
 
-async def test_two_candidates_sharing_a_row_are_both_flagged():
-    """In-batch dedupe, which the first fix for self-dedupe silently disabled.
+async def test_of_two_candidates_sharing_a_row_the_second_is_the_duplicate():
+    """In-batch dedupe, and the asymmetry sequential proposal buys.
 
-    Every proposal starts before any has landed at the default concurrency, so the corpus
-    a board was *proposed* against cannot be the corpus it is *checked* against. Two
-    boards shipped byte-identical rows to accepted.json before this.
+    Two boards shipped byte-identical rows to accepted.json once, because at the old
+    concurrency every proposal was checked against a corpus none of its siblings had
+    landed in yet. Both being flagged was the fix for that, and it threw away a good board
+    to punish its twin: neither could be accepted, though one of them was fine.
+
+    In a loop there is an order, so there is an original and a copy. The first board is
+    judged against a corpus that does not contain it and passes; the second is judged
+    against one that now holds the first, and is caught.
     """
     twins = [BOARDS[0], BOARDS[0]]
-    result = await run(count=2, llm=ScriptedLLM(boards=twins))
-    for c in result.candidates:
-        assert "stale-words" in [p.code for p in c.problems], c.warnings
+    first, second = (await run(count=2, llm=ScriptedLLM(boards=twins))).candidates
+    assert first.warnings == [], "the original was penalised for its copy"
+    assert "stale-words" in [p.code for p in second.problems], second.warnings
+
+
+async def test_a_night_stops_at_the_first_accepted_board():
+    """The whole point of the ceiling. `propose` is two thirds of a candidate's cost, so
+    a proposal not made is the only saving of any size the pipeline has."""
+    result = await run(count=5, stop_on_accept=True)
+    assert verdicts(result.candidates) == ["accept"]
+    proposals = [c for c in result.ledger.calls if c.stage == "propose"]
+    assert len(proposals) == 1, "a second board was written after one had been accepted"
+
+
+async def test_a_night_keeps_going_until_something_lands():
+    """A rejection is not the end of the night, or a bad first draft would take the day
+    down with it. The first two candidates fail, the third is accepted, and nothing is
+    proposed after that."""
+    rejects = Grade(verdict="reject", fairness=2, elegance=1, reasons="scripted")
+
+    class RejectsTwice(ScriptedLLM):
+        def __init__(self) -> None:
+            super().__init__()
+            self.graded = 0
+
+        async def generate(self, **kwargs) -> object:
+            if kwargs["stage"] == "grade":
+                self.graded += 1
+                if self.graded <= 2:
+                    return rejects
+            return await super().generate(**kwargs)
+
+    result = await run(count=5, llm=RejectsTwice(), stop_on_accept=True)
+    assert verdicts(result.candidates) == ["reject", "reject", "accept"]
+
+
+async def test_the_ceiling_is_a_ceiling_and_a_night_may_land_nothing():
+    """A night where every draft fails costs the ceiling and ships no board. The gate on
+    publishing is what keeps that from reaching a player, not this."""
+    rejects = Grade(verdict="reject", fairness=2, elegance=1, reasons="scripted")
+    result = await run(count=3, llm=ScriptedLLM(grade=rejects), stop_on_accept=True)
+    assert verdicts(result.candidates) == ["reject", "reject", "reject"]
+    assert not result.by_verdict("accept")
+
+
+async def test_a_run_leaves_the_callers_corpus_alone():
+    """Boards proposed and then thrown away must not narrow what tomorrow may write.
+
+    The batch version folded every proposal into the corpus it was handed, so a caller
+    holding that corpus across runs accumulated the vocabulary of boards no player will
+    ever see.
+    """
+    corpus = Corpus()
+    await run(count=2, corpus=corpus)
+    assert corpus.words == set()
+    assert corpus.labels == set()

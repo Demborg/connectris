@@ -15,7 +15,12 @@ import type { Stores } from './ports';
  * production. Keep the choosing here and the `if` count at one.
  */
 
-/** How far back the picker reaches, and the window a check is allowed to grade in. */
+/**
+ * How far back the picker reaches, and the window a check is allowed to grade in.
+ *
+ * Counted from today backwards, so a board leaves the window by ageing out rather than by
+ * being pushed out — thirty days of archive, whatever the collection has grown to.
+ */
 export const BACKLOG = 30;
 
 /** Where play data lands when there is no database. Real sessions, not fixtures. */

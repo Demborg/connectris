@@ -1,0 +1,76 @@
+name: Deploy the nightly generator
+
+# Deploys the Cloud Run Job. It does not schedule it and it does not run it, so nothing
+# here spends money — a job that is never executed costs nothing. Turning it on is one
+# `gcloud scheduler` command, kept in pipeline/README.md so that starting a nightly bill
+# is something a person does on purpose.
+#
+# This will fail until the one-time setup in pipeline/README.md has been done: the
+# `connectris-generator` service account has to exist, and the deploying account has to be
+# allowed to act as it. Do that before merging, or the first run of this is red.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'pipeline/**'
+      - 'src/lib/data/puzzles.json'
+      - '.github/workflows/deploy-pipeline.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: cloud-run-job
+  cancel-in-progress: false
+
+env:
+  PROJECT: connectris-507519
+  REGION: europe-north1
+  JOB: connectris-generator
+  REPO: cloud-run-source-deploy
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: google-github-actions/auth@v2
+        with:
+          project_id: connectris-507519
+          workload_identity_provider: projects/214765692756/locations/global/workloadIdentityPools/github/providers/demborg-connectris
+          service_account: connectris-deploy@connectris-507519.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      # Built here rather than by Cloud Build so the image can take the repository root as
+      # its context: `pipeline/Dockerfile.dockerignore` names what goes in, and the layout
+      # inside the image mirrors a checkout so nothing has to be told where it is.
+      - name: Build and push
+        run: |
+          IMAGE="$REGION-docker.pkg.dev/$PROJECT/$REPO/$JOB:${{ github.sha }}"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+          gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+          docker build -f pipeline/Dockerfile -t "$IMAGE" .
+          docker push "$IMAGE"
+
+      # `--max-retries=0` is the important line. A task that fails after it has spent an
+      # hour of thinking must not be handed the same night's work again; retrying is how a
+      # $0.28 night becomes a $1 one without anybody deciding to.
+      #
+      # The generator exits 0 for every outcome it planned for, including publishing
+      # nothing, so a non-zero exit here really is something broken.
+      - name: Deploy the job
+        run: |
+          gcloud run jobs deploy "$JOB" \
+            --image="$IMAGE" \
+            --region="$REGION" \
+            --project="$PROJECT" \
+            --service-account=connectris-generator@connectris-507519.iam.gserviceaccount.com \
+            --set-env-vars=GOOGLE_CLOUD_PROJECT="$PROJECT",GOOGLE_CLOUD_LOCATION=global \
+            --max-retries=0 \
+            --task-timeout=45m \
+            --memory=1Gi --cpu=1 \
+            --quiet

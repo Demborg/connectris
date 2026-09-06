@@ -21,18 +21,21 @@ from __future__ import annotations
 import json
 import random
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import date
 from pathlib import Path
 from typing import Protocol
 
+from .day import today
 from .spec import label_key
 
 #: Lives beside the pipeline rather than in the game's data — it is production state for
 #: the generator, not something the app reads.
 DEFAULT_POOL = Path(__file__).resolve().parents[1] / "categories.json"
 
-#: Structural kinds. A board gets one, and the pool avoids repeating one too soon, so a
-#: week of boards differs in shape rather than only in subject.
+#: Structural kinds. A board gets one, and `draw` walks this list from the date's own
+#: ordinal — so seven of them is exactly a week of boards that differ in shape and not only
+#: in subject. Adding an eighth is fine and breaks the weekly alignment, which is arguably
+#: an improvement; removing one below seven means a repeat inside the same week.
 DEVICES: list[str] = [
     "a ___ WORD compound, where all four words take the same following word",
     "a WORD ___ compound, where all four words take the same preceding word",
@@ -84,6 +87,46 @@ class CategorySource(Protocol):
         ...
 
 
+def draw(
+    pool: list[Category], count: int, *, rng: random.Random, cooldown: int, day: str
+) -> tuple[list[Slot], list[Category]]:
+    """Pick `count` slots out of `pool`, and say which categories were spent doing it.
+
+    The one place the allocation rule is written down, because there are two adapters and
+    a pool that rotates differently depending on where it is stored is a pool that has two
+    rules. `pool` is mutated in place — the categories handed back are the same objects,
+    already stamped, so an adapter only has to decide how to persist them.
+
+    Devices cycle rather than being sampled, and the cycle is walked from a position fixed
+    by the date rather than from a shuffle. Sampling with replacement is what gave one
+    batch the same domain three times; sampling *without* it still wasted the list once
+    boards stopped coming twenty at a time, because a night that proposes one or two takes
+    only the front of a fresh shuffle and lands on about four distinct shapes a week.
+    Walking from today's ordinal gives all seven, every week, for nothing.
+
+    Themes prefer the least recently used, and fall back to an empty theme when the pool
+    is too small — a board with only a device allocated is still a valid board, just a
+    less constrained one.
+    """
+    start = date.fromisoformat(day).toordinal()
+
+    pool.sort(key=lambda c: (c.used, c.key))
+    available = pool[: max(count, len(pool) - cooldown)] if pool else []
+    rng.shuffle(available)
+
+    slots: list[Slot] = []
+    spent: list[Category] = []
+    for i in range(count):
+        theme = available[i] if i < len(available) else None
+        if theme is not None:
+            theme.used = day
+            spent.append(theme)
+        slots.append(
+            Slot(device=DEVICES[(start + i) % len(DEVICES)], theme=theme.label if theme else "")
+        )
+    return slots, spent
+
+
 @dataclass
 class JsonCategorySource:
     """A file-backed pool. Small enough to read whole, and diffable in review.
@@ -129,28 +172,8 @@ class JsonCategorySource:
         return len(fresh)
 
     def allocate(self, count: int, *, rng: random.Random) -> list[Slot]:
-        """One device and one theme per board, both spread as widely as the pool allows.
-
-        Devices cycle rather than being sampled, because sampling with replacement is
-        what gave one batch the same domain three times. Themes prefer the least recently
-        used, and fall back to an empty theme when the pool is too small — a board with
-        only a device allocated is still a valid board, just a less constrained one.
-        """
-        devices = list(DEVICES)
-        rng.shuffle(devices)
-
-        pool = sorted(self._load(), key=lambda c: (c.used, c.key))
-        available = pool[: max(count, len(pool) - self.cooldown)] if pool else []
-        rng.shuffle(available)
-
-        today = datetime.now(UTC).date().isoformat()
-        slots = []
-        for i in range(count):
-            theme = available[i] if i < len(available) else None
-            if theme is not None:
-                theme.used = today
-            slots.append(Slot(device=devices[i % len(devices)], theme=theme.label if theme else ""))
-
+        pool = self._load()
+        slots, _ = draw(pool, count, rng=rng, cooldown=self.cooldown, day=today())
         if pool:
             self._save(pool)
         return slots

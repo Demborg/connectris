@@ -34,15 +34,22 @@ export type Feedback = {
 
 export type PuzzleStore = {
 	/**
-	 * The boards in play, in the order they should be met — which is roughly easiest
-	 * first, the order they are written down in.
+	 * The boards in play, **most recently published first** — so `live(n)[0]` is today's
+	 * board and the rest are the days behind it.
 	 *
-	 * This is the only way the request path learns a board exists. Whatever the pipeline
-	 * is proposing lives somewhere else entirely, so there is no way for an unfinished
-	 * board to reach a player by accident.
+	 * Newest-first rather than the old easiest-first file order, because the nightly job
+	 * adds a board a day and a list that grows at the far end from the one being read is
+	 * a list whose new entries fall out of the window before anyone sees them.
+	 *
+	 * "Published" means dated on or before today, which is also why a board is never
+	 * missing: one stays live until a later one is due, so a night that generates nothing
+	 * leaves yesterday's board up rather than leaving a hole.
+	 *
+	 * This is the only way the request path learns a board exists — there is no lookup by
+	 * id beside it, deliberately, so a board scheduled for next week cannot be reached by
+	 * guessing its URL.
 	 */
 	live(limit: number): Promise<Puzzle[]>;
-	byId(id: string): Promise<Puzzle | null>;
 };
 
 export type RunStore = {

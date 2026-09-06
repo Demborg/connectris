@@ -1,0 +1,13 @@
+# BuildKit reads `<dockerfile>.dockerignore` in preference to the root `.dockerignore`,
+# which is what lets this image be built from the repository root even though the root
+# file excludes `pipeline/` for the web image's benefit.
+#
+# The context is the whole repo, so everything not needed is named here rather than the
+# other way round: the point is that a change to the game's frontend must not invalidate
+# this image's layers.
+*
+!pipeline/pyproject.toml
+!pipeline/uv.lock
+!pipeline/connectris_pipeline
+!src/lib/data/puzzles.json
+pipeline/connectris_pipeline/**/__pycache__
