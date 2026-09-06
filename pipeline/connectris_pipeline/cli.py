@@ -32,6 +32,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from dataclasses import replace
 from pathlib import Path
 from typing import Annotated
 
@@ -40,6 +41,7 @@ import typer
 from . import backfill as backfill_module
 from . import config as config_module
 from . import corpus as corpus_module
+from . import language as language_module
 from . import nightly as nightly_module
 from . import pipeline
 from .llm import GeminiLLM, Ledger
@@ -169,13 +171,23 @@ def run(
             help="Propose all `count` boards instead of stopping at the first accepted one.",
         ),
     ] = False,
+    language: Annotated[
+        str | None,
+        typer.Option(help="Language for this batch: en, sv, sv-native. Overrides the config."),
+    ] = None,
 ) -> None:
     """Generate, solve, red-team and grade, into a run directory. Publishes nothing.
 
     `--all` is for experiments: comparing two configurations wants a sample of a known
     size, and a run that stops early gives a sample whose size is the result.
+
+    `--language` is the other experiment knob, and it lives here rather than on `nightly`
+    on purpose: a night publishes to the game, and the game is not bilingual yet.
     """
     cfg = config_module.load(config)
+    if language is not None:
+        language_module.get(language)  # fail here, not eight calls in
+        cfg = replace(cfg, language=language)
     result = asyncio.run(
         pipeline.run(
             _llm(cfg),

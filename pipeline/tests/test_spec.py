@@ -109,3 +109,69 @@ def test_normalise_word(raw, expected):
 def test_slugify():
     assert slugify("___ STONE") == "stone"
     assert slugify("Under the big top") == "under-the-big-top"
+
+
+# --- Swedish ---------------------------------------------------------------
+#
+# These pin the two defects that made the old rules hostile to Swedish, and they are
+# separate tests because the two failed differently: the charset regex rejected Å Ä Ö
+# loudly, and `normalise_word` destroyed them quietly, on both sides of the comparison at
+# once, so nothing downstream could see it had happened.
+
+
+def swedish(words: list[str]) -> Puzzle:
+    """A Swedish board, differing from `board()` only in language and vocabulary."""
+    return Puzzle(
+        id="sv",
+        name="Prov",
+        language="sv",
+        groups=[
+            Group("djur", "Husdjur", words),
+            Group("vader", "Dåligt väder", ["REGN", "SNÖ", "DIMMA", "HAGEL"]),
+            Group("berg", "Bergarter", ["GRANIT", "SKIFFER", "KALKSTEN", "GNEJS"]),
+            Group("fisk", "Fiskar", ["ABBORRE", "GÄDDA", "LAX", "SIK"]),
+            Group("trad", "Träd", ["BJÖRK", "ASP", "ALM", "EK"]),
+        ],
+    )
+
+
+def test_swedish_letters_are_letters_not_accents():
+    """RÅTTA and RATTA are different words; folding one into the other is a spelling bug."""
+    assert normalise_word("råtta") == "RÅTTA"
+    assert normalise_word("Ögon") == "ÖGON"
+    # An acute on a letter that is already there stays decoration, and still folds.
+    assert normalise_word("Café") == "CAFE"
+
+
+def test_swedish_board_passes_its_own_charset():
+    assert not is_fatal(validate(swedish(["HUND", "KATT", "HÄST", "MARSVIN"])))
+
+
+def test_swedish_letters_are_rejected_on_an_english_board():
+    """The charset gate is per-language, so 'not English' is an error, not a silent repair."""
+    p = swedish(["HUND", "KATT", "HÄST", "MARSVIN"])
+    p.language = "en"
+    assert "charset" in codes(p)
+
+
+def test_the_cap_counts_swedish_letters_as_one_character_each():
+    """A precomposed Å is one char. It would be two if anything here left the string NFD."""
+    assert not is_fatal(validate(swedish(["HUND", "KATT", "HÄST", "SOMMARSTUGA"])))
+    assert "too-long" in codes(swedish(["HUND", "KATT", "HÄST", "KAFFEBRYGGARE"]))
+
+
+def test_label_key_keeps_swedish_labels_apart():
+    """Stripping Å Ä Ö left a consonant skeleton behind, and skeletons collide."""
+    assert label_key("Stjärnor") != label_key("Stjärnorna")
+    assert label_key("Stenfrukt") == label_key("stenfrukt!")
+
+
+def test_corpus_is_scoped_by_language():
+    """BAND and KORT are ordinary words in both languages and must not block each other."""
+    raw = [
+        {"id": "a", "language": "en", "groups": [{"label": "Bands", "words": ["BAND"]}]},
+        {"id": "b", "language": "sv", "groups": [{"label": "Kort", "words": ["KORT"]}]},
+    ]
+    assert Corpus.from_game_json(raw, "en").words == {"BAND"}
+    assert Corpus.from_game_json(raw, "sv").words == {"KORT"}
+    assert Corpus.from_game_json(raw).words == {"BAND", "KORT"}

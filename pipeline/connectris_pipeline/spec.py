@@ -23,10 +23,27 @@ ROWS = 5
 #: Four columns on a 375px screen is ~70px a tile. Hard data constraint, not a style note.
 MAX_WORD_LEN = 12
 
-#: Uppercase, and space/hyphen/apostrophe only where an English entry really needs one.
+#: The letters a board may use, per language. Anything outside its language's alphabet is
+#: a `charset` fatal — which is the point: the old single ASCII regex made "not English"
+#: and "not a word" the same error, and `normalise_word` below silently *repaired* the
+#: first one before the regex could see it.
+ALPHABETS: dict[str, str] = {
+    "en": "A-Z",
+    #: Å Ä Ö are letters of the Swedish alphabet, not decorated A and O. Folding them is a
+    #: spelling error: RÅTTA (rat) and RATTA (to steer) are different words.
+    "sv": "A-ZÅÄÖ",
+}
+
+#: Uppercase, and space/hyphen/apostrophe only where an entry really needs one.
 WORD_RE = re.compile(rf"[A-Z][A-Z'\- ]{{0,{MAX_WORD_LEN - 1}}}")
 
 Severity = Literal["fatal", "warn"]
+
+
+def word_re(language: str) -> re.Pattern[str]:
+    """The charset gate for one language. Unknown languages get the English one."""
+    letters = ALPHABETS.get(language, ALPHABETS["en"])
+    return re.compile(rf"[{letters}][{letters}'\- ]{{0,{MAX_WORD_LEN - 1}}}")
 
 
 @dataclass(frozen=True)
@@ -149,13 +166,37 @@ def group_json(group: Group) -> dict:
     return doc
 
 
+#: Letters that must survive folding, as opposed to accents that may not. Å Ä Ö are the
+#: last three letters of the Swedish alphabet, not decorated A and O — folding them is a
+#: spelling error, and a silent one: it turned RÅTTA (rat) into RATTA (to steer) and ÖGON
+#: into OGON. Because the answer key went through the same fold, the damage cancelled out
+#: between board and solver and left nothing to notice. Add Æ Ø Ð here for Norwegian.
+_PROTECTED = "ÅÄÖåäö"
+
+
 def normalise_word(word: str) -> str:
     """Fold a model's idea of a word into the board's: uppercase, single-spaced, unaccented.
 
     Solvers echo the words back, and they echo them back in whatever case they feel like,
     so this is also what makes solver output comparable to the answer key.
+
+    "Unaccented" means decoration only. CAFÉ is still folded to CAFE, because in English an
+    acute is a flourish on a letter that is already there; RÅTTA is left alone, because in
+    Swedish the ring is the letter. The distinction is `_PROTECTED` and it is per-alphabet
+    rather than per-board on purpose — this function is called from the dedupe index and
+    the scorer, neither of which has a language in hand, and a fold that varied by caller
+    would make the same word compare unequal to itself.
+
+    What this does *not* do is decide whether a letter belongs on this board. That is
+    `validate`'s job now, through `word_re`, so "not in this language" is an error a run
+    can see rather than a repair it cannot.
     """
-    folded = unicodedata.normalize("NFKD", word).encode("ascii", "ignore").decode()
+    folded = "".join(
+        ch
+        if ch in _PROTECTED
+        else unicodedata.normalize("NFKD", ch).encode("ascii", "ignore").decode()
+        for ch in unicodedata.normalize("NFC", word)
+    )
     return " ".join(folded.upper().split())
 
 
@@ -178,10 +219,24 @@ class Corpus:
     labels: set[str] = field(default_factory=set)
 
     @classmethod
-    def from_game_json(cls, puzzles: list[dict]) -> Self:
+    def from_game_json(cls, puzzles: list[dict], language: str | None = None) -> Self:
+        """The shipped board index, optionally narrowed to one language.
+
+        Narrowing matters once two languages share a database. The *word* axis has to be
+        per-language or it is simply wrong: BAND, PARK, HAND and KORT are ordinary words in
+        both, so an English board would forbid a Swedish one from using them and vice
+        versa, for no reason a player would recognise. The *category* axis is the opposite
+        — 'stone fruit' and 'stenfrukt' are the same board idea in two costumes, and
+        shipping both a week apart is the repetition this index exists to prevent — but
+        `label_key` is lexical, so it cannot see that, and scoping labels by language is
+        the conservative call rather than the correct one. Cross-language category dedupe
+        needs an embedding or a concept id on the pool entry; see the report.
+        """
         words: set[str] = set()
         labels: set[str] = set()
         for p in puzzles:
+            if language is not None and p.get("language", "en") != language:
+                continue
             for g in p.get("groups", []):
                 labels.add(label_key(g.get("label", "")))
                 words.update(normalise_word(w) for w in g.get("words", []))
@@ -193,9 +248,15 @@ class Corpus:
         self.labels.update(label_key(g.label) for g in puzzle.groups)
 
 
+#: Letters that survive the loose comparisons below. Not per-language: two languages share
+#: one dedupe index, so the folding has to be the union or a Swedish label would compare as
+#: its own consonant skeleton ("STJÄRNOR" -> "stjrnor").
+_LETTERS = "a-zåäöéèüà"
+
+
 def label_key(label: str) -> str:
     """Category labels compare loosely: '___ BOARD' and 'board ___' are the same idea."""
-    return " ".join(sorted(re.sub(r"[^a-z ]+", " ", label.lower()).split()))
+    return " ".join(sorted(re.sub(rf"[^{_LETTERS} ]+", " ", label.lower()).split()))
 
 
 def validate(
@@ -222,11 +283,12 @@ def validate(
             problems.append(Problem("duplicate-word", f"{w!r} appears twice on the board"))
         seen.add(w)
 
+    charset = word_re(puzzle.language)
     for w in words:
         if len(w) > MAX_WORD_LEN:
             problems.append(Problem("too-long", f"{w!r} is {len(w)} chars, cap is {MAX_WORD_LEN}"))
-        elif not WORD_RE.fullmatch(w):
-            problems.append(Problem("charset", f"{w!r} is not plain uppercase English"))
+        elif not charset.fullmatch(w):
+            problems.append(Problem("charset", f"{w!r} is not plain uppercase {puzzle.language!r}"))
 
     ids = [g.id for g in puzzle.groups]
     if len(set(ids)) != len(ids):
@@ -235,7 +297,7 @@ def validate(
     # A word written into a label points straight at a row — at that row if the word is
     # filed elsewhere, at the answer if it is the label's own.
     for g in puzzle.groups:
-        label_words = set(re.sub(r"[^a-z]+", " ", g.label.lower()).split())
+        label_words = set(re.sub(rf"[^{_LETTERS}]+", " ", g.label.lower()).split())
         problems.extend(
             Problem(
                 "label-gives-it-away",

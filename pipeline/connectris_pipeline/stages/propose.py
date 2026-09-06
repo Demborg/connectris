@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from ..categories import Slot
 from ..config import Config
+from ..language import Language
 from ..llm import LLM
 from ..prompts import propose as propose_prompt
 from ..record import Candidate
@@ -21,7 +22,9 @@ from ..schema import ProposedPuzzle
 from ..spec import Corpus, Group, Puzzle, normalise_word, slugify
 
 
-def to_puzzle(proposed: ProposedPuzzle, puzzle_id: str) -> tuple[Puzzle, dict[str, str]]:
+def to_puzzle(
+    proposed: ProposedPuzzle, puzzle_id: str, language: str = "en"
+) -> tuple[Puzzle, dict[str, str]]:
     """Model output -> board, plus the trap notes keyed by the ids we just assigned.
 
     Ids are ours, not the model's: they end up in the shipped JSON and in the play log,
@@ -40,7 +43,8 @@ def to_puzzle(proposed: ProposedPuzzle, puzzle_id: str) -> tuple[Puzzle, dict[st
         )
         traps[gid] = g.trap.strip()
 
-    return Puzzle(id=puzzle_id, name=proposed.name.strip(), groups=groups), traps
+    puzzle = Puzzle(id=puzzle_id, name=proposed.name.strip(), groups=groups, language=language)
+    return puzzle, traps
 
 
 async def propose(
@@ -51,17 +55,19 @@ async def propose(
     slot: Slot,
     examples: list[Puzzle],
     corpus: Corpus,
+    lang: Language,
 ) -> Candidate:
     system, prompt = propose_prompt(
         slot=slot,
         examples=examples,
         avoid_words=sorted(corpus.words),
         avoid_labels=sorted(corpus.labels),
+        lang=lang,
     )
     out = await llm.generate(
         stage="propose", model=cfg.proposer, system=system, prompt=prompt, schema=ProposedPuzzle
     )
-    puzzle, traps = to_puzzle(out, candidate_id)
+    puzzle, traps = to_puzzle(out, candidate_id, lang.code)
     return Candidate(
         id=candidate_id,
         puzzle=puzzle,

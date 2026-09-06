@@ -9,6 +9,7 @@ the last word a model gets, and anything short of `accept` goes to a human.
 from __future__ import annotations
 
 from ..config import Config
+from ..language import get as get_language
 from ..llm import LLM
 from ..prompts import grade as grade_prompt
 from ..record import Candidate
@@ -22,6 +23,7 @@ async def grade(llm: LLM, cfg: Config, candidate: Candidate) -> Grade:
         solver_digest=candidate.stats.digest() if candidate.stats else "no solver data",
         red=candidate.red,
         warnings=candidate.warnings,
+        lang=get_language(cfg.language),
     )
     return await llm.generate(
         stage="grade", model=cfg.grader, system=system, prompt=prompt, schema=Grade

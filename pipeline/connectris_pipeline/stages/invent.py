@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from ..categories import Category, CategorySource
 from ..config import Config
+from ..language import get as get_language
 from ..llm import LLM
 from ..prompts import invent as invent_prompt
 from ..schema import InventedCategories
@@ -22,7 +23,11 @@ from ..schema import InventedCategories
 
 async def invent(llm: LLM, cfg: Config, source: CategorySource, *, count: int) -> int:
     """Top the pool up. Returns how many categories were new."""
-    system, prompt = invent_prompt(count=count, known=[c.label for c in source.known()])
+    system, prompt = invent_prompt(
+        count=count,
+        known=[c.label for c in source.known()],
+        lang=get_language(cfg.language),
+    )
     out = await llm.generate(
         stage="invent", model=cfg.proposer, system=system, prompt=prompt, schema=InventedCategories
     )

@@ -1,0 +1,12 @@
+# Swedish prototype run, sized to a $1 budget rather than to a good batch.
+#
+# The 20-candidate English run cost $4.15 and 94% of that was thinking tokens on propose,
+# red_team and grade — so the only lever that matters is `--count`. Three candidates plus
+# a fresh category pool comes to roughly $0.65 at the price implied by that run.
+#
+# `invent_batch` is 12 rather than 40 because the English pool is useless here: its
+# categories are English labels, and a Swedish board cannot fill a slot called "Stone
+# fruit". Twelve is enough to cover a batch of three with something left over.
+
+language = "sv"
+invent_batch = 12

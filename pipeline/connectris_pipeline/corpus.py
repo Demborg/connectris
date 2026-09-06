@@ -17,11 +17,23 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 PUZZLES_JSON = REPO_ROOT / "src" / "lib" / "data" / "puzzles.json"
 
 
-def load(path: Path = PUZZLES_JSON) -> tuple[list[Puzzle], Corpus]:
+def load(path: Path = PUZZLES_JSON, language: str | None = None) -> tuple[list[Puzzle], Corpus]:
+    """Shipped boards and the dedupe index, optionally narrowed to one language.
+
+    The puzzles come back narrowed too, because their other job is to be the few-shot
+    examples — and an English board is a bad example of a Swedish one. When the narrowed
+    list is empty the proposer is told so rather than being handed the English boards
+    silently; `run` decides what to do about it.
+    """
     if not path.exists():
         return [], Corpus()
     raw = json.loads(path.read_text())
-    return [Puzzle.from_game_json(p) for p in raw], Corpus.from_game_json(raw)
+    puzzles = [
+        Puzzle.from_game_json(p)
+        for p in raw
+        if language is None or p.get("language", "en") == language
+    ]
+    return puzzles, Corpus.from_game_json(raw, language)
 
 
 def rewrite(puzzles: list[Puzzle], path: Path = PUZZLES_JSON) -> int:
