@@ -1,5 +1,5 @@
 import { defineConfig } from 'vitest/config';
-import adapter from '@sveltejs/adapter-static';
+import adapter from '@sveltejs/adapter-node';
 import { sveltekit } from '@sveltejs/kit/vite';
 
 export default defineConfig({
@@ -10,10 +10,7 @@ export default defineConfig({
 				runes: ({ filename }) =>
 					filename.split(/[/\\]/).includes('node_modules') ? undefined : true
 			},
-			adapter: adapter({ fallback: '404.html' }),
-			// GitHub Pages serves a project site from /<repo>. The deploy workflow sets
-			// BASE_PATH; local dev and previews stay at the root.
-			paths: { base: (process.env.BASE_PATH ?? '') as '' | `/${string}` }
+			adapter: adapter()
 		})
 	],
 	test: {

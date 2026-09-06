@@ -30,3 +30,6 @@ Thumbs.db
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Play data captured by a local run. Real sessions, not fixtures.
+.data/

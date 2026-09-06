@@ -1,51 +1,62 @@
-name: Deploy to Pages
+name: Deploy to Cloud Run
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
+# No key file anywhere: GitHub's OIDC token is exchanged for a short-lived Google one,
+# and only this repository is allowed to make that exchange.
 permissions:
   contents: read
-  pages: write
   id-token: write
 
 # Let a running deploy finish rather than cancelling it half-published.
 concurrency:
-  group: pages
+  group: cloud-run
   cancel-in-progress: false
 
+env:
+  PROJECT: connectris-507519
+  REGION: europe-north1
+  SERVICE: connectris
+
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
     steps:
       - uses: actions/checkout@v5
 
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v5
+      - uses: google-github-actions/auth@v2
         with:
-          node-version: 24
-          cache: pnpm
+          project_id: connectris-507519
+          workload_identity_provider: projects/214765692756/locations/global/workloadIdentityPools/github/providers/demborg-connectris
+          service_account: connectris-deploy@connectris-507519.iam.gserviceaccount.com
 
-      - run: pnpm install --frozen-lockfile
+      - uses: google-github-actions/setup-gcloud@v2
 
-      - name: Build
-        run: pnpm build
-        env:
-          # Project sites are served from /<repo>; see paths.base in vite.config.ts.
-          BASE_PATH: /${{ github.event.repository.name }}
+      # Built by Cloud Build from the Dockerfile, so the image is produced the same way
+      # whoever deploys it — a workflow or a laptop running `gcloud run deploy --source`.
+      - id: deploy
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --source . \
+            --region="$REGION" \
+            --project="$PROJECT" \
+            --service-account=connectris-run@connectris-507519.iam.gserviceaccount.com \
+            --set-env-vars=GOOGLE_CLOUD_PROJECT="$PROJECT" \
+            --min-instances=0 --max-instances=3 --concurrency=80 \
+            --memory=512Mi --cpu=1 --cpu-boost \
+            --allow-unauthenticated \
+            --quiet
+          echo "url=$(gcloud run services describe "$SERVICE" --region="$REGION" --project="$PROJECT" --format='value(status.url)')" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: build
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Check the deployed revision serves a board
+        run: |
+          URL="${{ steps.deploy.outputs.url }}"
+          code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/")
+          test "$code" = "200" || { echo "homepage returned $code"; exit 1; }
+          echo "$URL is serving"

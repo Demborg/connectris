@@ -34,7 +34,7 @@ your own confidence ranking every time you check.
 It also makes the tetris framing literal — cleared rows light up and lock off the top of the
 well.
 
-**3. Every check costs one of six. Clearing several rows in one go is how you keep them.**
+**3. Every check costs one of four. Clearing several rows in one go is how you keep them.**
 _Supersedes the original rule, which charged only for a check that cleared nothing._
 
 The old rule read well — "progress is free" — but it priced the game wrongly. Mis-ordering
@@ -44,9 +44,11 @@ getting it wrong. And the DOUBLE/TRIPLE callouts were celebrating something the 
 not reward. Charging for every check fixes both at once: the order you put your rows in now
 decides how many checks the board costs you, and batching is worth real money.
 
-Six is chosen from the floor. See `CHECKS` in `engine.ts` for the arithmetic: clearing one
-row at a time takes four checks, so six leaves two spare, and the pressure escalates into
-the interesting strategy rather than into a dead run.
+Four _is_ the floor. See `CHECKS` in `engine.ts` for the arithmetic: clearing one row at a
+time takes exactly four checks, so a one-row-at-a-time run has to be perfect and every miss
+has to be bought back by taking two rows in one check. Six left two spare and made batching
+merely worth money; four makes it the way through. The budget was always the number most
+likely to move — this is it moving, and it can move back.
 
 DN's _Dagens fyra_ has no fail state at all — it just counts misses upward — and that is
 the main thing it does worse than Connections. Keeping a real one is deliberate.
@@ -228,9 +230,10 @@ it costs nothing, and it is what keeps the board reachable from a keyboard.
   money, so players will want to reorder more often than they did. If it bites, the
   drag-native fix is a long-press on a row to pick the whole row up — a gesture rather than
   a returning column of numbers.
-- **Size of the check budget.** Six is reasoned from the four-check floor, not measured. It
-  is the single number most likely to need tuning, and it sets how hard the game leans on
-  batching: tighter makes multi-row clears essential, looser makes them optional.
+- **Size of the check budget.** Now four, tightened from six, and still reasoned rather than
+  measured. Six left two checks spare; four leaves none, which is the "tighter makes multi-row
+  clears essential" end of the dial this note always pointed at. Whether that is tense or
+  merely punishing is the first thing real play should answer.
 - **Is the count feedback too generous?** It's the most reversible of the pinned rules.
 - **Grid size.** 4×5 is hardcoded in `engine.ts` as `COLS`/`ROWS`. A 5×5 hard mode is not a
   v1 question but shouldn't be designed out.
@@ -248,10 +251,25 @@ The first puzzles are hand-written on purpose — you learn more about what make
 category in an hour of writing them than in a week of prompt engineering, and the pipeline
 needs a target to be judged against.
 
-**Phase 1 — real play**
-Server-side puzzle delivery and check validation, shared leaderboard, share a link to
-family. The client must never hold the answer key, or the leaderboard is decorative;
-retrofitting this later means reworking the state model.
+**Phase 1 — real play** _(built)_
+Server-side puzzle delivery and check validation, on Cloud Run against Firestore. The
+client gets twenty words and no answer key; every check is a POST that answers with counts
+and the categories that cleared. Runs and a two-question survey are recorded, because the
+question this phase exists to answer is how real people play.
+
+Three things the original sketch listed are not here. The **shared leaderboard** is not
+built — see the note on stateless checks below, which is what it would have to pay for.
+**Sharing a link to family** is half-built: boards have their own URLs, but named invites
+are not in yet. And there is **no daily rollover**: boards are an ordered set, not a
+calendar.
+
+That last one was built and then removed. With nothing scheduling ahead, every board's
+date was in the past, so "today's puzzle" was a fixed board with a date attached that
+never changed — and the picker was doing all the actual work. The isolation argument for
+dates did not survive either: the pipeline writes to its own collection and promotion
+means copying into `puzzles`, so unfinished boards are kept out by being somewhere else,
+not by being dated. Dates come back with the nightly job, which is the first thing that
+gives them anything to do.
 
 **Phase 2 — generated puzzles** _(pipeline built, unproven)_. Below, and in `pipeline/`.
 
@@ -404,9 +422,26 @@ separate service buys a deploy unit, a CORS config and duplicated types in excha
 nothing. The generation pipeline is a separate Python batch job (Cloud Run Job + Cloud
 Scheduler) because that's where the tooling lives and it's offline anyway.
 
-**Database: Postgres.** The whole app is leaderboards, and "rank me among N, show the
-distribution" is window functions — exactly what Firestore is bad at. Also wanted for
-analysing pipeline output.
+**Database: Firestore.** _Overturns the Postgres decision below, which is kept because the
+reasoning is still right about the thing it was reasoning about._
+
+The Postgres case rested on one sentence: the whole app is leaderboards, and "rank me among
+N, show the distribution" is window functions — exactly what Firestore is bad at. That is
+true, and it is about a scale this game will not reach. Ten players is a surprising day.
+Ranking at that size is fetch-a-puzzle's-runs-and-sort-in-process.
+
+Against it: Cloud SQL's smallest instance is ~$10 a month whether anyone plays or not, and
+this is a for-fun project where the standing cost matters more than the query shape.
+Firestore's free quota — 1 GiB, 50k reads and 20k writes a day — is permanent and about
+three orders of magnitude above what this app does. It stays inside the same project, it
+authenticates with ADC so there is no secret to hold, and it has no connection pool, so it
+_removes_ a cold-start component rather than adding one.
+
+Worth knowing what was actually traded: the dominant cost here was never the database. At
+$4.15 a run for ~2 shippable boards, nightly generation is ~$60 a month — six times the
+Cloud SQL bill this avoided. Demand-gating generation is where the money is.
+
+Revisit if a puzzle ever passes ~1000 plays. Until then this is buying nothing.
 
 **Models: Vertex AI**, and only Vertex. The pipeline runs as a Cloud Run Job in the same
 project, so ADC is already there and there is no key to manage; supporting AI Studio
@@ -423,3 +458,18 @@ temperature left alone, 2.5 takes a token _budget_ and does not.
 
 **Auth: deferred.** A display name in localStorage is enough to compete with family. Google
 sign-in when it's needed. Shape the score payload now so a user id can be attached later.
+_Done:_ a random id is minted on first play and travels with every run.
+
+**Checks are graded statelessly, and that is a deliberate hole.** The server holds the
+answer key and the client posts an arrangement; there is no game document. `deal` is a pure
+function of the puzzle id, so the key is re-derived per request rather than stored, which
+means a check costs one cached read and no writes — that is what makes scaling to zero
+cheap enough to do without thinking about it.
+
+What is not delivered: the server does not enforce the check budget, and nothing in a
+recorded run was witnessed. The client counts its own four. That is only exploitable
+against a leaderboard, and a leaderboard is exactly what would pay for the game documents
+that would close it. Building it now would be paying for a guarantee nothing yet needs.
+
+The property that mattered is delivered in full: the client cannot see the answer, and per
+pin 1 the 3×10¹¹ arrangement space makes probing worthless.

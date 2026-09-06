@@ -1,6 +1,17 @@
-import { CHECKS, check, deal, swapTiles } from './engine';
+import { randomId } from '$lib/user';
+import { CHECKS, swapTiles } from './engine';
 import { recordBest, saveRun, type Best, type EventInput, type GameEvent } from './log';
-import type { Group, Position, Puzzle, Row, SolvedRow } from './types';
+import { noReporter, type Reporter } from './report';
+import type {
+	Board,
+	CheckOutcome,
+	Checker,
+	Group,
+	Position,
+	PuzzleMeta,
+	Row,
+	SolvedRow
+} from './types';
 
 export type Status = 'idle' | 'playing' | 'won' | 'lost';
 
@@ -47,7 +58,15 @@ const reducedMotion = () =>
 const wait = (ms: number) => new Promise((r) => setTimeout(r, reducedMotion() ? 0 : ms));
 
 export class Session {
-	readonly puzzle: Puzzle;
+	readonly puzzle: PuzzleMeta;
+	/**
+	 * This run's id, minted before it starts because feedback is filed against it — the
+	 * answers to "how was that" belong to the run that provoked them.
+	 */
+	readonly id = randomId();
+	/** Whoever holds the answer key. This class never sees it. */
+	private readonly grade: Checker;
+	private readonly report: Reporter;
 
 	rows = $state<Row[]>([]);
 	solved = $state<SolvedRow[]>([]);
@@ -62,6 +81,12 @@ export class Session {
 	verdict = $state<Verdict | null>(null);
 	/** True while the top row is lifting off. Drives the tile clear animation. */
 	lifting = $state(false);
+	/**
+	 * The category of the row currently lifting. The board needs it to land those tiles on
+	 * the colour their solved bar will use — and it is the only category the player is
+	 * allowed to know about before the row has cleared.
+	 */
+	liftingGroup = $state<Group | null>(null);
 	/** Rows in the clear currently playing, for how hard it lands. 0 when nothing is. */
 	clearing = $state(0);
 	/** True while the press is travelling up the board. */
@@ -78,6 +103,13 @@ export class Session {
 	/** Whether that impact was a failed check rather than a clear landing. */
 	crashMiss = $state(false);
 	best = $state<Best | undefined>(undefined);
+	/** Categories never found, revealed once the run is lost. Only a grader can name them. */
+	missed = $state<Group[]>([]);
+	/**
+	 * Set when a check could not be graded at all. The run is not over and the check was
+	 * refunded — but the player pressed a button and nothing happened, so say why.
+	 */
+	fault = $state<string | null>(null);
 
 	startedAt = 0;
 	endedAt = 0;
@@ -85,9 +117,11 @@ export class Session {
 	private busy = false;
 	private comboTimer: ReturnType<typeof setTimeout> | undefined;
 
-	constructor(puzzle: Puzzle) {
-		this.puzzle = puzzle;
-		this.rows = deal(puzzle);
+	constructor(board: Board, grade: Checker, report: Reporter = noReporter) {
+		this.puzzle = board.puzzle;
+		this.rows = board.rows;
+		this.grade = grade;
+		this.report = report;
 	}
 
 	get elapsedMs(): number {
@@ -102,12 +136,6 @@ export class Session {
 
 	get over(): boolean {
 		return this.status === 'won' || this.status === 'lost';
-	}
-
-	/** Categories never found, revealed once the run is lost. */
-	get missed(): Group[] {
-		if (this.status !== 'lost') return [];
-		return this.puzzle.groups.filter((g) => !this.solved.some((s) => s.group.id === g.id));
 	}
 
 	private begin(): void {
@@ -172,8 +200,10 @@ export class Session {
 		this.begin();
 		this.clearSelection();
 
-		const result = check(this.rows);
+		this.fault = null;
 		this.checks++;
+		const grading = this.grade(this.rows, this.checks);
+
 		// Drop the previous verdict and callout now, so neither is left standing over the
 		// clear animation this check is about to play.
 		this.verdict = null;
@@ -182,10 +212,25 @@ export class Session {
 
 		this.sweeping = true;
 		setTimeout(() => (this.sweeping = false), SWEEP_MS);
-		await wait(SWEEP_LEAD);
+
+		// The anticipation sweep is also the latency budget. It has to run before anything
+		// resolves anyway, so a grader that answers inside it is one the player never waits
+		// for — which is what makes grading somewhere else affordable.
+		let result: CheckOutcome;
+		try {
+			[result] = await Promise.all([grading, wait(SWEEP_LEAD)]);
+		} catch {
+			// A check that never came back is not a check. Refund it and let the player try
+			// again: an unreachable grader is not a wrong answer, and charging for one would
+			// end runs that the puzzle never beat. Pin 5.
+			this.checks--;
+			this.fault = 'Could not reach the scorer. Try again.';
+			this.busy = false;
+			return;
+		}
 
 		if (result.locked > 0) {
-			await this.roll(result.locked);
+			await this.roll(result.cleared);
 
 			// The wave rolls on into whatever is left. The top remaining row is, by
 			// definition, the one that stopped the run — so it takes the hit. A bigger
@@ -212,8 +257,8 @@ export class Session {
 		// it again in small type undercuts them.
 		const remaining = result.correctCount - result.locked;
 		// Order matters: a final check that clears the board wins even if it was the last one.
-		if (this.rows.length === 0) this.finish('won');
-		else if (this.left === 0) this.finish('lost');
+		if (this.rows.length === 0) this.finish('won', []);
+		else if (this.left === 0) this.finish('lost', result.missed);
 		else if (result.locked > 0)
 			this.verdict = remaining > 0 ? { count: remaining, note: 'more right · wrong order' } : null;
 		else
@@ -233,30 +278,26 @@ export class Session {
 	 * A cleared row leaves `rows` the moment it lands and joins `solved` above it, so the
 	 * row currently lifting is always row 0 and the board never changes height.
 	 */
-	private async roll(count: number): Promise<void> {
-		this.clearing = count;
+	private async roll(cleared: Group[]): Promise<void> {
+		this.clearing = cleared.length;
 
-		for (let i = 0; i < count; i++) {
+		for (const [i, group] of cleared.entries()) {
+			const [, ...rest] = this.rows;
+
+			this.liftingGroup = group;
 			this.lifting = true;
 			await wait(LOCK_MS);
 
-			const [row, ...rest] = this.rows;
 			this.rows = rest;
-			this.solved = [
-				...this.solved,
-				{
-					group: this.puzzle.groups.find((g) => g.id === row[0].group)!,
-					check: this.checks,
-					order: i
-				}
-			];
+			this.solved = [...this.solved, { group, check: this.checks, order: i }];
 			this.lifting = false;
+			this.liftingGroup = null;
 
 			// Only from the second row on is there anything to shout about, and from there
 			// the shout grows with the tally rather than waiting for the final figure.
 			if (i >= 1) this.combo = i + 1;
 
-			if (i < count - 1) await wait(ROW_STEP - LOCK_MS);
+			if (i < cleared.length - 1) await wait(ROW_STEP - LOCK_MS);
 		}
 
 		this.clearing = 0;
@@ -270,8 +311,9 @@ export class Session {
 		setTimeout(() => (this.crash = 0), CRASH_MS + (miss ? 4 : 2) * RIPPLE_STEP);
 	}
 
-	private finish(outcome: 'won' | 'lost'): void {
+	private finish(outcome: 'won' | 'lost', missed: Group[]): void {
 		this.status = outcome;
+		this.missed = missed;
 		this.endedAt = Date.now();
 		this.record({ type: 'end', outcome });
 
@@ -286,6 +328,7 @@ export class Session {
 			events: this.events
 		};
 		saveRun(run);
+		this.report(this.id, run);
 		if (outcome === 'won') this.best = recordBest(this.puzzle.id, run);
 	}
 }

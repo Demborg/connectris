@@ -1,4 +1,4 @@
-import type { CheckResult, Position, Puzzle, Row, Tile } from './types';
+import type { Answer, Board, CheckResult, Position, Puzzle, Row, Tile } from './types';
 
 /** Words per row / row width. */
 export const COLS = 4;
@@ -9,12 +9,12 @@ export const ROWS = 5;
  *
  * The floor is four: clearing a single row at a time takes 1+1+1+2 checks, because three
  * rows solved leaves two, and if the top of those two is right the other one is forced.
- * So six leaves two spare. Miss twice and you have exactly enough left to finish one row
- * at a time; miss a third time and you can still win, but only by clearing several rows
- * in one check. Pressure that escalates into the interesting strategy rather than into a
- * dead run.
+ * So four is the floor exactly, and there is nothing spare. A run that clears one row at a
+ * time has to be perfect; every miss has to be bought back by taking two rows in a single
+ * check later. That makes batching the way through rather than a way to save money, which
+ * is the strongest version of the ordering bet the game is built on.
  */
-export const CHECKS = 6;
+export const CHECKS = 4;
 
 /* -------------------------------------------------------------------------- */
 /* Deterministic dealing                                                       */
@@ -50,28 +50,48 @@ function shuffled<T>(items: T[], next: () => number): T[] {
 	return out;
 }
 
-export function tilesOf(puzzle: Puzzle): Tile[] {
+/** A dealt board and the key that grades it. Only `rows` is safe to hand to a player. */
+export type Deal = { rows: Row[]; answer: Answer };
+
+function tilesOf(puzzle: Puzzle): { tiles: Tile[]; answer: Answer } {
+	const answer: Answer = new Map();
 	let id = 0;
-	return puzzle.groups.flatMap((g) => g.words.map((word) => ({ id: id++, word, group: g.id })));
+	const tiles = puzzle.groups.flatMap((g) =>
+		g.words.map((word) => {
+			const tile = { id: id++, word };
+			answer.set(tile.id, g.id);
+			return tile;
+		})
+	);
+	return { tiles, answer };
 }
 
 /**
- * Deal a puzzle into its starting layout.
+ * Deal a puzzle into its starting layout, and the key that grades it.
  *
  * Deterministic: every player gets byte-identical starting rows, which is what makes
  * a move-count leaderboard fair. Re-seeds until no row is accidentally complete, so
  * nobody is handed a free lock.
+ *
+ * Determinism is also what keeps checking cheap to do remotely: the key is a pure
+ * function of the puzzle id, so it can be re-derived on demand rather than stored.
  */
-export function deal(puzzle: Puzzle): Row[] {
-	const tiles = tilesOf(puzzle);
+export function deal(puzzle: Puzzle): Deal {
+	const { tiles, answer } = tilesOf(puzzle);
 	for (let attempt = 0; attempt < 64; attempt++) {
 		const next = rng(hashSeed(`${puzzle.id}#${attempt}`));
 		const flat = shuffled(tiles, next);
 		const rows: Row[] = [];
 		for (let i = 0; i < flat.length; i += COLS) rows.push(flat.slice(i, i + COLS));
-		if (!rows.some(isComplete)) return rows;
+		if (!rows.some((row) => isComplete(row, answer))) return { rows, answer };
 	}
 	throw new Error(`could not deal a non-trivial board for puzzle ${puzzle.id}`);
+}
+
+/** Deal a board for a player: the rows, and nothing that says how to grade them. */
+export function boardOf(puzzle: Puzzle): Board {
+	const { id, name, language } = puzzle;
+	return { puzzle: { id, name, language }, rows: deal(puzzle).rows };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -79,8 +99,9 @@ export function deal(puzzle: Puzzle): Row[] {
 /* -------------------------------------------------------------------------- */
 
 /** A row is complete when all its tiles share a group. Order within a row is irrelevant. */
-export function isComplete(row: Row): boolean {
-	return row.length === COLS && row.every((t) => t.group === row[0].group);
+export function isComplete(row: Row, answer: Answer): boolean {
+	const group = answer.get(row[0]?.id ?? -1);
+	return row.length === COLS && row.every((t) => answer.get(t.id) === group);
 }
 
 /** Length of the leading run of `true`. */
@@ -100,8 +121,8 @@ export function leadingRun(flags: boolean[]): number {
  * `correctCount` is reported without saying *which* rows, so a miss still teaches you
  * something without collapsing the ordering puzzle.
  */
-export function check(rows: Row[]): CheckResult {
-	const correct = rows.map(isComplete);
+export function check(rows: Row[], answer: Answer): CheckResult {
+	const correct = rows.map((row) => isComplete(row, answer));
 	const locked = leadingRun(correct);
 	const correctCount = correct.filter(Boolean).length;
 	return { correct, locked, correctCount, costLife: locked === 0 };
