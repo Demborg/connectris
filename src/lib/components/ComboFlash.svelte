@@ -60,7 +60,7 @@
 		letter-spacing: 0.05em;
 		color: var(--text);
 		text-shadow:
-			0 0 28px rgb(238 243 250 / 30%),
+			0 0 28px color-mix(in oklab, var(--accent) 30%, transparent),
 			0 2px 10px rgb(0 0 0 / 60%);
 	}
 
@@ -71,7 +71,7 @@
 		font-size: clamp(1.75rem, 11vw, 2.6rem);
 		letter-spacing: 0.08em;
 		text-shadow:
-			0 0 34px rgb(238 243 250 / 42%),
+			0 0 34px color-mix(in oklab, var(--accent) 42%, transparent),
 			0 2px 10px rgb(0 0 0 / 60%);
 	}
 
@@ -80,7 +80,7 @@
 		font-weight: 900;
 		letter-spacing: 0.1em;
 		text-shadow:
-			0 0 44px rgb(238 243 250 / 55%),
+			0 0 44px color-mix(in oklab, var(--accent) 55%, transparent),
 			0 2px 12px rgb(0 0 0 / 65%);
 	}
 
@@ -110,7 +110,8 @@
 		color: transparent;
 		/* Follows the glyphs rather than their box, which text-shadow can't do once the
 		   fill is a clipped gradient. */
-		filter: drop-shadow(0 0 18px rgb(238 243 250 / 35%)) drop-shadow(0 2px 8px rgb(0 0 0 / 70%));
+		filter: drop-shadow(0 0 18px color-mix(in oklab, var(--accent) 35%, transparent))
+			drop-shadow(0 2px 8px rgb(0 0 0 / 70%));
 		animation: sweep 1.6s linear infinite;
 	}
 

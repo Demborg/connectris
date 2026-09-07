@@ -31,7 +31,7 @@
 		   unsolved rows sit on exactly the same rhythm. */
 		min-height: calc(var(--row-h) + 2 * var(--row-bleed));
 		padding-right: 12px;
-		border-radius: 17px;
+		border-radius: var(--r-row);
 		background: linear-gradient(
 			180deg,
 			color-mix(in oklab, var(--colour) 56%, var(--ink)),

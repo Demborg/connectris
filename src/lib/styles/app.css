@@ -8,17 +8,52 @@
 	--well: #0c1016;
 	--well-edge: #1a2231;
 
-	--tile: #1a212c;
-	--tile-hi: #222a37;
+	/* One raised-surface idea, declared once.
+
+	   Everything that sits above the well is a (highlight, base) pair. These were six
+	   hand-mixed literals spread across four components, which meant changing the tile
+	   left five of them silently stale. Same values as before — the point is that there
+	   is now one place to change them. */
+	--surface: #1a212c;
+	--surface-hi: #222a37;
+	/* A tile held by a tap, or lifted by a drag. */
+	--surface-lift: #202836;
+	--surface-lift-hi: #2a3442;
+	/* Where a drop would land. Translucent so the ring underneath stays visible. */
+	--surface-drop: #26303f;
+	--surface-drop-hi: rgb(51 64 81 / 50%);
+	/* The Check button at the instant it fires. */
+	--surface-fire: #2a3547;
+	--surface-fire-hi: #39465a;
+	/* The end card — the one surface that sinks rather than rises. */
+	--surface-card: #10151d;
+	--surface-card-hi: #161d27;
+
 	--tile-edge: #2c3646;
 	--text: #eaeff7;
 	--muted: #808c9e;
+	/* A hairline colour, and only on the near-black body ground. It fails contrast on the
+	   end card, so nothing raised may use it for text. */
 	--dim: #4a5464;
 
 	/* Colour means category, and nothing else. Selection and chrome stay neutral so a
 	   lit-up row is the only saturated thing on screen. */
 	--accent: #eef3fa;
-	--danger: #e8596c;
+	/* Text on an accent-filled control. Neither --ink nor --bg: both are too black to
+	   read as deliberate against a near-white fill. */
+	--ink-on-accent: #0d131c;
+	/* Deliberately not --g5. The two were the same hex, which put the miss jolt and a
+	   fifth row's category chip on one paint — so red meant both "the board bit back"
+	   and "category five". Orange-leaning, to stay clear of --g5 and of --g2's amber. */
+	--danger: #ff6b4a;
+
+	/* Translucent white over a surface. Three steps, because the seven this replaced
+	   included three that were indistinguishable doing three different jobs. */
+	--veil-1: rgb(255 255 255 / 5%);
+	--veil-2: rgb(255 255 255 / 10%);
+	--veil-3: rgb(255 255 255 / 20%);
+	/* The edge of a chosen control, which has to beat --tile-edge to read as chosen. */
+	--veil-edge: rgb(255 255 255 / 42%);
 
 	/* Category colours are darkened toward this rather than mixed with the tile grey —
 	   mixing toward a desaturated blue turns amber to olive and cyan to slate. */
@@ -37,17 +72,31 @@
 	--fs-md: 0.95rem;
 	--fs-lg: 1.35rem;
 
-	--radius: 13px;
+	/* One scale, so concentric corners stay concentric. Everything used to pick its own
+	   number — ten of them, for four jobs. */
+	--r-sm: 10px;
+	--r-md: 13px;
+	--r-lg: 18px;
+	--r-xl: 20px;
+	--r-pill: 999px;
+
 	--gap: 7px;
-	/* Slightly shorter than before to pay for the space now spent between rows. */
-	--row-h: clamp(56px, 11.5vh, 80px);
+	/* Slightly shorter than before to pay for the space now spent between rows.
+
+	   The vh term is what makes a short phone fit at all: at 11.5vh the app was 18px taller
+	   than a 375×667 screen and 29px taller than a 360×640 one, in its resting state, with
+	   the Check button clipped by the bottom edge — before any browser URL bar. Nothing
+	   else in the column can give (the callout has to reserve room for a combo flourish
+	   that runs to 3rem), and this is the one measurement already written to answer to the
+	   viewport. The 80px ceiling means phones tall enough to have never had the problem are
+	   unaffected: at 844px and up this clamps to 80 either way. */
+	--row-h: clamp(56px, 10.3vh, 80px);
 	/* How far a row's frame breathes past its contents, above and below. Solved rows add
 	   twice this to their height so every row lands on the same rhythm. */
 	--row-bleed: 5px;
-	/* Scaled up by the board while a multi-row clear is playing. */
-	--boost: 1;
-	/* Colour of the wave's impact: neutral when a clear lands, red when a check misses. */
-	--jolt: var(--accent);
+	/* A row's frame wraps a tile plus its bleed, so it derives rather than being guessed
+	   — the two were 13 and 17, which is not a concentric pair. */
+	--r-row: calc(var(--r-md) + var(--row-bleed));
 
 	--ease: cubic-bezier(0.22, 1, 0.36, 1);
 	--snap: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -55,6 +104,16 @@
 	font-synthesis-weight: none;
 	-webkit-text-size-adjust: 100%;
 	-webkit-tap-highlight-color: transparent;
+}
+
+/* Set at runtime by Board.svelte, on .grid — never meaningfully here. --boost scales a
+   multi-row clear's flourish; --jolt colours the wave's impact, neutral when a clear
+   lands and --danger when a check misses. Declared only so a tile rendered outside the
+   board still resolves them: the board overrides both on every render, so editing these
+   values changes nothing. */
+:root {
+	--boost: 1;
+	--jolt: var(--accent);
 }
 
 * {

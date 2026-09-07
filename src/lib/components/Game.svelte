@@ -43,8 +43,16 @@
 <div class="app">
 	<header>
 		<h1>CONNECTRIS</h1>
-		<button class="help" onclick={() => (rulesOpen = !rulesOpen)}>
-			{rulesOpen ? 'Close' : 'How to play'}
+		<!-- The label stays put and `aria-expanded` carries the state, matching the end
+		     card's toggle. Swapping the label to "Close" made one of the app's two
+		     disclosure buttons behave unlike the other, and read as "close the page". -->
+		<button
+			class="help"
+			aria-expanded={rulesOpen}
+			aria-controls="rules"
+			onclick={() => (rulesOpen = !rulesOpen)}
+		>
+			How to play
 		</button>
 	</header>
 
@@ -54,7 +62,7 @@
 	<p class="goal">Make five rows of four — surest at the top</p>
 
 	{#if rulesOpen}
-		<section class="rules">
+		<section class="rules" id="rules">
 			<ol>
 				<li>Sort all 20 words into 5 rows of four. Order <em>inside</em> a row doesn't matter.</li>
 				<li>Drag a word onto another to swap them, or tap the two of them in turn.</li>
@@ -95,9 +103,6 @@
 			{#if session.verdict}
 				<Verdict verdict={session.verdict} />
 			{/if}
-			{#if session.fault}
-				<p class="fault">{session.fault}</p>
-			{/if}
 		</div>
 
 		{#if session.sweeping}
@@ -107,16 +112,28 @@
 
 	<!-- The budget sits on the button that spends it. -->
 	<footer>
+		<!-- A transport failure is a "your press did not land" message, which is a state of
+		     the button — not something the check said. In the callout it appeared in the
+		     slot, at the size and in the colour a missed check uses. -->
+		{#if session.fault}
+			<p class="fault">{session.fault}</p>
+		{/if}
 		<Budget left={session.left} />
 		<button
 			class="check"
 			class:firing={session.sweeping}
+			class:waiting={session.busy}
 			disabled={session.over}
+			aria-disabled={session.busy || undefined}
 			onclick={() => session.check()}
 		>
 			Check
 		</button>
 	</footer>
+
+	<!-- Swaps are otherwise silent: the board is a flat run of buttons, and which row a
+	     word ended up in is the entire game. -->
+	<p class="sr-only" aria-live="polite">{session.announcement}</p>
 
 	<!-- Hold the card back while a combo is on screen. The winning move is the one clear
 	     worth celebrating, and it is exactly the one the card would otherwise cover. -->
@@ -130,11 +147,24 @@
 </div>
 
 <style>
+	/* Not --danger: red on this board means the board bit back, and a network that never
+	   answered is not the puzzle beating you. */
 	.fault {
 		margin: 0;
 		font-size: var(--fs-sm);
-		color: var(--danger);
+		color: var(--muted);
 		text-align: center;
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		margin: -1px;
+		padding: 0;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
 	}
 
 	.app {
@@ -171,7 +201,13 @@
 		letter-spacing: 0.22em;
 	}
 
+	/* The sole route to the rules and to every other board, and it was a 62×15 hit target
+	   on a phone-first game. Padding grows the target to ~41px; the matching negative
+	   margin keeps the header exactly the height it was, which matters because the app
+	   already does not fit a 640px-tall screen. */
 	.help {
+		padding: 13px 8px;
+		margin: -13px -8px;
 		font-size: var(--fs-xs);
 		color: var(--muted);
 		text-decoration: underline;
@@ -181,8 +217,8 @@
 
 	.rules {
 		padding: 12px 14px;
-		border-radius: 14px;
-		background: rgb(255 255 255 / 3%);
+		border-radius: var(--r-md);
+		background: var(--veil-1);
 		outline: 1px solid var(--tile-edge);
 		outline-offset: -1px;
 		animation: reveal 260ms var(--ease) both;
@@ -207,18 +243,25 @@
 		margin-top: 12px;
 	}
 
+	/* Same trick as .help: a bigger target, the same layout. */
 	.picker button {
-		padding: 5px 10px;
-		border-radius: 999px;
+		padding: 10px;
+		margin-block: -5px;
+		border-radius: var(--r-pill);
 		font-size: var(--fs-xs);
 		color: var(--muted);
-		background: rgb(255 255 255 / 5%);
+		background: var(--veil-1);
 	}
 
 	.picker button.current {
-		color: #0d131c;
+		color: var(--ink-on-accent);
 		background: var(--accent);
 		font-weight: 600;
+	}
+
+	.picker button:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
 	}
 
 	.stage {
@@ -291,7 +334,7 @@
 	.well {
 		flex: 0 0 auto;
 		padding: 10px;
-		border-radius: 18px;
+		border-radius: var(--r-lg);
 		background: var(--well);
 	}
 
@@ -303,19 +346,35 @@
 
 	.check {
 		padding: 15px;
-		border-radius: 14px;
-		background: linear-gradient(180deg, #232c39, #19212c);
+		border-radius: var(--r-md);
+		background: linear-gradient(180deg, var(--surface-hi), var(--surface));
 		outline: 1px solid var(--tile-edge);
 		outline-offset: -1px;
 		font-size: var(--fs-sm);
 		font-weight: 700;
 		letter-spacing: 0.05em;
 		text-transform: uppercase;
-		transition: transform 140ms var(--snap);
+		transition:
+			transform 140ms var(--snap),
+			opacity 160ms ease;
 	}
 
-	.check:active:not(:disabled) {
+	/* The decorative outline above outranks the global :focus-visible, so the ring has to
+	   be redrawn here or it never appears. */
+	.check:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
+	}
+
+	.check:active:not(:disabled):not([aria-disabled='true']) {
 		transform: scale(0.985);
+	}
+
+	/* Mid-check the button is not dead, it is waiting — so it stays legible but stops
+	   inviting a press it will ignore. */
+	.check.waiting {
+		opacity: 0.6;
+		cursor: default;
 	}
 
 	/* Roots the sweep in the button, so the light looks like it left from here. */
@@ -325,11 +384,11 @@
 
 	@keyframes fire {
 		0% {
-			background: linear-gradient(180deg, #39465a, #2a3547);
-			box-shadow: 0 0 0 6px rgb(238 243 250 / 8%);
+			background: linear-gradient(180deg, var(--surface-fire-hi), var(--surface-fire));
+			box-shadow: 0 0 0 6px color-mix(in oklab, var(--accent) 8%, transparent);
 		}
 		100% {
-			background: linear-gradient(180deg, #232c39, #19212c);
+			background: linear-gradient(180deg, var(--surface-hi), var(--surface));
 			box-shadow: 0 0 0 0 transparent;
 		}
 	}

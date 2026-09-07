@@ -206,6 +206,8 @@
 				impact={cell.row === 0}
 				colour={lockingColour(cell.row)}
 				disabled={session.over}
+				waiting={session.busy}
+				rows={active.length}
 				row={cell.row}
 				col={cell.col}
 				onpointerdown={(e) => start(e, cell)}
@@ -240,7 +242,7 @@
 	.frame {
 		grid-column: 1 / -1;
 		margin: calc(-1 * var(--row-bleed)) -6px;
-		border-radius: 17px;
+		border-radius: var(--r-row);
 		background: var(--fill);
 		outline: 1px solid var(--edge);
 		outline-offset: -1px;
@@ -260,7 +262,7 @@
 		content: '';
 		position: absolute;
 		inset: 0;
-		border-radius: var(--radius);
+		border-radius: var(--r-md);
 		outline: 1px dashed var(--tile-edge);
 		outline-offset: -1px;
 	}

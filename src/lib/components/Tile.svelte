@@ -21,6 +21,10 @@
 		impact: boolean;
 		colour: string;
 		disabled: boolean;
+		/** True while a check is playing out: input is refused, so say so. */
+		waiting: boolean;
+		/** How many rows are still in play, for "row 2 of 5". */
+		rows: number;
 		onpointerdown: (event: PointerEvent) => void;
 		onpointermove: (event: PointerEvent) => void;
 		onpointerup: (event: PointerEvent) => void;
@@ -42,6 +46,8 @@
 		impact,
 		colour,
 		disabled,
+		waiting,
+		rows,
 		onpointerdown,
 		onpointermove,
 		onpointerup,
@@ -67,7 +73,9 @@
 	style:--amp={crash}
 	style:--colour={colour}
 	{disabled}
+	aria-disabled={waiting || undefined}
 	aria-pressed={selected}
+	aria-label="{tile.word}, row {row + 1} of {rows}"
 	{onpointerdown}
 	{onpointermove}
 	{onpointerup}
@@ -84,8 +92,8 @@
 		place-items: center;
 		min-height: var(--row-h);
 		padding: 2px 3px;
-		border-radius: var(--radius);
-		background: linear-gradient(180deg, var(--tile-hi), var(--tile));
+		border-radius: var(--r-md);
+		background: linear-gradient(180deg, var(--surface-hi), var(--surface));
 		box-shadow:
 			inset 0 1px 0 rgb(255 255 255 / 5%),
 			0 1px 2px rgb(0 0 0 / 45%);
@@ -108,37 +116,55 @@
 			background 160ms ease;
 	}
 
-	.tile:active:not(:disabled) {
+	/* The board is reachable from a keyboard — that is the whole reason tap-to-swap exists
+	   — but the ring was invisible, because every focusable control here redraws itself
+	   with `outline` for decoration and a scoped component rule outranks the global
+	   `:focus-visible`. A tile literally matched :focus-visible and computed the decorative
+	   edge instead. Higher specificity, and offset outwards so it cannot be mistaken for
+	   the 1px edge. */
+	.tile:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
+	}
+
+	.tile:active:not(:disabled):not([aria-disabled='true']) {
 		transform: scale(0.96);
 	}
 
+	/* Nothing can be swapped mid-check. `aria-disabled` rather than `disabled`: a real
+	   disabled attribute on a focused control drops focus to <body>, and the Check button
+	   is focused on exactly the press that starts a check. */
+	.tile[aria-disabled='true'] {
+		cursor: default;
+	}
+
 	.selected {
-		background: linear-gradient(180deg, #2a3442, #202836);
+		background: linear-gradient(180deg, var(--surface-lift-hi), var(--surface-lift));
 		outline: 2px solid var(--accent);
 		outline-offset: -2px;
 		box-shadow:
-			0 0 0 4px rgb(238 243 250 / 10%),
+			0 0 0 4px color-mix(in oklab, var(--accent) 10%, transparent),
 			0 6px 14px rgb(0 0 0 / 45%);
 		transform: translateY(-3px) scale(1.04);
 	}
 
-	.selected:active:not(:disabled) {
+	.selected:active:not(:disabled):not([aria-disabled='true']) {
 		transform: translateY(-3px) scale(1);
 	}
 
 	/* Where a drop would land. The held tile is lifted clear of it, so the ring and the
 	   brighter fill stay visible underneath rather than being covered exactly. */
 	.target {
-		background: linear-gradient(180deg, #33405180, #26303f);
+		background: linear-gradient(180deg, var(--surface-drop-hi), var(--surface-drop));
 		outline: 2px solid color-mix(in oklab, var(--accent) 60%, transparent);
 		outline-offset: -2px;
-		box-shadow: 0 0 0 3px rgb(238 243 250 / 12%);
+		box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 12%, transparent);
 	}
 
 	/* Tracks the finger exactly: no transition, or it lags behind. Held above the pointer
 	   so a thumb doesn't sit on top of the thing being aimed at. */
 	.dragging,
-	.dragging:active:not(:disabled) {
+	.dragging:active:not(:disabled):not([aria-disabled='true']) {
 		transform: translate(var(--dx), calc(var(--dy) - 16px)) scale(1.04);
 		outline: 2px solid var(--accent);
 		outline-offset: -2px;
@@ -157,7 +183,7 @@
 
 	@keyframes settle {
 		0% {
-			background: linear-gradient(180deg, var(--tile-hi), var(--tile));
+			background: linear-gradient(180deg, var(--surface-hi), var(--surface));
 			outline-color: var(--tile-edge);
 			box-shadow: 0 1px 2px rgb(0 0 0 / 45%);
 			transform: none;
