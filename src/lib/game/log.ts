@@ -73,6 +73,29 @@ export function loadBests(): Record<string, Best> {
 	return read<Record<string, Best>>(BEST_KEY, {});
 }
 
+/** What this browser has to say about one board. A `best` is only ever written by a win. */
+export type BoardProgress = { played: true; best?: Best };
+
+/**
+ * Which boards this browser has played, and which it solved.
+ *
+ * Derived rather than stored: both halves already exist, and a third key that had to be
+ * kept in step with them is a third key that can disagree with them.
+ *
+ * The two sources age differently, which is the point of reading both. Runs are capped at
+ * `MAX_RUNS`, so a board that was lost long enough ago falls out and goes back to looking
+ * untouched — a real limitation, and the honest one to have, because the alternative is an
+ * unbounded log. Bests are never trimmed, so a board that was *solved* stays solved for as
+ * long as the browser keeps its storage.
+ */
+export function loadProgress(): Record<string, BoardProgress> {
+	const progress: Record<string, BoardProgress> = {};
+	for (const run of loadRuns()) progress[run.puzzle] = { played: true };
+	for (const [puzzle, best] of Object.entries(loadBests()))
+		progress[puzzle] = { played: true, best };
+	return progress;
+}
+
 /**
  * Records a personal best. The axes are kept separate on purpose — there is no combined
  * score, so "better" here means finishing with more checks in hand, or the same number

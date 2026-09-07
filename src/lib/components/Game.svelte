@@ -88,21 +88,11 @@
 					</li>
 					<li>A check tells you how many rows are right — never which ones.</li>
 				</ol>
-				<!-- Headed, because an unlabelled row of pills inside the help panel is not
-				     navigation anyone finds. Where this ultimately belongs is a /boards page
-				     of its own; until then it at least says what it is. -->
-				<h3 id="boards-title">Boards</h3>
-				<div class="picker" role="group" aria-labelledby="boards-title">
-					{#each backlog as p (p.id)}
-						<button
-							class:current={p.id === board.puzzle.id}
-							aria-current={p.id === board.puzzle.id ? 'true' : undefined}
-							onclick={() => open(p.id)}
-						>
-							{p.name}
-						</button>
-					{/each}
-				</div>
+				<!-- One link out, not a row of pills. Choosing a board is not part of learning
+				     the rules, and a picker living inside the help panel was navigation nobody
+				     could find. /boards is the room for it, and it says the thing this panel
+				     never could: which boards you have already played. -->
+				<a class="to-boards" href={resolve('/boards')}>All boards &rarr;</a>
 			</section>
 		</Sheet>
 	{/if}
@@ -244,13 +234,21 @@
 		letter-spacing: -0.01em;
 	}
 
-	.rules h3 {
-		margin: 16px 0 8px;
-		font-size: var(--fs-xs);
+	.to-boards {
+		display: inline-block;
+		margin-top: 14px;
+		padding: 11px 0;
+		font-size: var(--fs-sm);
 		font-weight: 600;
-		letter-spacing: 0.06em;
-		text-transform: uppercase;
-		color: var(--muted);
+		color: var(--text);
+		text-decoration: underline;
+		text-underline-offset: 3px;
+		text-decoration-color: var(--dim);
+	}
+
+	.to-boards:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
 	}
 
 	.rules ol {
@@ -263,33 +261,6 @@
 
 	.rules strong {
 		color: var(--text);
-	}
-
-	.picker {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 6px;
-	}
-
-	/* Same trick as .help: a bigger target, the same layout. */
-	.picker button {
-		padding: 10px;
-		margin-block: -5px;
-		border-radius: var(--r-pill);
-		font-size: var(--fs-xs);
-		color: var(--muted);
-		background: var(--veil-1);
-	}
-
-	.picker button.current {
-		color: var(--ink-on-accent);
-		background: var(--accent);
-		font-weight: 600;
-	}
-
-	.picker button:focus-visible {
-		outline: 2px solid var(--accent);
-		outline-offset: 2px;
 	}
 
 	.stage {

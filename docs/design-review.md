@@ -467,9 +467,9 @@ end card would unify the two things that are actually the same shape and would f
 > rules panel.
 >
 > Measured at 375×667 with the rules open: the document stays **667px** and the Check button
-> moves **0px**, against 986px and 307px before. The picker came along with the move and gained
-> a "Boards" heading, `role="group"` and `aria-current` (§5.1). The callout stays as it is — it
-> genuinely does a different job.
+> moves **0px**, against 986px and 307px before. The picker travelled with the move and has
+> since left the rules entirely for `/boards` (§5.1), so what the sheet holds now is the rules
+> and one link out. The callout stays as it is — it genuinely does a different job.
 
 ### 2.9 NEW — The app overflows a short phone, and the Check button is cut off
 
@@ -623,15 +623,19 @@ the decision, §5.1 and §5.3 are deferred together by design, and §5.5 was alr
 
 ### 5.1 Where does the puzzle picker live?
 
-> **Decided: option 3 — a `/boards` page of its own, "down the line".** Not the end card, which
-> is where I would have put it. The owner wants a page that shows every puzzle and which ones
-> you have completed, which is a bigger surface than the end card can carry — and it takes
-> §5.3 with it.
+> **Decided: option 3 — a `/boards` page of its own. Built.** Not the end card, which is where
+> I would have put it; the owner wanted a page showing every puzzle and which ones you have
+> completed, which is more than the card can carry — and it took §5.3 with it.
 >
-> **Shipped in the meantime:** the picker is still in the rules, but the rules are now a sheet
-> (§2.8) with a real "Boards" heading, `role="group"`, and `aria-current` on the board you are
-> on. That is option 1 as a holding position, not as the answer. The `/boards` page is the
-> answer and is not built.
+> `/boards` lists the whole 30-day window, newest first, today's board marked as such. It is
+> served by `boardList()` rather than `gameData()`, so a cold start does not deal a board the
+> page will never show, and it cannot name a board the game would refuse to load — same window,
+> same rule about what is reachable. No dates on the wire: when a board is due is a fact about
+> the schedule and is deliberately kept off `Puzzle`, so the page says "today" by position.
+>
+> The picker is gone from the rules. What is left there is one link out, which is the point —
+> choosing a board was never part of learning the rules, and navigation hidden inside a help
+> panel is navigation nobody finds. The end card links there too, beside "Next puzzle" (§5.3).
 
 Today it is an unlabelled row of 25px pills at the bottom of the rules panel, reachable only
 through a 15px "How to play" link, and choosing a board closes the rules. Confirmed rendering: the
@@ -665,9 +669,25 @@ have one address per board.
 > inside an in-game picker is solving it in the wrong room.
 >
 > That also settles the pin-11 question by scoping it: completion is a property of a
-> between-runs _page_, not a badge on a control you meet mid-game. The ruling on how far it
-> goes — played, or solved, or streaks — comes with that page, and my recommendation stands at
-> "played, and stop there".
+> between-runs _page_, not a badge on a control you meet mid-game.
+>
+> **Shipped with §5.1. How far it goes, and where the line is.** Three states per board — not
+> played, played, solved — with a solved board carrying its best time and checks left, which is
+> the same fact the end card has always shown. What the page deliberately does **not** have is
+> any aggregate: no "12 of 30", no percentage, no streak, no calendar. Those are the ladder
+> pin 11 exists to refuse, and they are exactly what a page like this drifts into. What you did
+> with a board belongs to that board.
+>
+> The marks are neutral — a filled pip for solved, a ring for the rest, borrowing the check
+> budget's own vocabulary — because colour on this board means category and is not spent on
+> progress. Every state is also said in words in the row and in the link's accessible name, so
+> the mark is reinforcement rather than the only channel.
+>
+> `loadProgress()` derives it from the two keys the log already keeps rather than adding a
+> third that could disagree with them. The two age differently, which is the point: runs are
+> capped at 50, so a board only ever _lost_ eventually goes back to looking untouched, while a
+> board that was _solved_ stays solved because bests are never trimmed. `log.spec.ts` covers
+> both halves of that asymmetry.
 
 `Game.svelte:36` takes `backlog[(index + 1) % length]`, which from the last board wraps to today's
 — a board you have probably just played. `log.ts` already records every run locally, so completion

@@ -16,8 +16,17 @@ import { describe, expect, it } from 'vitest';
  * carry a `:focus-visible` rule of its own.
  */
 
-const dir = new URL('.', import.meta.url).pathname;
-const components = readdirSync(dir).filter((f) => f.endsWith('.svelte'));
+/** Every `.svelte` under `src`, so a control on a route is held to this too. */
+function svelteFiles(dir: string): string[] {
+	return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+		const path = join(dir, entry.name);
+		if (entry.isDirectory()) return svelteFiles(path);
+		return entry.name.endsWith('.svelte') ? [path] : [];
+	});
+}
+
+const src = join(new URL('.', import.meta.url).pathname, '..', '..');
+const components = svelteFiles(src);
 
 /** Elements a player can put keyboard focus on, or that wrap something they can. */
 const FOCUSABLE = /<(?:button|textarea|select|label|a)\s[^>]*?class="([^"{}]+)"/g;
@@ -42,20 +51,20 @@ const drawsRing = (style: string, cls: string) =>
 describe('focus rings', () => {
 	it('finds components with controls to check', () => {
 		const checked = components.filter((f) => {
-			const source = readFileSync(join(dir, f), 'utf8');
+			const source = readFileSync(f, 'utf8');
 			return controlClasses(source).length > 0;
 		});
 		expect(checked.length).toBeGreaterThan(2);
 	});
 
 	for (const file of components) {
-		const source = readFileSync(join(dir, file), 'utf8');
+		const source = readFileSync(file, 'utf8');
 		const style = source.slice(source.indexOf('<style>'));
 
 		for (const cls of controlClasses(source)) {
 			if (!drawsOutline(style, cls)) continue;
 
-			it(`${file}: .${cls} draws its own focus ring`, () => {
+			it(`${file.split('/src/')[1]}: .${cls} draws its own focus ring`, () => {
 				expect(
 					drawsRing(style, cls),
 					`.${cls} is a focusable control that sets a decorative \`outline\`. That rule ` +

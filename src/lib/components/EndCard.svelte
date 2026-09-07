@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Sheet from './Sheet.svelte';
+	import { resolve } from '$app/paths';
 	import { formatTime } from '$lib/format';
 	import type { AnswerReporter } from '$lib/game/report';
 	import type { Session } from '$lib/game/session.svelte';
@@ -169,7 +170,15 @@
 			</div>
 		{/if}
 
-		<button class="next" onclick={onnext}>Next puzzle</button>
+		<!-- Beside the primary rather than under it. "Next puzzle" is a guess — it walks the
+		     backlog and wraps from the end back to today's board, the one you have most
+		     likely just played — so the way out of that guess belongs next to it. Stacked,
+		     it made the card tall enough to cover the bottom revealed row again, which is
+		     the whole thing the loss card was fixed not to do. -->
+		<div class="ways-out">
+			<a class="boards" href={resolve('/boards')}>Pick a board</a>
+			<button class="next" onclick={onnext}>Next puzzle</button>
+		</div>
 	</div>
 </Sheet>
 
@@ -360,8 +369,36 @@
 		overflow-y: auto;
 	}
 
+	.ways-out {
+		display: flex;
+		align-items: stretch;
+		gap: 8px;
+	}
+
+	/* Quieter than the primary: a choice available, not a second thing being urged. */
+	.boards {
+		display: grid;
+		place-items: center;
+		flex: none;
+		padding: 14px 14px;
+		border-radius: var(--r-sm);
+		background: var(--veil-1);
+		outline: 1px solid var(--tile-edge);
+		outline-offset: -1px;
+		color: var(--text);
+		font-size: var(--fs-sm);
+		font-weight: 600;
+		white-space: nowrap;
+		text-decoration: none;
+	}
+
+	.boards:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
+	}
+
 	.next {
-		width: 100%;
+		flex: 1;
 		padding: 14px;
 		border-radius: var(--r-sm);
 		background: var(--accent);

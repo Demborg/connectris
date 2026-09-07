@@ -24,3 +24,21 @@ export async function gameData(wanted?: string) {
 		backlog: live.map(({ id, name }) => ({ id, name }))
 	};
 }
+
+/**
+ * Every board reachable right now, newest first — so the head of the list is today's.
+ *
+ * Separate from `gameData` because the boards page wants the list and nothing else, and
+ * dealing a board it will never show is work a cold start pays for. Same window and same
+ * rule about what is reachable: this cannot name a board the game would refuse to load.
+ *
+ * No dates. When a board is due is a fact about the schedule rather than about the board,
+ * and it is kept off `Puzzle` for that reason — so the list carries its own order and the
+ * page says "today" by position.
+ */
+export async function boardList() {
+	const live = await stores().puzzles.live(BACKLOG);
+	if (!live.length) error(503, 'No puzzles yet');
+
+	return { boards: live.map(({ id, name }) => ({ id, name })) };
+}
