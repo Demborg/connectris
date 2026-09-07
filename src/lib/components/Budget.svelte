@@ -4,7 +4,11 @@
 	let { left }: { left: number } = $props();
 </script>
 
-<div class="budget" aria-label="{left} of {CHECKS} checks left">
+<!-- role="status" rather than a bare aria-label: a label on a generic element with no role
+     is not reliably exposed, and this div is not in the tab order, so nothing would ever
+     have read it. As a status it is also announced when the count changes, which is the
+     moment a player would want to hear it. -->
+<div class="budget" role="status" aria-label="{left} of {CHECKS} checks left">
 	{#each { length: CHECKS }, i}
 		<span class="pip" class:spent={i >= left} class:spending={i === left && left < CHECKS}></span>
 	{/each}
@@ -43,7 +47,7 @@
 	@keyframes spend {
 		0% {
 			background: var(--accent);
-			box-shadow: 0 0 0 5px rgb(238 243 250 / 22%);
+			box-shadow: 0 0 0 5px color-mix(in oklab, var(--accent) 22%, transparent);
 			transform: scale(1.2);
 		}
 		45% {

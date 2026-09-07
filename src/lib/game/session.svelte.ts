@@ -55,7 +55,40 @@ const MISS_AMP = 1.35;
 const reducedMotion = () =>
 	typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const wait = (ms: number) => new Promise((r) => setTimeout(r, reducedMotion() ? 0 : ms));
+/**
+ * Reduced motion removes motion. It does not remove sequence.
+ *
+ * Every clock in this file goes through one of the two helpers below, and which one a
+ * clock uses is the whole of the accommodation.
+ *
+ * The distinction: app.css already collapses every CSS animation and transition under the
+ * preference, so a *hold* — time reserved for a flourish to play — has nothing left to
+ * show and can go to zero. A *gap* is different. "One row's whole life, then the next" is
+ * how a player reads which row cleared when, and that reading survives having the
+ * transforms taken away; collapsing the gaps too is what made a five-row clear resolve in
+ * 86ms with all five categories appearing at once, which is not less motion, it is less
+ * information.
+ *
+ * The cost is nothing: a reduced-motion player used to reach the end card in ~1.18s
+ * anyway, because a bare `setTimeout` held it behind the combo callout for 1.1s of
+ * finished, motionless board. The same second now goes on five legible row events.
+ */
+
+/** How much of a gap survives the preference, and the least that still reads as separate. */
+const REDUCED_PACE = 0.6;
+const REDUCED_FLOOR = 90;
+
+/** A hold: time for a flourish to play. Nothing to play, nothing to hold. */
+const beat = (ms: number) => (reducedMotion() ? 0 : ms);
+
+/** A gap: what makes two events read as two events. Shortened, never removed. */
+const pace = (ms: number) =>
+	reducedMotion() ? Math.max(REDUCED_FLOOR, Math.round(ms * REDUCED_PACE)) : ms;
+
+const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, beat(ms)));
+
+/** `wait()` for the clocks that carry sequence rather than motion. */
+const step = (ms: number) => new Promise<void>((r) => setTimeout(r, pace(ms)));
 
 export class Session {
 	readonly puzzle: PuzzleMeta;
@@ -111,10 +144,24 @@ export class Session {
 	 */
 	fault = $state<string | null>(null);
 
+	/**
+	 * True from the press until the check has finished playing out.
+	 *
+	 * Reactive because the controls have to say so. `check()` and `swap()` have always
+	 * refused input while this is set, but nothing on screen reported it: through a slow
+	 * grade or a multi-row roll the Check button and every remaining tile kept their
+	 * pointer cursor and their press animation, so they looked live while being inert.
+	 */
+	busy = $state(false);
+	/**
+	 * The last swap, phrased for a screen reader. The board is a flat run of buttons whose
+	 * only accessible name is their word, so a swap is otherwise silent.
+	 */
+	announcement = $state('');
+
 	startedAt = 0;
 	endedAt = 0;
 	private events: GameEvent[] = [];
-	private busy = false;
 	private comboTimer: ReturnType<typeof setTimeout> | undefined;
 
 	constructor(board: Board, grade: Checker, report: Reporter = noReporter) {
@@ -164,10 +211,15 @@ export class Session {
 		if (a.row === b.row && a.col === b.col) return;
 
 		this.begin();
+		const moved = this.rows[a.row][a.col].word;
+		const displaced = this.rows[b.row][b.col].word;
 		this.rows = swapTiles(this.rows, a, b);
 		this.moves++;
 		this.record({ type: 'swapTiles', a: [a.row, a.col], b: [b.row, b.col] });
 		this.tile = null;
+		// Which row each word ended in is the whole game, and it is the one thing a flat
+		// list of buttons cannot convey.
+		this.announcement = `${moved} to row ${b.row + 1}, ${displaced} to row ${a.row + 1}.`;
 	}
 
 	/** Tap a tile: first tap holds it, second tap swaps. The keyboard-reachable path. */
@@ -201,8 +253,14 @@ export class Session {
 		this.clearSelection();
 
 		this.fault = null;
-		this.checks++;
-		const grading = this.grade(this.rows, this.checks);
+		// The check is not spent until it has been answered. Charging first and refunding
+		// on failure is the same arithmetic, but it renders: the pip dropped and ran its
+		// 560ms spend flash before the request had left, so every failed check was a check
+		// the player watched themselves be charged and then handed back — for as long as
+		// the network took to give up, which is not bounded by anything here. The grader
+		// still has to be told which check this is, so it counts from the spend to come.
+		const spending = this.checks + 1;
+		const grading = this.grade(this.rows, spending);
 
 		// Drop the previous verdict and callout now, so neither is left standing over the
 		// clear animation this check is about to play.
@@ -211,24 +269,35 @@ export class Session {
 		this.combo = 0;
 
 		this.sweeping = true;
-		setTimeout(() => (this.sweeping = false), SWEEP_MS);
+		// The sweep has a minimum length of its own, but it ends when the grade lands, not
+		// on a fixed timer. A grader slower than the sweep — a scaled-to-zero instance
+		// cold-starting, say — used to run the rails up, finish them, and leave the player
+		// looking at an inert board and a fully lit Check button.
+		const swept = wait(SWEEP_MS);
 
 		// The anticipation sweep is also the latency budget. It has to run before anything
 		// resolves anyway, so a grader that answers inside it is one the player never waits
 		// for — which is what makes grading somewhere else affordable.
-		let result: CheckOutcome;
+		let result: CheckOutcome | null = null;
 		try {
 			[result] = await Promise.all([grading, wait(SWEEP_LEAD)]);
 		} catch {
-			// A check that never came back is not a check. Refund it and let the player try
-			// again: an unreachable grader is not a wrong answer, and charging for one would
-			// end runs that the puzzle never beat. Pin 5.
-			this.checks--;
-			this.fault = 'Could not reach the scorer. Try again.';
+			// A check that never came back is not a check, and was never spent. An
+			// unreachable grader is not a wrong answer, and charging for one would end runs
+			// that the puzzle never beat. Pin 5.
+			this.fault = "Couldn't check — no connection. That one's free, try again.";
+		}
+		void swept.then(() => (this.sweeping = false));
+		if (result === null) {
 			this.busy = false;
 			return;
 		}
 
+		this.checks = spending;
+
+		// The impact is held onto rather than fired and forgotten, because on the last
+		// check of a lost run the reveal has to wait for it. See the loss branch below.
+		let landed = Promise.resolve();
 		if (result.locked > 0) {
 			await this.roll(result.cleared);
 
@@ -236,13 +305,13 @@ export class Session {
 			// definition, the one that stopped the run — so it takes the hit. A bigger
 			// clear carries more momentum into it.
 			if (this.rows.length > 0) {
-				this.impact(Math.min(1.6, 1 + (result.locked - 1) * 0.2), false);
+				landed = this.impact(Math.min(1.6, 1 + (result.locked - 1) * 0.2), false);
 			}
 		} else {
 			// Nothing cleared means row 1 is wrong, so the wave has nowhere to go and slams
 			// straight into it. Same motion as a clear landing — a miss is just the
 			// degenerate case where the run of correct rows has length zero.
-			this.impact(MISS_AMP, true);
+			landed = this.impact(MISS_AMP, true);
 		}
 
 		this.record({
@@ -258,14 +327,26 @@ export class Session {
 		const remaining = result.correctCount - result.locked;
 		// Order matters: a final check that clears the board wins even if it was the last one.
 		if (this.rows.length === 0) this.finish('won', []);
-		else if (this.left === 0) this.finish('lost', result.missed);
-		else if (result.locked > 0)
+		else if (this.left === 0) {
+			// Let the crash finish before the board converts. Both used to land in one
+			// synchronous block, so `status` was 'lost' and the tiles were gone before a
+			// single frame had been painted with the crash on them — the run ended with no
+			// crash, no verdict, and the board simply emptying under a rising card. The
+			// crash *is* the feedback: it points at where the run broke, and on the last
+			// check it is the only explanation the game offers. Pin 5.
+			await landed;
+			this.finish('lost', result.missed);
+		} else if (result.locked > 0)
 			this.verdict = remaining > 0 ? { count: remaining, note: 'more right · wrong order' } : null;
-		else
+		else {
+			// "1 rows right" is reachable, common, and sits in the one sentence the game
+			// writes in words.
+			const rows = result.correctCount === 1 ? 'row' : 'rows';
 			this.verdict = {
 				count: result.correctCount,
-				note: result.correctCount > 0 ? 'rows right · none at the top' : 'rows right'
+				note: result.correctCount > 0 ? `${rows} right · none at the top` : `${rows} right`
 			};
+		}
 
 		this.busy = false;
 	}
@@ -286,7 +367,9 @@ export class Session {
 
 			this.liftingGroup = group;
 			this.lifting = true;
-			await wait(LOCK_MS);
+			// Both waits in this loop are gaps, not holds: they are what separates a row
+			// lighting from it becoming a bar, and one row from the next.
+			await step(LOCK_MS);
 
 			this.rows = rest;
 			this.solved = [...this.solved, { group, check: this.checks, order: i }];
@@ -297,18 +380,25 @@ export class Session {
 			// the shout grows with the tally rather than waiting for the final figure.
 			if (i >= 1) this.combo = i + 1;
 
-			if (i < cleared.length - 1) await wait(ROW_STEP - LOCK_MS);
+			if (i < cleared.length - 1) await step(ROW_STEP - LOCK_MS);
 		}
 
 		this.clearing = 0;
-		if (this.combo > 0) this.comboTimer = setTimeout(() => (this.combo = 0), COMBO_HOLD);
+		if (this.combo > 0) this.comboTimer = setTimeout(() => (this.combo = 0), beat(COMBO_HOLD));
 	}
 
-	/** Land the wave on the top remaining row. A miss rings further down the stack. */
-	private impact(amp: number, miss: boolean): void {
+	/**
+	 * Land the wave on the top remaining row. A miss rings further down the stack.
+	 *
+	 * Resolves when the impact has finished playing, so a caller that needs the crash to
+	 * be seen before it changes the board can wait for it.
+	 */
+	private impact(amp: number, miss: boolean): Promise<void> {
 		this.crashMiss = miss;
 		this.crash = amp;
-		setTimeout(() => (this.crash = 0), CRASH_MS + (miss ? 4 : 2) * RIPPLE_STEP);
+		return wait(CRASH_MS + (miss ? 4 : 2) * RIPPLE_STEP).then(() => {
+			this.crash = 0;
+		});
 	}
 
 	private finish(outcome: 'won' | 'lost', missed: Group[]): void {
