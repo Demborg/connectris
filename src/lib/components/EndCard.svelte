@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Sheet from './Sheet.svelte';
 	import { formatTime } from '$lib/format';
 	import type { AnswerReporter } from '$lib/game/report';
 	import type { Session } from '$lib/game/session.svelte';
@@ -47,10 +48,6 @@
 	// svelte-ignore state_referenced_locally
 	let asking = $state(won);
 
-	/** The card is a modal, so it takes focus and answers to Escape like one. */
-	let card = $state<HTMLElement | null>(null);
-	$effect(() => card?.focus());
-
 	/**
 	 * The two things a run cannot tell us about itself.
 	 *
@@ -87,41 +84,15 @@
 	}
 </script>
 
-<!-- Escape collapses the questions, matching what the scrim already does. -->
-<svelte:window
-	onkeydown={(e) => {
-		if (e.key === 'Escape' && asking) asking = false;
-	}}
-/>
-
-<!-- The scrim is a sibling of the card, never its ancestor: a filtered ancestor drags
-     everything inside it into the same blurred layer, which is what was making the
-     card's own text unreadable. -->
-<!-- Tapping outside a sheet to dismiss it is the thing everyone tries first, so it had
-     better work. A button rather than a div with a handler: it is a real control, and it
-     should answer to a keyboard like one. -->
-<button
-	class="scrim"
-	class:thin={!asking}
-	tabindex="-1"
-	aria-label="See the board"
-	onclick={() => (asking = false)}
-></button>
-
-<div class="sheet">
-	<!-- A real dialog: it takes focus on open, names itself by its outcome, and closes to
-	     the board on Escape. Without the role it was a plain div that appeared over
-	     everything, and the Check button being disabled underneath it dropped focus to
-	     <body>, so a keyboard player's next Tab started from the top of the document. -->
-	<div
-		class="card"
-		class:lost={!won}
-		bind:this={card}
-		role="dialog"
-		aria-modal="true"
-		aria-labelledby="outcome"
-		tabindex="-1"
-	>
+<!-- Dismissing the card means putting the questions away, not leaving the run: the board
+     underneath is the last thing the player has to look at. -->
+<Sheet
+	dismissLabel="See the board"
+	labelledBy="outcome"
+	dim={asking}
+	ondismiss={() => (asking = false)}
+>
+	<div class="card" class:lost={!won}>
 		<!-- The whole header is the toggle. No swipe: a grabber promised a gesture that
 		     took real work to honour on the web and was not worth it for a control that
 		     only has two states. A chevron and a word do the same job and cannot be got
@@ -200,7 +171,7 @@
 
 		<button class="next" onclick={onnext}>Next puzzle</button>
 	</div>
-</div>
+</Sheet>
 
 <style>
 	fieldset {
@@ -296,54 +267,8 @@
 		color: var(--muted);
 	}
 
-	/* Graded rather than uniform: the solved rows are the answer, so they stay readable
-	   at the top while the card gets real contrast behind it at the bottom. */
-	.scrim {
-		position: fixed;
-		inset: 0;
-		display: block;
-		width: 100%;
-		cursor: default;
-		background: linear-gradient(180deg, rgb(6 8 12 / 15%) 0%, rgb(6 8 12 / 82%) 62%);
-		animation: fade 260ms ease both;
-		transition: opacity 240ms ease;
-		z-index: 10;
-	}
-
-	/* With the questions down the board is what the player came back for, so stop
-	   dimming it. */
-	.scrim.thin {
-		opacity: 0.35;
-	}
-
-	.sheet {
-		position: fixed;
-		inset: 0;
-		display: grid;
-		place-items: end center;
-		padding: 16px;
-		padding-bottom: max(16px, env(safe-area-inset-bottom));
-		pointer-events: none;
-		z-index: 11;
-	}
-
-	.card {
-		pointer-events: auto;
-		width: 100%;
-		max-width: 440px;
-		padding: 16px;
-		border-radius: var(--r-xl);
-		background: linear-gradient(180deg, var(--surface-card-hi), var(--surface-card));
-		outline: 1px solid var(--tile-edge);
-		outline-offset: -1px;
-		box-shadow: 0 18px 48px rgb(0 0 0 / 55%);
-		animation: rise 420ms var(--snap) both;
-	}
-
-	/* The card takes focus on open; it should not draw a ring for having done so. */
-	.card:focus {
-		outline: 1px solid var(--tile-edge);
-	}
+	/* Sheet owns the panel: its position, its scrim, its chrome. What is left here is what
+	   goes on it. */
 
 	/* One tap target across the whole width: outcome, score, and the affordance that
 	   gets the card out of the way.
@@ -456,18 +381,5 @@
 	.next:focus-visible {
 		outline: 2px solid var(--accent);
 		outline-offset: 2px;
-	}
-
-	@keyframes fade {
-		from {
-			opacity: 0;
-		}
-	}
-
-	@keyframes rise {
-		from {
-			opacity: 0;
-			transform: translateY(22px);
-		}
 	}
 </style>

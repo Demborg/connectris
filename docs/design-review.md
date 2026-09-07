@@ -458,6 +458,19 @@ sheet with a scrim; the callout is a transient hybrid in reserved slack; the rul
 panel is the odd one, because it is the only one that moves the board. Making it a sheet like the
 end card would unify the two things that are actually the same shape and would fix the scroll.
 
+> **Decided: make it a sheet. Shipped.** The owner's answer was "yes make it a sheet".
+>
+> Rather than write a second sheet beside the end card's — which is the drift this section is
+> about — the shape moved into `Sheet.svelte`: fixed position, graded scrim, `role="dialog"`,
+> focus on open, dismiss on scrim press or Escape. Both panels use it, so there is one sheet in
+> the app and not two. `EndCard` keeps what goes _on_ the card; `Game` keeps what goes on the
+> rules panel.
+>
+> Measured at 375×667 with the rules open: the document stays **667px** and the Check button
+> moves **0px**, against 986px and 307px before. The picker came along with the move and gained
+> a "Boards" heading, `role="group"` and `aria-current` (§5.1). The callout stays as it is — it
+> genuinely does a different job.
+
 ### 2.9 NEW — The app overflows a short phone, and the Check button is cut off
 
 Fresh board, rules closed, nothing open:
@@ -602,11 +615,23 @@ Reasonable people differ; I would not spend a day on any of these.
 
 ---
 
-## 5. Needs a decision from the owner
+## 5. Decided by the owner, 2026-09-07
 
-Unchanged from revision 1 in substance; §5.3 and §5.5 now have a little rendered evidence.
+All five were put to the owner as a table with the UI questions illustrated, and all five came
+back. Each section below keeps the argument and records the ruling; §2.8 and §5.4 shipped with
+the decision, §5.1 and §5.3 are deferred together by design, and §5.5 was already satisfied.
 
 ### 5.1 Where does the puzzle picker live?
+
+> **Decided: option 3 — a `/boards` page of its own, "down the line".** Not the end card, which
+> is where I would have put it. The owner wants a page that shows every puzzle and which ones
+> you have completed, which is a bigger surface than the end card can carry — and it takes
+> §5.3 with it.
+>
+> **Shipped in the meantime:** the picker is still in the rules, but the rules are now a sheet
+> (§2.8) with a real "Boards" heading, `role="group"`, and `aria-current` on the board you are
+> on. That is option 1 as a holding position, not as the answer. The `/boards` page is the
+> answer and is not built.
 
 Today it is an unlabelled row of 25px pills at the bottom of the rules panel, reachable only
 through a 15px "How to play" link, and choosing a board closes the rules. Confirmed rendering: the
@@ -635,6 +660,15 @@ have one address per board.
 
 ### 5.3 "Next puzzle" is a guess, and nothing shows what you have played
 
+> **Decided: it belongs with §5.1.** The owner's read is that this is the same piece of work —
+> a boards page is where "which ones you completed" is worth showing, and marking completion
+> inside an in-game picker is solving it in the wrong room.
+>
+> That also settles the pin-11 question by scoping it: completion is a property of a
+> between-runs _page_, not a badge on a control you meet mid-game. The ruling on how far it
+> goes — played, or solved, or streaks — comes with that page, and my recommendation stands at
+> "played, and stop there".
+
 `Game.svelte:36` takes `backlog[(index + 1) % length]`, which from the last board wraps to today's
 — a board you have probably just played. `log.ts` already records every run locally, so completion
 state is available for free.
@@ -656,6 +690,22 @@ still sees rows land one at a time. That is a change to what the accommodation m
 be a decision rather than a patch. Note that fixing §2.6's inconsistency does not require settling
 this — routing all four clocks through one helper is right either way.
 
+> **Decided: my judgement, and shipped.** The owner's answer was "I don't really know about
+> accessibility best practice, use your judgement", so: reduced motion removes motion, not
+> sequence.
+>
+> The clocks now split in two. A **hold** is time reserved for a flourish to play, and since
+> `app.css` already collapses every CSS animation under the preference, a hold has nothing left
+> to show and goes to zero — the sweep, the crash, the combo callout. A **gap** is what makes
+> two events read as two events, and it is shortened to 60% with a 90ms floor rather than
+> removed. Only `roll()`'s two waits are gaps.
+>
+> Measured under the preference, a five-row clear: rows land at **163, 427, 683, 942 and
+> 1202ms** — five distinct events — and the end card follows at 1202ms with no dead air. For
+> comparison, before any of this work the same clear resolved in 94ms and then held a finished,
+> motionless board for 1096ms before the card appeared. It is the same second of the player's
+> time; it now buys five legible row events instead of a freeze.
+
 ### 5.5 Should the survey appear after a loss at all — and in that order?
 
 Separate from §1.3's timing. A player who just lost is being asked "was it fair?" — the answer you
@@ -664,6 +714,16 @@ they have for answering. On a 360×640 phone they are being asked it _on top of_
 categories. Ordering the loss card as _reveal → read → then ask_ would get better data, not just a
 better feeling. Whether that is worth the extra tap is a judgement about response rates I cannot
 make from the code.
+
+> **Decided: reveal → read → then ask, which is what already ships.** The owner asked for the
+> loss card to "show the reveal and get to read first then can open the survey" — and §1.3's fix
+> put it exactly there: a loss now lands on the collapsed card, all five categories readable,
+> the survey one tap behind "Questions". Nothing further to build.
+>
+> The win path deliberately stays questions-first: everything under that card was revealed row
+> by row and watched as it cleared, so the player has already read it, and an unseen question is
+> an unanswered one. If response rates on the loss path turn out to suffer, that asymmetry is
+> the first thing to revisit.
 
 ---
 

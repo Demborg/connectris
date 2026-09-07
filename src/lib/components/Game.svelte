@@ -5,6 +5,7 @@
 	import Budget from '$lib/components/Budget.svelte';
 	import ComboFlash from '$lib/components/ComboFlash.svelte';
 	import EndCard from '$lib/components/EndCard.svelte';
+	import Sheet from '$lib/components/Sheet.svelte';
 	import Verdict from '$lib/components/Verdict.svelte';
 	import { httpChecker } from '$lib/game/checker';
 	import { httpAnswers, httpReporter } from '$lib/game/report';
@@ -61,29 +62,49 @@
 	     the rank numbers used to. -->
 	<p class="goal">Make five rows of four — surest at the top</p>
 
+	<!-- A sheet, not a section in flow. In flow this was the only panel in the app that
+	     moved the board: opening it grew the document from 667px to 986px on a 375×667
+	     screen and put the Check button 307px below the fold. -->
 	{#if rulesOpen}
-		<section class="rules" id="rules">
-			<ol>
-				<li>Sort all 20 words into 5 rows of four. Order <em>inside</em> a row doesn't matter.</li>
-				<li>Drag a word onto another to swap them, or tap the two of them in turn.</li>
-				<li>
-					<strong>Check clears from the top down only.</strong> A correct row sitting below a wrong one
-					doesn't clear. Put the row you're surest about first.
-				</li>
-				<li>
-					<strong>Every check costs one.</strong> Clearing several rows in one go is how you keep them
-					— which is what getting the order right buys you.
-				</li>
-				<li>A check tells you how many rows are right — never which ones.</li>
-			</ol>
-			<div class="picker">
-				{#each backlog as p (p.id)}
-					<button class:current={p.id === board.puzzle.id} onclick={() => open(p.id)}>
-						{p.name}
-					</button>
-				{/each}
-			</div>
-		</section>
+		<Sheet
+			dismissLabel="Close the rules"
+			labelledBy="rules-title"
+			ondismiss={() => (rulesOpen = false)}
+		>
+			<section class="rules" id="rules">
+				<h2 id="rules-title">How to play</h2>
+				<ol>
+					<li>
+						Sort all 20 words into 5 rows of four. Order <em>inside</em> a row doesn't matter.
+					</li>
+					<li>Drag a word onto another to swap them, or tap the two of them in turn.</li>
+					<li>
+						<strong>Check clears from the top down only.</strong> A correct row sitting below a wrong
+						one doesn't clear. Put the row you're surest about first.
+					</li>
+					<li>
+						<strong>Every check costs one.</strong> Clearing several rows in one go is how you keep them
+						— which is what getting the order right buys you.
+					</li>
+					<li>A check tells you how many rows are right — never which ones.</li>
+				</ol>
+				<!-- Headed, because an unlabelled row of pills inside the help panel is not
+				     navigation anyone finds. Where this ultimately belongs is a /boards page
+				     of its own; until then it at least says what it is. -->
+				<h3 id="boards-title">Boards</h3>
+				<div class="picker" role="group" aria-labelledby="boards-title">
+					{#each backlog as p (p.id)}
+						<button
+							class:current={p.id === board.puzzle.id}
+							aria-current={p.id === board.puzzle.id ? 'true' : undefined}
+							onclick={() => open(p.id)}
+						>
+							{p.name}
+						</button>
+					{/each}
+				</div>
+			</section>
+		</Sheet>
 	{/if}
 
 	<!-- Well and callout share a stage so the press can sweep up across both, starting
@@ -215,13 +236,21 @@
 		text-decoration-color: var(--dim);
 	}
 
-	.rules {
-		padding: 12px 14px;
-		border-radius: var(--r-md);
-		background: var(--veil-1);
-		outline: 1px solid var(--tile-edge);
-		outline-offset: -1px;
-		animation: reveal 260ms var(--ease) both;
+	/* Sheet draws the panel; these are its contents. */
+	.rules h2 {
+		margin: 0 0 10px;
+		font-size: var(--fs-md);
+		font-weight: 700;
+		letter-spacing: -0.01em;
+	}
+
+	.rules h3 {
+		margin: 16px 0 8px;
+		font-size: var(--fs-xs);
+		font-weight: 600;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--muted);
 	}
 
 	.rules ol {
@@ -240,7 +269,6 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 6px;
-		margin-top: 12px;
 	}
 
 	/* Same trick as .help: a bigger target, the same layout. */
@@ -395,12 +423,5 @@
 
 	.check:disabled {
 		opacity: 0.4;
-	}
-
-	@keyframes reveal {
-		from {
-			opacity: 0;
-			transform: translateY(-4px);
-		}
 	}
 </style>

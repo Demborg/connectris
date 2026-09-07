@@ -56,21 +56,39 @@ const reducedMotion = () =>
 	typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /**
- * How long a beat actually lasts. Every clock in this file goes through here.
+ * Reduced motion removes motion. It does not remove sequence.
  *
- * They did not used to: `wait()` collapsed under `prefers-reduced-motion` while three
- * bare `setTimeout`s kept their full durations, so a reduced-motion player who won got
- * the whole clear in one frame and then sat looking at a finished board for the 1.1s the
- * combo callout was still holding the end card back. One clock respected the preference
- * and three did not, which is a bug whichever way the preference should be read.
+ * Every clock in this file goes through one of the two helpers below, and which one a
+ * clock uses is the whole of the accommodation.
  *
- * Whether reduced motion should remove *pacing* as well as motion is a live question —
- * sequence is information here, since one row's whole life then the next is how the
- * player reads which row cleared when. That decision is a change to this one function.
+ * The distinction: app.css already collapses every CSS animation and transition under the
+ * preference, so a *hold* — time reserved for a flourish to play — has nothing left to
+ * show and can go to zero. A *gap* is different. "One row's whole life, then the next" is
+ * how a player reads which row cleared when, and that reading survives having the
+ * transforms taken away; collapsing the gaps too is what made a five-row clear resolve in
+ * 86ms with all five categories appearing at once, which is not less motion, it is less
+ * information.
+ *
+ * The cost is nothing: a reduced-motion player used to reach the end card in ~1.18s
+ * anyway, because a bare `setTimeout` held it behind the combo callout for 1.1s of
+ * finished, motionless board. The same second now goes on five legible row events.
  */
+
+/** How much of a gap survives the preference, and the least that still reads as separate. */
+const REDUCED_PACE = 0.6;
+const REDUCED_FLOOR = 90;
+
+/** A hold: time for a flourish to play. Nothing to play, nothing to hold. */
 const beat = (ms: number) => (reducedMotion() ? 0 : ms);
 
+/** A gap: what makes two events read as two events. Shortened, never removed. */
+const pace = (ms: number) =>
+	reducedMotion() ? Math.max(REDUCED_FLOOR, Math.round(ms * REDUCED_PACE)) : ms;
+
 const wait = (ms: number) => new Promise<void>((r) => setTimeout(r, beat(ms)));
+
+/** `wait()` for the clocks that carry sequence rather than motion. */
+const step = (ms: number) => new Promise<void>((r) => setTimeout(r, pace(ms)));
 
 export class Session {
 	readonly puzzle: PuzzleMeta;
@@ -349,7 +367,9 @@ export class Session {
 
 			this.liftingGroup = group;
 			this.lifting = true;
-			await wait(LOCK_MS);
+			// Both waits in this loop are gaps, not holds: they are what separates a row
+			// lighting from it becoming a bar, and one row from the next.
+			await step(LOCK_MS);
 
 			this.rows = rest;
 			this.solved = [...this.solved, { group, check: this.checks, order: i }];
@@ -360,7 +380,7 @@ export class Session {
 			// the shout grows with the tally rather than waiting for the final figure.
 			if (i >= 1) this.combo = i + 1;
 
-			if (i < cleared.length - 1) await wait(ROW_STEP - LOCK_MS);
+			if (i < cleared.length - 1) await step(ROW_STEP - LOCK_MS);
 		}
 
 		this.clearing = 0;
