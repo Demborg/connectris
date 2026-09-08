@@ -273,9 +273,11 @@ class FirestoreCategories:
             batch.commit()
         return len(fresh)
 
-    def allocate(self, count: int, *, rng: random.Random) -> list[Slot]:
+    def allocate(self, count: int, *, rng: random.Random, offset: int = 0) -> list[Slot]:
         pool = self.known()
-        slots, spent = draw(pool, count, rng=rng, cooldown=self._cooldown, day=today())
+        slots, spent = draw(
+            pool, count, rng=rng, cooldown=self._cooldown, day=today(), offset=offset
+        )
         # Only what was handed out. The file adapter rewrites the whole pool because
         # rewriting a small file is simpler than diffing it; here a write is a write.
         for c in spent:

@@ -93,8 +93,13 @@ class Category:
 class CategorySource(Protocol):
     """The port. Everything the pipeline needs from a pool of categories."""
 
-    def allocate(self, count: int, *, rng: random.Random) -> list[Slot]:
-        """`count` slots, distinct within the batch and held back from recent use."""
+    def allocate(self, count: int, *, rng: random.Random, offset: int = 0) -> list[Slot]:
+        """`count` slots, distinct within the batch and held back from recent use.
+
+        `offset` advances the device walk. It exists because `run` asks for one slot at a
+        time: without it every board in a run is handed the same device, which is what a
+        night of competing drafts wants and the opposite of what a sample does.
+        """
         ...
 
     def bank(self, categories: list[Category], *, taken: set[frozenset[str]] | None = None) -> int:
@@ -118,6 +123,7 @@ def draw(
     cooldown: int,
     day: str,
     devices: list[str] | None = None,
+    offset: int = 0,
 ) -> tuple[list[Slot], list[Category]]:
     """Pick `count` slots out of `pool`, and say which categories were spent doing it.
 
@@ -142,7 +148,7 @@ def draw(
     devices are rotating; a Swedish batch walks its own eight the same way.
     """
     devices = devices or DEVICES
-    start = date.fromisoformat(day).toordinal()
+    start = date.fromisoformat(day).toordinal() + offset
 
     pool.sort(key=lambda c: (c.used, c.key))
     available = pool[: max(count, len(pool) - cooldown)] if pool else []
@@ -217,10 +223,16 @@ class JsonCategorySource:
             self._save(have + fresh)
         return len(fresh)
 
-    def allocate(self, count: int, *, rng: random.Random) -> list[Slot]:
+    def allocate(self, count: int, *, rng: random.Random, offset: int = 0) -> list[Slot]:
         pool = self._load()
         slots, _ = draw(
-            pool, count, rng=rng, cooldown=self.cooldown, day=today(), devices=self.devices
+            pool,
+            count,
+            rng=rng,
+            cooldown=self.cooldown,
+            day=today(),
+            devices=self.devices,
+            offset=offset,
         )
         if pool:
             self._save(pool)

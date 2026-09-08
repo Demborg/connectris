@@ -268,3 +268,17 @@ async def test_a_run_leaves_the_callers_corpus_alone():
     await run(count=2, corpus=corpus)
     assert corpus.words == set()
     assert corpus.labels == set()
+
+
+async def test_a_sample_varies_its_device_where_a_night_holds_it_steady():
+    """`run` asks for one slot at a time, so without an offset every board of a run is
+    handed the same device — which is what a night of competing drafts wants, and the
+    opposite of what `--all` wants. A sample where every board shares a device measures
+    the device.
+    """
+    sample = await run(count=3)
+    assert len({c.slot["device"] for c in sample.candidates}) == 3
+
+    rejects = Grade(verdict="reject", fairness=2, elegance=1, reasons="scripted")
+    drafts = await run(count=3, llm=ScriptedLLM(grade=rejects), stop_on_accept=True)
+    assert len({c.slot["device"] for c in drafts.candidates}) == 1

@@ -203,8 +203,8 @@ class MemoryCategorySource:
         self.categories += fresh
         return len(fresh)
 
-    def allocate(self, count: int, *, rng) -> list[Slot]:
-        start = date.fromisoformat(today()).toordinal()
+    def allocate(self, count: int, *, rng, offset: int = 0) -> list[Slot]:
+        start = date.fromisoformat(today()).toordinal() + offset
         themes = [c.label for c in self.categories]
         rng.shuffle(themes)
         return [

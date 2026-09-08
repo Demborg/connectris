@@ -171,7 +171,11 @@ async def run(
         # ceiling of five would otherwise burn five themes to ship one board. Two
         # candidates in a night may now draw the same device; that costs nothing, because
         # they are competing drafts of the same day's board rather than a series.
-        (slot,) = source.allocate(1, rng=rng)
+        # The device walk advances only when the batch is a sample. A night proposes
+        # competing drafts of one board and wants them all in the day's own shape; `--all`
+        # exists to compare configurations, and a sample in which every board shares a
+        # device measures that device rather than the configuration.
+        (slot,) = source.allocate(1, rng=rng, offset=0 if stop_on_accept else index)
 
         try:
             candidate = await propose(
