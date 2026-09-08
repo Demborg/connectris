@@ -24,11 +24,14 @@ TODAY = "2026-09-06"
 TOMORROW = "2026-09-07"
 
 
-def board(name: str, rows: list[tuple[str, list[str]]] | None = None) -> Puzzle:
+def board(
+    name: str, rows: list[tuple[str, list[str]]] | None = None, language: str = "en"
+) -> Puzzle:
     rows = rows if rows is not None else BOARDS[0]
     return Puzzle(
         id=name,
         name=name,
+        language=language,
         groups=[Group(id=label.lower(), label=label, words=list(ws)) for label, ws in rows],
     )
 
@@ -288,3 +291,45 @@ def test_a_night_re_run_reproduces_itself():
     """Seeded on the day the board is for, so retrying tonight is tonight again."""
     assert nightly.seed_for(TOMORROW) == nightly.seed_for(TOMORROW)
     assert nightly.seed_for(TOMORROW) != nightly.seed_for(shift(TOMORROW, 1))
+
+
+# --- two languages, one schedule --------------------------------------------------------
+
+
+def test_one_language_does_not_cover_the_other_s_tomorrow():
+    """The bug this would have been.
+
+    Both languages publish on the same days, so a gate reading the whole schedule sees a
+    Swedish board written for tomorrow and calls tomorrow covered — and English never
+    generates again. Neither language is ever mentioned in the other's reason.
+    """
+    both = store(played=[NOW - timedelta(hours=1)])
+    both.boards.append(Published(puzzle=board("i-morgon", language="sv"), live_on=TOMORROW))
+
+    assert nightly.plan(both, language="sv", now=NOW).verdict == "scheduled"
+    assert nightly.plan(both, language="en", now=NOW).verdict == "generate"
+
+
+def test_demand_is_measured_on_the_board_of_the_language_being_written():
+    """Nobody playing the Swedish board is not evidence that nobody is playing."""
+    mixed = MemoryStore(
+        boards=[
+            Published(puzzle=board("today"), live_on=TODAY),
+            Published(puzzle=board("idag", language="sv"), live_on=TODAY),
+        ],
+        runs=[("today", ms(NOW - timedelta(hours=1)))],
+    )
+
+    assert nightly.plan(mixed, language="en", now=NOW).verdict == "generate"
+    idle = nightly.plan(mixed, language="sv", now=NOW)
+    assert idle.verdict == "idle"
+    assert "idag" in idle.reason
+
+
+def test_a_language_with_nothing_published_is_always_allowed_to_start():
+    """English is live and Swedish has never shipped. The Swedish gate has no board to
+    measure demand on, so refusing would mean it could never open."""
+    only_english = MemoryStore(boards=[Published(puzzle=board("today"), live_on=TODAY)], runs=[])
+    decided = nightly.plan(only_english, language="sv", now=NOW)
+    assert decided.verdict == "generate"
+    assert "nothing to wait for" in decided.reason

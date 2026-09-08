@@ -22,6 +22,10 @@ COLS = 4
 ROWS = 5
 #: Four columns on a 375px screen is ~70px a tile. Hard data constraint, not a style note.
 MAX_WORD_LEN = 12
+#: How many checks a player gets. `CHECKS` in engine.ts, and mirrored here for the same
+#: reason `ROWS` is: it is the whole difficulty budget a board is designed against, and the
+#: prompt said six while the game gave four for as long as both existed separately.
+CHECKS = 4
 
 #: The letters a board may use, per language. Anything outside its language's alphabet is
 #: a `charset` fatal — which is the point: the old single ASCII regex made "not English"

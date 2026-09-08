@@ -2,6 +2,7 @@ import { error, json } from '@sveltejs/kit';
 import { localChecker } from '$lib/game/checker';
 import { COLS, ROWS, boardOf } from '$lib/game/engine';
 import type { Row, Tile } from '$lib/game/types';
+import { LOCALES } from '$lib/i18n';
 import { BACKLOG, stores } from '$lib/server/stores';
 import type { RequestHandler } from './$types';
 
@@ -67,7 +68,14 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	// Only a board that is in play can be graded — the same list the page offers, so a
 	// board nobody can navigate to is also a board nobody can probe.
-	const live = await stores().puzzles.live(BACKLOG);
+	//
+	// Every language, because grading has nothing to do with which one the player is
+	// reading the interface in: the id names one board, and asking the client which
+	// language it belongs to would be trusting the client to describe its own board. Both
+	// queries are the ones the pages already warmed.
+	const live = (
+		await Promise.all(LOCALES.map((locale) => stores().puzzles.live(BACKLOG, locale)))
+	).flat();
 	const puzzle = live.find((p) => p.id === puzzleId);
 	if (!puzzle) error(404, 'No such puzzle');
 

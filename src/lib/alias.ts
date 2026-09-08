@@ -42,21 +42,31 @@ export function handleOf(alias: string): string {
 }
 
 /**
- * Why this name cannot be used, phrased to be shown to the person who typed it, or null
- * if it can. Length is counted in code points: an emoji-free name is still not a run of
- * `char` values, and `.length` would let a name of accented characters run long.
+ * Why a name cannot be used, as a code rather than a sentence.
+ *
+ * It used to be the sentence. That was fine while the game spoke one language and wrong
+ * the moment it spoke two: this function runs on the server, which knows the URL's
+ * language but has no business holding a copy of the words, and the same code is rendered
+ * by whichever catalogue the page is already using.
  */
-export function aliasProblem(raw: unknown): string | null {
-	if (typeof raw !== 'string') return 'Pick a name.';
+export type AliasProblem = 'empty' | 'short' | 'long' | 'charset' | 'substantial';
+
+/**
+ * Why this name cannot be used, or null if it can. Length is counted in code points: an
+ * emoji-free name is still not a run of `char` values, and `.length` would let a name of
+ * accented characters run long.
+ */
+export function aliasProblem(raw: unknown): AliasProblem | null {
+	if (typeof raw !== 'string') return 'empty';
 
 	const alias = normalizeAlias(raw);
 	const length = [...alias].length;
 
-	if (length === 0) return 'Pick a name.';
-	if (length < ALIAS_MIN) return `At least ${ALIAS_MIN} characters.`;
-	if (length > ALIAS_MAX) return `At most ${ALIAS_MAX} characters.`;
-	if (!ALLOWED.test(alias)) return 'Letters, numbers, spaces and - _ . only.';
-	if (!SUBSTANTIAL.test(alias)) return 'Needs a letter or a number in it.';
+	if (length === 0) return 'empty';
+	if (length < ALIAS_MIN) return 'short';
+	if (length > ALIAS_MAX) return 'long';
+	if (!ALLOWED.test(alias)) return 'charset';
+	if (!SUBSTANTIAL.test(alias)) return 'substantial';
 
 	return null;
 }

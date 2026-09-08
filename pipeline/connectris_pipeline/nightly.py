@@ -39,6 +39,7 @@ from .categories import CategorySource
 from .config import Config
 from .corpus import load as load_shipped
 from .day import shift
+from .language import get as get_language
 from .llm import LLM
 from .pipeline import Run
 from .pipeline import run as run_pipeline
@@ -72,15 +73,22 @@ class Plan:
 def plan(
     store: GameStore,
     *,
+    language: str = "en",
     now: datetime | None = None,
     window_hours: int = DEMAND_WINDOW_HOURS,
     force: bool = False,
 ) -> Plan:
-    """Read the schedule and the play log, and decide. No model, no cost, no writes."""
+    """Read the schedule and the play log, and decide. No model, no cost, no writes.
+
+    Everything here is per language, and it has to be. Two languages publish on the same
+    days, so a shared schedule would read Swedish's board as covering English's tomorrow
+    and one of the two would never generate again; and demand is per language by its
+    nature — nobody playing the Swedish board is not evidence that nobody is playing.
+    """
     at = now or datetime.now(UTC)
     day = at.date().isoformat()
     tomorrow = shift(day, 1)
-    schedule = store.schedule()
+    schedule = [b for b in store.schedule() if b.puzzle.language == language]
 
     # Tomorrow specifically, not "anything dated ahead". The job only ever writes tomorrow,
     # so tomorrow is the only day it can collide on — and a board hand-scheduled for next
@@ -176,8 +184,14 @@ async def tonight(
     force: bool = False,
     dry_run: bool = False,
 ) -> Night:
-    """Gate, generate, publish. The whole of what the scheduled job does."""
-    decided = plan(store, now=now, window_hours=window_hours, force=force)
+    """Gate, generate, publish. The whole of what the scheduled job does.
+
+    One language per call. The scheduler runs it once per language, which keeps a night
+    that fails for Swedish from taking English's board down with it, and keeps the two
+    bills separable.
+    """
+    lang = get_language(cfg.language)
+    decided = plan(store, language=lang.code, now=now, window_hours=window_hours, force=force)
     log.info("%s: %s", decided.verdict, decided.reason)
     if decided.verdict != "generate":
         return Night(plan=decided)
@@ -189,7 +203,12 @@ async def tonight(
     # of a good board is the hand-written pair in puzzles.json — those were written to be
     # the quality target, and feeding the generator its own recent output instead is how a
     # house style drifts into a rut with nothing to measure it against.
-    examples, _ = load_shipped()
+    # Narrowed to the language being written. The examples carry the construction standard
+    # and an English board is a poor example of a Swedish one — and once Swedish boards
+    # have shipped, they are the standard for the next Swedish board.
+    examples, _ = load_shipped(language=lang.code)
+    if not examples:
+        examples, _ = load_shipped()
 
     result = await run_pipeline(
         llm,
@@ -198,7 +217,9 @@ async def tonight(
         seed=seed_for(decided.live_on) if seed is None else seed,
         out_dir=out_dir,
         corpus=corpus_of(schedule),
-        examples=examples[:2],
+        # Three, not two. It was two because two were hand-written; a seed set is however
+        # many somebody wrote, and truncating it silently threw a third of one away.
+        examples=examples[:3],
         source=source,
     )
 

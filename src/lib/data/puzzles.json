@@ -424,5 +424,857 @@
 				"concept": "exterior car parts"
 			}
 		]
+	},
+	{
+		"id": "gen-20260908-104712-00",
+		"name": "SKOGENS DRAG",
+		"language": "sv",
+		"groups": [
+			{
+				"id": "stranginstrument",
+				"label": "Stränginstrument",
+				"words": ["GITARR", "HARPA", "VIOLIN", "BANJO"],
+				"notes": {
+					"summary": "Klassiska musikinstrument vars ljud frambringas genom att strängar sätts i svängning.",
+					"words": [
+						{
+							"word": "GITARR",
+							"note": "Spelas vanligen med fingrar eller plektrum på sex strängar spända över en resonant träkropp."
+						},
+						{
+							"word": "HARPA",
+							"note": "Triangulärt instrument där strängarna löper vinkelrätt mot klanglådan och plockas för hand."
+						},
+						{
+							"word": "VIOLIN",
+							"note": "Minsta medlemmen i fiolfamiljen som oftast spelas med stråke vilande mot hakan."
+						},
+						{
+							"word": "BANJO",
+							"note": "Ett instrument med cirkulär kropp täckt av ett trumskinn som ger dess karaktäristiska klang."
+						}
+					]
+				},
+				"concept": "string instruments"
+			},
+			{
+				"id": "svenska-rovdjur-pa-land",
+				"label": "Svenska rovdjur på land",
+				"words": ["BJÖRN", "VARG", "JÄRV", "RÄV"],
+				"notes": {
+					"summary": "Vilda köttätande däggdjur som lever naturligt i den svenska faunan.",
+					"words": [
+						{
+							"word": "BJÖRN",
+							"note": "Skandinaviens största rovdjur som tillbringar vintern i ide."
+						},
+						{
+							"word": "VARG",
+							"note": "Ett flocklevande hunddjur som jagar klövvilt i skogiga revir."
+						},
+						{
+							"word": "JÄRV",
+							"note": "Ett kraftigt mårddjur anpassat för ett liv i fjälltrakterna."
+						},
+						{
+							"word": "RÄV",
+							"note": "Det allmänna mindre rovdjuret som trivs i både skogar och nära bebyggelse."
+						}
+					]
+				},
+				"concept": "swedish terrestrial predators"
+			},
+			{
+				"id": "forpackningar-for-varor",
+				"label": "Förpackningar för varor",
+				"words": ["BURK", "ASK", "TUB", "FLASKA"],
+				"notes": {
+					"summary": "Olika typer av behållare avsedda för att förvara eller sälja produkter.",
+					"words": [
+						{
+							"word": "BURK",
+							"note": "Cylindrisk behållare oftast tillverkad av metall eller glas för mat och dryck."
+						},
+						{
+							"word": "ASK",
+							"note": "Liten låda med lock, ofta gjord av papp eller trä."
+						},
+						{
+							"word": "TUB",
+							"note": "Formbar cylinder av plast eller metall som kläms ihop för att pressa ut innehållet."
+						},
+						{
+							"word": "FLASKA",
+							"note": "Kärl med smal hals avsett för flytande innehåll."
+						}
+					]
+				},
+				"concept": "retail packaging types"
+			},
+			{
+				"id": "barrtrad",
+				"label": "Barrträd",
+				"words": ["GRAN", "TALL", "EN", "LÄRK"],
+				"notes": {
+					"summary": "Träd och buskar med barrformade blad som i de flesta fall behåller sin grönska året runt.",
+					"words": [
+						{
+							"word": "GRAN",
+							"note": "Nordens vanligaste skogsträd med vassa, platta barr och hängande kottar."
+						},
+						{
+							"word": "TALL",
+							"note": "Ljusträd med långa barr parvis och karakteristisk rödbrun bark högre upp på stammen."
+						},
+						{
+							"word": "EN",
+							"note": "En tålig buske eller litet träd vars kottar liknar blå bär."
+						},
+						{
+							"word": "LÄRK",
+							"note": "Ett barrträd som till skillnad från de flesta andra fäller sina mjuka barr på hösten."
+						}
+					]
+				},
+				"concept": "coniferous trees"
+			},
+			{
+				"id": "bildar-ett-nytt-ord-utan-ring-eller-prickar",
+				"label": "Bildar ett nytt ord utan ring eller prickar",
+				"words": ["BÅR", "SÄL", "LÖK", "NÖT"],
+				"notes": {
+					"summary": "Ord som förvandlas till ett helt annat svenskt ord om diakriterna tas bort från vokalen.",
+					"words": [
+						{
+							"word": "BÅR",
+							"note": "Borttaget ringtecken ger verbet bar, dåtidsformen av att bära."
+						},
+						{
+							"word": "SÄL",
+							"note": "Utan prickar bildas sal, ett stort och rymligt rum."
+						},
+						{
+							"word": "LÖK",
+							"note": "Utan prickar bildas lok, fordonet som drar tåg."
+						},
+						{
+							"word": "NÖT",
+							"note": "Borttagna prickar ger not, som i ett musikaliskt tecken eller ett fiskenät."
+						}
+					]
+				},
+				"concept": "words forming new words without diacritics"
+			}
+		]
+	},
+	{
+		"id": "gen-20260908-104712-01",
+		"name": "SYRLIGA TONER",
+		"language": "sv",
+		"groups": [
+			{
+				"id": "citrusfrukter",
+				"label": "Citrusfrukter",
+				"words": ["APELSIN", "CITRON", "LIME", "MANDARIN"],
+				"notes": {
+					"summary": "Frukter från släktet Citrus som alla är kända för sitt höga innehåll av citronsyra och C-vitamin.",
+					"words": [
+						{
+							"word": "APELSIN",
+							"note": "En hybrid mellan pomelo och mandarin som har sitt ursprung i södra Kina."
+						},
+						{
+							"word": "CITRON",
+							"note": "En gul, starkt sur frukt som historiskt använts för att förhindra skörbjugg till sjöss."
+						},
+						{
+							"word": "LIME",
+							"note": "En mindre, rund och grön frukt som ofta skördas omogen för sin skarpa syra."
+						},
+						{
+							"word": "MANDARIN",
+							"note": "En ursprunglig citrusart från östra Asien med ett tunt skal som är lätt att skala."
+						}
+					]
+				},
+				"concept": "citrus fruits"
+			},
+			{
+				"id": "faglar-som-inte-kan-flyga",
+				"label": "Fåglar som inte kan flyga",
+				"words": ["EMU", "KIWI", "PINGVIN", "STRUTS"],
+				"notes": {
+					"summary": "Marklevande arter vars vingar och bröstbenskam tillbakabildats under evolutionens gång.",
+					"words": [
+						{
+							"word": "EMU",
+							"note": "Australiens största fågel som kan springa i hastigheter upp till 50 kilometer i timmen."
+						},
+						{
+							"word": "KIWI",
+							"note": "Nya Zeelands nationalfågel med näsborrarna längst ut på näbbspetsen."
+						},
+						{
+							"word": "PINGVIN",
+							"note": "En havslevande fågel på södra halvklotet vars vingar har omvandlats till simfötter."
+						},
+						{
+							"word": "STRUTS",
+							"note": "Världens största och tyngsta levande fågel, hemmahörande på Afrikas savanner."
+						}
+					]
+				},
+				"concept": "flightless birds"
+			},
+			{
+				"id": "blir-nya-ord-med-a-eller-o",
+				"label": "Blir nya ord med A eller O",
+				"words": ["BÄCK", "GÅS", "HÄLL", "RÖST"],
+				"notes": {
+					"summary": "Svenska ord som bildar helt andra ord om vokalen byts ut mot antingen A eller O.",
+					"words": [
+						{
+							"word": "BÄCK",
+							"note": "Byter vokal till back eller bock."
+						},
+						{
+							"word": "GÅS",
+							"note": "Byter vokal till gas eller gos."
+						},
+						{
+							"word": "HÄLL",
+							"note": "Byter vokal till hall eller holl."
+						},
+						{
+							"word": "RÖST",
+							"note": "Byter vokal till rast eller rost."
+						}
+					]
+				},
+				"concept": "vowel diacritic minimal pairs"
+			},
+			{
+				"id": "korstammor",
+				"label": "Körstämmor",
+				"words": ["ALT", "BAS", "SOPRAN", "TENOR"],
+				"notes": {
+					"summary": "De fyra klassiska röstlägena i en traditionell fyrstämmig kör för dam- och herröster.",
+					"words": [
+						{
+							"word": "ALT",
+							"note": "Det lägre röstläget för damer och gossopraner med ett mörkt och fylligt klangideal."
+						},
+						{
+							"word": "BAS",
+							"note": "Den djupaste herrstämman som utgör den harmoniska grunden i körarrangemang."
+						},
+						{
+							"word": "SOPRAN",
+							"note": "Den högsta rösttypen som traditionellt bär melodin i klassisk vokalmusik."
+						},
+						{
+							"word": "TENOR",
+							"note": "Det högsta naturliga röstläget bland vuxna män inom den klassiska sångtraditionen."
+						}
+					]
+				},
+				"concept": "choir vocal parts"
+			},
+			{
+				"id": "kryddor",
+				"label": "Kryddor",
+				"words": ["INGEFÄRA", "KANEL", "KARDEMUMMA", "NEJLIKA"],
+				"notes": {
+					"summary": "Aromatiska växtdelar som traditionellt används tillsammans i klassiska svenska pepparkakor.",
+					"words": [
+						{
+							"word": "INGEFÄRA",
+							"note": "En underjordisk rotstam med stark och frisk smak från arten Zingiber officinale."
+						},
+						{
+							"word": "KANEL",
+							"note": "Den torkade innerbarken från olika trädarter inom lagersläktet Cinnamomum."
+						},
+						{
+							"word": "KARDEMUMMA",
+							"note": "Frökapslarna från en flerårig ingefärsväxt som ofta smaksätter skandinaviskt vetebröd."
+						},
+						{
+							"word": "NEJLIKA",
+							"note": "De torkade, outslagna blomknopparna från ett tropiskt träd i myrtenfamiljen."
+						}
+					]
+				},
+				"concept": "culinary spices"
+			}
+		]
+	},
+	{
+		"id": "gen-20260908-104712-03",
+		"name": "STIL OCH STING",
+		"language": "sv",
+		"groups": [
+			{
+				"id": "giftsormar",
+				"label": "Giftsormar",
+				"words": ["KOBRA", "MAMBA", "TAIPAN", "SKALLERORM"],
+				"notes": {
+					"summary": "Några av världens mest kända reptiler som producerar dödliga gifter för jakt och försvar.",
+					"words": [
+						{
+							"word": "KOBRA",
+							"note": "Känd för att spänna ut nackskölden som hotfull signal."
+						},
+						{
+							"word": "MAMBA",
+							"note": "Snabb och trädlevande afrikansk orm med extremt potent nervgift."
+						},
+						{
+							"word": "TAIPAN",
+							"note": "Australisk art vars inlandsvariant bär på världens starkaste ormgift."
+						},
+						{
+							"word": "SKALLERORM",
+							"note": "Varnar med ett skallrande ljud från modifierade fjäll på stjärtspetsen."
+						}
+					]
+				},
+				"concept": "venomous snakes"
+			},
+			{
+				"id": "bars-runt-halsen",
+				"label": "Bärs runt halsen",
+				"words": ["SLIPS", "SJAL", "FLUGA", "BOA"],
+				"notes": {
+					"summary": "Klädesplagg och accessoarer som knyts eller viras kring nacken.",
+					"words": [
+						{
+							"word": "SLIPS",
+							"note": "Ett smalt band av tyg som bärs till skjorta och knyts under kragen."
+						},
+						{
+							"word": "SJAL",
+							"note": "Ett större tygstycke som sveps runt axlar och nacke för värme eller prydnad."
+						},
+						{
+							"word": "FLUGA",
+							"note": "Ett tygband knutet i en symmetrisk rosett framför skjortkragen."
+						},
+						{
+							"word": "BOA",
+							"note": "En fluffig halskrage som oftast är tillverkad av fjädrar eller päls."
+						}
+					]
+				},
+				"concept": "items worn around the neck"
+			},
+			{
+				"id": "insekter-som-lever-i-samhallen",
+				"label": "Insekter som lever i samhällen",
+				"words": ["MYRA", "HUMLA", "TERMIT", "BÅLGETING"],
+				"notes": {
+					"summary": "Eusociala leddjur som delar upp arbete och fortplantning inom stora kolonier.",
+					"words": [
+						{
+							"word": "MYRA",
+							"note": "Bygger ofta intrikata stackar eller gångsystem ledda av en drottning."
+						},
+						{
+							"word": "HUMLA",
+							"note": "Bildar ettåriga kolonier under marken där endast drottningen övervintrar."
+						},
+						{
+							"word": "TERMIT",
+							"note": "Träätande insekt känd för enorma tornbyggen med strikt kastsystem."
+						},
+						{
+							"word": "BÅLGETING",
+							"note": "Europas största getingart som bygger pappersliknande bon av tuggat trä."
+						}
+					]
+				},
+				"concept": "eusocial insects"
+			},
+			{
+				"id": "rotfrukter",
+				"label": "Rotfrukter",
+				"words": ["MOROT", "RÖDBETA", "RÄDISA", "ROTSELLERI"],
+				"notes": {
+					"summary": "Underjordiska växtdelar som odlas och skördas för att ätas som grönsaker.",
+					"words": [
+						{
+							"word": "MOROT",
+							"note": "Vanligen orange pålrot rik på karoten."
+						},
+						{
+							"word": "RÖDBETA",
+							"note": "Klarröd rotknöl som ofta läggs in i ättikslag."
+						},
+						{
+							"word": "RÄDISA",
+							"note": "Snabbväxande, pepprig liten rot med krispigt vitt inre."
+						},
+						{
+							"word": "ROTSELLERI",
+							"note": "Knölig och aromatisk rot som ofta kokas i soppor och grytor."
+						}
+					]
+				},
+				"concept": "root vegetables"
+			},
+			{
+				"id": "bildar-nya-ord-utan-prickar-eller-ring",
+				"label": "Bildar nya ord utan prickar eller ring",
+				"words": ["BÖNA", "RÅTTA", "SKÅL", "BÄNK"],
+				"notes": {
+					"summary": "Orden blir till andra svenska ord när tecknen å, ä och ö byts mot a eller o.",
+					"words": [
+						{
+							"word": "BÖNA",
+							"note": "Blir verbet bona när prickarna plockas bort."
+						},
+						{
+							"word": "RÅTTA",
+							"note": "Förvandlas till substantivet ratta utan sin ring."
+						},
+						{
+							"word": "SKÅL",
+							"note": "Bilar ordet skal när ringen över å försvinner."
+						},
+						{
+							"word": "BÄNK",
+							"note": "Motsvaras av bank när omljudet tas bort."
+						}
+					]
+				},
+				"concept": "words forming other valid words when omitting diacritics"
+			}
+		]
+	},
+	{
+		"id": "gen-20260907-195839-00",
+		"name": "RANG OCH VÄSEN",
+		"language": "sv",
+		"groups": [
+			{
+				"id": "traditionell-julmat-och-juldryck",
+				"label": "Traditionell julmat och juldryck",
+				"words": ["GLÖGG", "LUSSEKATT", "PEPPARKAKA", "MUMMA"],
+				"notes": {
+					"summary": "Klassiska svenska bakverk och drycker som främst konsumeras under advents- och julfirandet.",
+					"words": [
+						{
+							"word": "GLÖGG",
+							"note": "Kryddat och sötat vin eller saft som serveras varm med russin och mandel."
+						},
+						{
+							"word": "LUSSEKATT",
+							"note": "Saffransbulle formad som ett 'S' med två russin, traditionellt bakad till Lucia."
+						},
+						{
+							"word": "PEPPARKAKA",
+							"note": "Spröd, brun småkaka kryddad med kanel, ingefära och kryddnejlika."
+						},
+						{
+							"word": "MUMMA",
+							"note": "Blanddryck baserad på porter, ljus öl eller julmust och ofta spetsad med portvin eller gin."
+						}
+					]
+				},
+				"concept": "traditional christmas food and drink"
+			},
+			{
+				"id": "vasen-i-nordisk-folktro",
+				"label": "Väsen i nordisk folktro",
+				"words": ["TOMTE", "VÄTTE", "ÄLVA", "MARA"],
+				"notes": {
+					"summary": "Övernaturliga varelser och naturandar i gamla skandinaviska sägner.",
+					"words": [
+						{
+							"word": "TOMTE",
+							"note": "Gårdens gråklädde skyddsväsen som belönades med gröt för sitt arbete."
+						},
+						{
+							"word": "VÄTTE",
+							"note": "Småväxt underjordiskt väsen som kunde hämnas om man hällde hett vatten på marken."
+						},
+						{
+							"word": "ÄLVA",
+							"note": "Eteriskt kvinnligt naturväsen som enligt folktron dansade över ängarna i dimman."
+						},
+						{
+							"word": "MARA",
+							"note": "Väsen som red på sovandes bröst och orsakade kvävande mardrömmar."
+						}
+					]
+				},
+				"concept": "beings in nordic folklore"
+			},
+			{
+				"id": "vasen-i-antik-grekisk-mytologi",
+				"label": "Väsen i antik grekisk mytologi",
+				"words": ["SIREN", "HARPYA", "KIMÄRA", "NYMF"],
+				"notes": {
+					"summary": "Mytologiska varelser och naturandar från den antika grekiska sagovärlden.",
+					"words": [
+						{
+							"word": "SIREN",
+							"note": "Halvt fågel, halvt kvinna som lockade sjömän i fördärvet med sin oemotståndliga sång."
+						},
+						{
+							"word": "HARPYA",
+							"note": "Vingsnabb stormdemon med kvinnohuvud och fågelkropp som rövade bort onda människor."
+						},
+						{
+							"word": "KIMÄRA",
+							"note": "Eldsprutande hybridsmonster bestående av lejonkropp, gethuvud på ryggen och ormstjärt."
+						},
+						{
+							"word": "NYMF",
+							"note": "Kvinnlig naturande knuten till specifika platser som källor, träd och berg."
+						}
+					]
+				},
+				"concept": "beings in ancient greek mythology"
+			},
+			{
+				"id": "juridiska-yrkesroller-i-en-domstol",
+				"label": "Juridiska yrkesroller i en domstol",
+				"words": ["DOMARE", "ADVOKAT", "ÅKLAGARE", "NOTARIE"],
+				"notes": {
+					"summary": "Formella titlar och ämbeten för jurister verksamma under rättsliga förhandlingar.",
+					"words": [
+						{
+							"word": "DOMARE",
+							"note": "Rättens ordförande som leder förhandlingen och fastställer domen."
+						},
+						{
+							"word": "ADVOKAT",
+							"note": "Ledamot av Advokatsamfundet som företräder den tilltalade eller målsäganden i rätten."
+						},
+						{
+							"word": "ÅKLAGARE",
+							"note": "Statens representant som leder förundersökningen och väcker åtal i brottmål."
+						},
+						{
+							"word": "NOTARIE",
+							"note": "Jurist under domstolsutbildning som protokollför rättegångar och kan bereda enklare mål."
+						}
+					]
+				},
+				"concept": "courtroom legal professions"
+			},
+			{
+				"id": "akademiska-examensgrader-i-stigande-ordning",
+				"label": "Akademiska examensgrader i stigande ordning",
+				"words": ["KANDIDAT", "MAGISTER", "LICENTIAT", "DOKTOR"],
+				"notes": {
+					"summary": "Svenska universitetsexamina ordnade från grundnivå upp till högsta forskarnivå.",
+					"words": [
+						{
+							"word": "KANDIDAT",
+							"note": "Grundexamen på 180 högskolepoäng, motsvarande tre års heltidsstudier."
+						},
+						{
+							"word": "MAGISTER",
+							"note": "Avancerad examen på 60 högskolepoäng, motsvarande ett års studier efter kandidatexamen."
+						},
+						{
+							"word": "LICENTIAT",
+							"note": "Mellanexamen på forskarnivå, motsvarande halva tiden fram till en doktorsavhandling."
+						},
+						{
+							"word": "DOKTOR",
+							"note": "Högsta akademiska examen som nås genom godkänd doktorsavhandling efter fyra års forskarstudier."
+						}
+					]
+				},
+				"concept": "traditional academic degrees in ascending order"
+			}
+		]
+	},
+	{
+		"id": "gen-20260907-195839-01",
+		"name": "TRÄD OCH TROLL",
+		"language": "sv",
+		"groups": [
+			{
+				"id": "nordiska-huvudstader",
+				"label": "Nordiska huvudstäder",
+				"words": ["STOCKHOLM", "OSLO", "KÖPENHAMN", "HELSINGFORS"],
+				"notes": {
+					"summary": "De politiska och administrativa maktcentren i fyra av Nordens självständiga stater.",
+					"words": [
+						{
+							"word": "STOCKHOLM",
+							"note": "Sveriges residensstad, utsedd till officiell huvudstad under 1400-talet och belägen vid Mälarens utlopp."
+						},
+						{
+							"word": "OSLO",
+							"note": "Norges huvudstad, som grundades runt år 1000 och bar namnet Kristiania fram till 1925."
+						},
+						{
+							"word": "KÖPENHAMN",
+							"note": "Danmarks huvudstad på Själland och Amager, känd för sin ursprungliga roll som köpmännens hamn."
+						},
+						{
+							"word": "HELSINGFORS",
+							"note": "Finlands huvudstad sedan 1812, då ställningen flyttades dit från Åbo under ryskt styre."
+						}
+					]
+				},
+				"concept": "Nordic capital cities"
+			},
+			{
+				"id": "starksprit",
+				"label": "Starksprit",
+				"words": ["VODKA", "ROM", "WHISKY", "TEQUILA"],
+				"notes": {
+					"summary": "Destillerade alkoholdrycker med hög volymprocent som utgör basen i klassisk barsprit.",
+					"words": [
+						{
+							"word": "VODKA",
+							"note": "Klar, neutral sprit huvudsakligen destillerad av spannmål eller potatis med ursprung i Östeuropa."
+						},
+						{
+							"word": "ROM",
+							"note": "Klassisk spritdryck som framställs genom jäsning och destillering av sockerrörsjuice eller melass."
+						},
+						{
+							"word": "WHISKY",
+							"note": "Korn- eller sädesdestillat som lagras på träfat, framför allt förknippat med Skottland och Irland."
+						},
+						{
+							"word": "TEQUILA",
+							"note": "Mexikanskt agavedestillat som enligt ursprungsskydd främst tillverkas i och kring delstaten Jalisco."
+						}
+					]
+				},
+				"concept": "distilled spirits"
+			},
+			{
+				"id": "troll",
+				"label": "TROLL___",
+				"words": ["KARL", "STAV", "FORMEL", "DRYCK"],
+				"notes": {
+					"summary": "Sammansättningar där förledet syftar på magi och övernaturliga krafter i sagor och folktro.",
+					"words": [
+						{
+							"word": "KARL",
+							"note": "En man som enligt folktron ansågs behärska trolldom, trollkonster eller magiska riter."
+						},
+						{
+							"word": "STAV",
+							"note": "Ett klassiskt attribut och magiskt redskap som används för att rikta och kasta besvärjelser."
+						},
+						{
+							"word": "FORMEL",
+							"note": "En fast fras eller ramsa som uttalas för att utlösa en magisk effekt."
+						},
+						{
+							"word": "DRYCK",
+							"note": "Ett hopkok eller brygd med övernaturliga verkningar, vanligt i mytologi och fantasyberättelser."
+						}
+					]
+				},
+				"concept": "compounds with troll"
+			},
+			{
+				"id": "tradets-delar",
+				"label": "Trädets delar",
+				"words": ["ROT", "STAM", "GREN", "KRONA"],
+				"notes": {
+					"summary": "De huvudsakliga strukturella komponenterna som tillsammans bygger upp ett fullvuxet träds anatomi.",
+					"words": [
+						{
+							"word": "ROT",
+							"note": "Den underjordiska delen som förankrar växten och suger upp vatten samt näring ur marken."
+						},
+						{
+							"word": "STAM",
+							"note": "Den vedartade pelaren som bär upp grenverket och leder vatten och näringsämnen uppåt."
+						},
+						{
+							"word": "GREN",
+							"note": "Ett vedartat sidoskott som växer ut från stammen och bär upp lövverket."
+						},
+						{
+							"word": "KRONA",
+							"note": "Den övre, sammanhängande delen av trädet som bildas av alla grenar, kvistar och blad."
+						}
+					]
+				},
+				"concept": "parts of a tree"
+			},
+			{
+				"id": "geometriska-figurer",
+				"label": "Geometriska figurer",
+				"words": ["CIRKEL", "KVADRAT", "TRIANGEL", "REKTANGEL"],
+				"notes": {
+					"summary": "Grundläggande tvådimensionella former avgränsade av raka linjer eller en kontinuerlig kurva.",
+					"words": [
+						{
+							"word": "CIRKEL",
+							"note": "En sluten kurva där varje punkt längs periferin ligger på samma avstånd från medelpunkten."
+						},
+						{
+							"word": "KVADRAT",
+							"note": "En liksidig och rätvinklig fyrsidig polygon där alla fyra sidor är exakt lika långa."
+						},
+						{
+							"word": "TRIANGEL",
+							"note": "En tresidig polygon vars tre inre vinklar tillsammans alltid bildar 180 grader."
+						},
+						{
+							"word": "REKTANGEL",
+							"note": "En fyrsidig figur med fyra räta vinklar och motstående sidor av samma längd."
+						}
+					]
+				},
+				"concept": "geometric shapes"
+			}
+		]
+	},
+	{
+		"id": "gen-20260907-195839-02",
+		"name": "HORN OCH HANDSKAR",
+		"language": "sv",
+		"groups": [
+			{
+				"id": "hjortdjur",
+				"label": "Hjortdjur",
+				"words": ["ÄLG", "REN", "KRONHJORT", "DOVHJORT"],
+				"notes": {
+					"summary": "Klövvilt i familjen Cervidae som naturligt förekommer i vilt tillstånd i Norden.",
+					"words": [
+						{
+							"word": "ÄLG",
+							"note": "Det största levande hjortdjuret, känt för sina breda skovelhorn hos tjuren."
+						},
+						{
+							"word": "REN",
+							"note": "Arktiskt hjortdjur där även honorna normalt bär horn."
+						},
+						{
+							"word": "KRONHJORT",
+							"note": "Europas näst största hjortdjur efter älgen, med grenade hornkronor hos hanen."
+						},
+						{
+							"word": "DOVHJORT",
+							"note": "Ett mellanstort hjortdjur med vitprickig sommarpäls och skovelformade hornspetsar."
+						}
+					]
+				},
+				"concept": "deer species"
+			},
+			{
+				"id": "handjur-bland-lantbrukets-daggdjur",
+				"label": "Handjur bland lantbrukets däggdjur",
+				"words": ["BOCK", "BAGGE", "TJUR", "GALT"],
+				"notes": {
+					"summary": "Särskilda benämningar på hanar av vanliga tama nyttodjur på en bondgård.",
+					"words": [
+						{
+							"word": "BOCK",
+							"note": "Den könsmogna hanen av get."
+						},
+						{
+							"word": "BAGGE",
+							"note": "Den okastrerade hanen hos tamfår."
+						},
+						{
+							"word": "TJUR",
+							"note": "Det fullvuxna handjuret av nötkreatur."
+						},
+						{
+							"word": "GALT",
+							"note": "Den könsmogna och okastrerade hanen hos tamsvin."
+						}
+					]
+				},
+				"concept": "male domestic farm animals"
+			},
+			{
+				"id": "ord-for-en-drabbning",
+				"label": "Ord för en drabbning",
+				"words": ["STRID", "KAMP", "FEJD", "DUST"],
+				"notes": {
+					"summary": "Synonymer som betecknar fysiska eller bildliga sammandrabbningar och konflikter.",
+					"words": [
+						{
+							"word": "STRID",
+							"note": "Väpnad drabbning mellan trupper eller en hård intellektuell konflikt."
+						},
+						{
+							"word": "KAMP",
+							"note": "En intensiv kraftmätning mellan två eller flera motståndare."
+						},
+						{
+							"word": "FEJD",
+							"note": "En långvarig fientlighet eller tvist mellan släkter, grupper eller individer."
+						},
+						{
+							"word": "DUST",
+							"note": "Ett kortvarigt slagsmål eller en enskild skärmytsling."
+						}
+					]
+				},
+				"concept": "words meaning a clash or fight"
+			},
+			{
+				"id": "termer-inom-boxning",
+				"label": "Termer inom boxning",
+				"words": ["JABB", "ROND", "RING", "GARD"],
+				"notes": {
+					"summary": "Grundläggande begrepp för slag, skydd, tidsindelning och tävlingsyta i kampsporten.",
+					"words": [
+						{
+							"word": "JABB",
+							"note": "Ett snabbt och rakt stötande slag med den främre handen."
+						},
+						{
+							"word": "ROND",
+							"note": "En avgränsad tidsperiod av aktiv match under en boxningskamp."
+						},
+						{
+							"word": "RING",
+							"note": "Den repomgärdade, kvadratiska upphöjning där matchen utkämpas."
+						},
+						{
+							"word": "GARD",
+							"note": "Ställningen med upplyfta händer för att skydda ansikte och kropp."
+						}
+					]
+				},
+				"concept": "boxing terms"
+			},
+			{
+				"id": "vakt",
+				"label": "___VAKT",
+				"words": ["BRAND", "KUST", "NATT", "PORT"],
+				"notes": {
+					"summary": "Ord som bildar etablerade sammansättningar med efterledet -vakt och betecknar roller eller verksamheter.",
+					"words": [
+						{
+							"word": "BRAND",
+							"note": "Övervakning på en plats efter släckningsarbete för att hindra att elden flammar upp."
+						},
+						{
+							"word": "KUST",
+							"note": "Den civila myndighet som övervakar sjötrafik, gränser och miljö till havs."
+						},
+						{
+							"word": "NATT",
+							"note": "En person som ronderar eller håller tillsyn under dygnets mörka timmar."
+						},
+						{
+							"word": "PORT",
+							"note": "En person anställd för att passa en fastighets entré och kontrollera passage."
+						}
+					]
+				},
+				"concept": "words preceding vakt in compounds"
+			}
+		]
 	}
 ]

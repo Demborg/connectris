@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 from connectris_pipeline.corpus import load
 from connectris_pipeline.spec import (
+    CHECKS,
     COLS,
     ROWS,
     Corpus,
@@ -235,3 +238,14 @@ def test_a_translated_category_is_warned_about_and_a_native_one_is_not():
     stale = [x.message for x in problems if x.code == "stale-concept"]
     assert len(stale) == 1
     assert "Bleckblåsinstrument" in stale[0]
+
+
+def test_the_check_budget_matches_the_game():
+    """`CHECKS` is the whole difficulty budget a board is designed against.
+
+    The prompt said six and the game gave four, for as long as the two numbers lived apart
+    — so every board ever graded was designed for a game nobody plays. Pinned against
+    engine.ts the way `ROWS` and `COLS` are.
+    """
+    engine = (Path(__file__).resolve().parents[2] / "src/lib/game/engine.ts").read_text()
+    assert f"export const CHECKS = {CHECKS};" in engine

@@ -22,14 +22,14 @@ from __future__ import annotations
 
 from .categories import Slot
 from .language import Language
-from .spec import COLS, MAX_WORD_LEN, ROWS, Puzzle
+from .spec import CHECKS, COLS, MAX_WORD_LEN, ROWS, Puzzle
 
 GAME_BRIEF = f"""\
 Connectris är ett ordgrupperingspussel. Brädet är {ROWS * COLS} ord i {ROWS} rader om \
 {COLS}. Varje rad är en kategori. Spelaren flyttar om hela brädet och låser en komplett \
 uppställning, och bara den obrutna följden av rätta rader uppifrån räknas av — så \
-spelaren måste dessutom rangordna sina rader efter hur säker man känner sig. Man har sex \
-kontroller.
+spelaren måste dessutom rangordna sina rader efter hur säker man känner sig. Man har \
+{CHECKS} rättningar.
 
 Det betyder att ett pussel bedöms på två saker samtidigt:
 - Varje kategori måste ha exakt en försvarbar uppsättning medlemmar, annars får en \

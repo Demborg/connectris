@@ -1,3 +1,4 @@
+import { localeOf } from '$lib/i18n';
 import { gameData } from '$lib/server/board';
 import type { PageServerLoad } from './$types';
 
@@ -8,4 +9,9 @@ import type { PageServerLoad } from './$types';
  * the board ships inside the first response, so a scaled-to-zero instance costs the
  * player one wait instead of a wait and then a round trip.
  */
-export const load: PageServerLoad = async () => gameData();
+// Always an object, with the game inside it: a load may not answer with null, and a
+// language that has published nothing yet has to be a state the page can render rather
+// than an error it has to raise.
+export const load: PageServerLoad = async ({ params }) => ({
+	game: await gameData(localeOf(params.lang))
+});

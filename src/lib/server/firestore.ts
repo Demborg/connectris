@@ -1,5 +1,6 @@
 import { Firestore, type Settings } from '@google-cloud/firestore';
 import type { Run } from '$lib/game/log';
+import { LOCALES } from '$lib/i18n';
 import type { Puzzle } from '$lib/game/types';
 import { today } from './day';
 import type {
@@ -55,7 +56,7 @@ export function firestorePuzzles(db: Firestore, now: () => string = () => today(
 	const puzzles = db.collection(collections.puzzles);
 
 	return {
-		async live(limit) {
+		async live(limit, language) {
 			// Filtered and ordered on the same single field, which Firestore indexes
 			// automatically — no composite index to declare and none to forget when
 			// deploying. It is also why `liveOn` is a `YYYY-MM-DD` string: it compares as a
@@ -64,12 +65,22 @@ export function firestorePuzzles(db: Firestore, now: () => string = () => today(
 			// The nightly job writes tomorrow's board tonight, so there is normally one
 			// document ahead of this window. Excluding it here is what stops a board being
 			// playable the evening before it is due, and it costs a range bound.
+			//
+			// Language is narrowed here rather than in the query. An equality on `language`
+			// beside the range on `liveOn` is exactly the shape that needs a composite
+			// index, and the same trade was already made for `finished_runs`: read a bounded
+			// window on the one indexed field and narrow it in memory. The bound is
+			// `limit * LOCALES.length` because the schedule publishes one board per language
+			// per day, so that many documents always covers `limit` days of any one of them.
 			const found = await puzzles
 				.where('liveOn', '<=', now())
 				.orderBy('liveOn', 'desc')
-				.limit(limit)
+				.limit(limit * LOCALES.length)
 				.get();
-			return found.docs.map((d) => puzzleOf(d.id, d.data()));
+			return found.docs
+				.map((d) => puzzleOf(d.id, d.data()))
+				.filter((p) => p.language === language)
+				.slice(0, limit);
 		}
 	};
 }

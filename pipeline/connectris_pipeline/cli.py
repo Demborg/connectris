@@ -116,8 +116,16 @@ def nightly(
     dry_run: Annotated[
         bool, typer.Option("--dry-run", help="Generate, write the run directory, publish nothing.")
     ] = False,
+    language: Annotated[
+        str | None,
+        typer.Option(help="Which language to write tonight: en, sv, sv-native."),
+    ] = None,
 ) -> None:
     """The scheduled job: publish tomorrow's board, if anyone is still playing today's.
+
+    One language per run, and the scheduler runs it once per language. Two invocations
+    rather than a loop so that a night failing for one cannot take the other's board down
+    with it, and so the two bills are separable in the logs.
 
     Exits 0 for every outcome it planned for, including the two that publish nothing — a
     night with no players and a night where no board was good enough are both the system
@@ -129,6 +137,9 @@ def nightly(
         raise typer.Exit(2)
 
     cfg = config_module.load(config)
+    if language is not None:
+        language_module.get(language)  # fail here, not eight calls in
+        cfg = replace(cfg, language=language)
     # One client, two adapters on it: the game's boards and runs, and the generator's own
     # category pool. The pool lives in the database rather than beside the code because a
     # Cloud Run task's disk does not survive it, and a pool re-invented nightly is not a

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ui } from '$lib/i18n/ui.svelte';
 	import type { Tile } from '$lib/game/types';
 
 	type Props = {
@@ -75,7 +76,7 @@
 	{disabled}
 	aria-disabled={waiting || undefined}
 	aria-pressed={selected}
-	aria-label="{tile.word}, row {row + 1} of {rows}"
+	aria-label={ui().t.game.tile(tile.word, row + 1, rows)}
 	{onpointerdown}
 	{onpointermove}
 	{onpointerup}

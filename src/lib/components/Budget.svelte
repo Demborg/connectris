@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ui } from '$lib/i18n/ui.svelte';
 	import { CHECKS } from '$lib/game/engine';
 
 	let { left }: { left: number } = $props();
@@ -8,7 +9,7 @@
      is not reliably exposed, and this div is not in the tab order, so nothing would ever
      have read it. As a status it is also announced when the count changes, which is the
      moment a player would want to hear it. -->
-<div class="budget" role="status" aria-label="{left} of {CHECKS} checks left">
+<div class="budget" role="status" aria-label={ui().t.game.checksLeft(left, CHECKS)}>
 	{#each { length: CHECKS }, i}
 		<span class="pip" class:spent={i >= left} class:spending={i === left && left < CHECKS}></span>
 	{/each}

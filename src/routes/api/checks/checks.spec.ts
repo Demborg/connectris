@@ -94,3 +94,24 @@ describe('POST /api/checks', () => {
 		expect(await status(check({ puzzleId: 'no-such-board' }))).toBe(404);
 	});
 });
+
+describe('a board in either language', () => {
+	it('grades a Swedish board without being told which language it is', async () => {
+		// The endpoint looks the board up across every language on purpose: the id names one
+		// board, and asking the client which language it belongs to would be trusting the
+		// client to describe its own board. Narrowing to one language here would have made
+		// every check a Swedish player pressed answer 404.
+		const swedish = boards.find((p) => p.language === 'sv');
+		expect(swedish, 'no Swedish board shipped to grade').toBeDefined();
+
+		const answered = await post({
+			puzzleId: swedish!.id,
+			rows: solution(swedish!),
+			checksUsed: 1
+		});
+		expect(answered.status).toBe(200);
+		const outcome = (await answered.json()) as CheckOutcome;
+		expect(outcome.locked).toBe(ROWS);
+		expect(outcome.cleared.map((g) => g.id)).toEqual(swedish!.groups.map((g) => g.id));
+	});
+});

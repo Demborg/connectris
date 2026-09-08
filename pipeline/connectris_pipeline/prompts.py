@@ -15,13 +15,13 @@ from . import prompts_sv
 from .categories import Slot
 from .language import ENGLISH, Language
 from .schema import RedTeamReport
-from .spec import COLS, MAX_WORD_LEN, ROWS, Puzzle
+from .spec import CHECKS, COLS, MAX_WORD_LEN, ROWS, Puzzle
 
 GAME_BRIEF = f"""\
 Connectris is a word-grouping puzzle. The board is {ROWS * COLS} words in {ROWS} rows of \
 {COLS}. Each row is one category. The player rearranges the whole board and commits to a \
 full arrangement, and only the leading run of correct rows from the top clears — so the \
-player must also rank their rows by confidence. They get six checks.
+player must also rank their rows by confidence. They get {CHECKS} checks.
 
 This means a puzzle is judged on two things at once:
 - Each category must have exactly one defensible membership, or a player who is right is \
