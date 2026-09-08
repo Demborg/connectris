@@ -54,9 +54,21 @@ jobs:
             --quiet
           echo "url=$(gcloud run services describe "$SERVICE" --region="$REGION" --project="$PROJECT" --format='value(status.url)')" >> "$GITHUB_OUTPUT"
 
-      - name: Check the deployed revision serves a board
+      # `-L`, because the front door is a redirect now: a visitor with no name yet is sent
+      # to /hello, so asserting a literal 200 on `/` was asserting the absence of the sign-in
+      # gate. It went red the moment accounts landed and stayed red, which is the worst
+      # thing a smoke test can do — a deploy signal nobody believes is not a signal.
+      #
+      # Following the chain is also the better check. It proves the app booted, routed, and
+      # rendered a page, whichever page that is, and it keeps proving it if the gate moves
+      # or goes away. `--max-time` so a hung revision fails here rather than at the job
+      # timeout, and `-f` so a 5xx after the redirect cannot pass as "served something".
+      - name: Check the deployed revision answers
         run: |
           URL="${{ steps.deploy.outputs.url }}"
-          code=$(curl -s -o /dev/null -w '%{http_code}' "$URL/")
-          test "$code" = "200" || { echo "homepage returned $code"; exit 1; }
+          code=$(curl -sfL --max-time 30 -o /dev/null -w '%{http_code}' "$URL/") || {
+            echo "$URL/ did not answer (curl exit $?, last status ${code:-none})"
+            exit 1
+          }
+          test "$code" = "200" || { echo "front door came back $code"; exit 1; }
           echo "$URL is serving"
