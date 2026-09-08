@@ -1,21 +1,10 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { formatTime } from '$lib/format';
-	import { loadProgress, type BoardProgress } from '$lib/game/log';
+	import type { ListedBoard } from '$lib/server/board';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
-
-	/**
-	 * What this browser has played.
-	 *
-	 * It lives in localStorage, so the server has nothing to answer with — and it does not
-	 * need to guard for that, because the log's reader already treats an unreachable store
-	 * as an empty one. Rendering server-side therefore yields no marks and hydration fills
-	 * them in, which is the right way round: the list is the page, and a board with no mark
-	 * reads correctly as one you have not played.
-	 */
-	let progress = $derived<Record<string, BoardProgress>>(loadProgress());
 
 	/**
 	 * Today's board has a home of its own and this is not a second address for it. Every
@@ -24,9 +13,9 @@
 	const href = (id: string, today: boolean) => (today ? resolve('/') : resolve('/p/[id]', { id }));
 
 	/** Said in words as well as drawn, because a mark alone is not readable. */
-	function statusOf(p: BoardProgress | undefined) {
-		if (p?.best) return { kind: 'solved' as const, said: 'Solved' };
-		if (p?.played) return { kind: 'played' as const, said: 'Played' };
+	function statusOf(board: ListedBoard) {
+		if (board.best) return { kind: 'solved' as const, said: 'Solved' };
+		if (board.played) return { kind: 'played' as const, said: 'Played' };
 		return { kind: 'new' as const, said: 'Not played' };
 	}
 </script>
@@ -38,24 +27,24 @@
 <div class="app">
 	<header>
 		<h1>CONNECTRIS</h1>
+		<a class="back" href={resolve('/top')}>Standings</a>
 		<a class="back" href={resolve('/')}>Today's board</a>
 	</header>
 
 	<h2>Boards</h2>
 	<!-- Thirty days is the whole window; a board older than that is not reachable from
 	     anywhere, so there is no "load more" and nothing is being withheld. -->
-	<p class="note">Every board still in play. Yours are marked — they are kept in this browser.</p>
+	<p class="note">Every board still in play. Yours are marked, on whatever you play them on.</p>
 
 	<ul class="list">
 		{#each data.boards as board, i (board.id)}
-			{@const p = progress[board.id]}
-			{@const s = statusOf(p)}
+			{@const s = statusOf(board)}
 			<li>
 				<a
 					class="board"
 					href={href(board.id, i === 0)}
-					aria-label="{board.name}{i === 0 ? ", today's board" : ''}, {s.said}{p?.best
-						? `, best ${formatTime(p.best.timeMs)} with ${p.best.checksLeft} checks left`
+					aria-label="{board.name}{i === 0 ? ", today's board" : ''}, {s.said}{board.best
+						? `, best ${formatTime(board.best.timeMs)} with ${board.best.checksLeft} checks left`
 						: ''}"
 				>
 					<span class="mark {s.kind}" aria-hidden="true"></span>
@@ -64,9 +53,9 @@
 						<span class="today">Today</span>
 					{/if}
 					<span class="record">
-						{#if p?.best}
-							{formatTime(p.best.timeMs)} · {p.best.checksLeft} left
-						{:else if p?.played}
+						{#if board.best}
+							{formatTime(board.best.timeMs)} · {board.best.checksLeft} left
+						{:else if board.played}
 							Played
 						{/if}
 					</span>
@@ -87,10 +76,14 @@
 		padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
 	}
 
+	/* 20px rather than 12. Both links pad their tap target outwards by 8px on each side —
+	   the trick that gives them a real 44px target without changing the header's height —
+	   so at 12px the two targets overlapped by four pixels and a thumb aimed between them
+	   could land on either. */
 	header {
 		display: flex;
 		align-items: center;
-		gap: 12px;
+		gap: 20px;
 	}
 
 	h1 {

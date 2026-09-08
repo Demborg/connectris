@@ -1,7 +1,7 @@
-import type { PuzzleStore } from './ports';
+import type { PlayerStore, PuzzleStore } from './ports';
 
 /**
- * Remember what a puzzle store said, briefly.
+ * Remember what a store said, briefly.
  *
  * The board list is read on every page load and again on every check, to recover the
  * answer key. Without this a busy game costs a database read per press; with it a warm
@@ -18,24 +18,69 @@ import type { PuzzleStore } from './ports';
  * instead of racing. A failed lookup is dropped rather than remembered — a store that is
  * briefly unreachable must not become permanently empty.
  */
-export function cachePuzzles(inner: PuzzleStore, ttlMs = 60_000, now = Date.now): PuzzleStore {
+
+export const TTL_MS = 60_000;
+
+type Window = {
+	fresh<T>(key: string, ask: () => Promise<T>): Promise<T>;
+	forget(): void;
+};
+
+function window(ttlMs: number, now: () => number): Window {
 	let held: { at: number; answers: Map<string, Promise<unknown>> } | null = null;
 
-	function fresh<T>(key: string, ask: () => Promise<T>): Promise<T> {
-		const at = now();
-		if (!held || at - held.at > ttlMs) held = { at, answers: new Map() };
+	return {
+		fresh<T>(key: string, ask: () => Promise<T>): Promise<T> {
+			const at = now();
+			if (!held || at - held.at > ttlMs) held = { at, answers: new Map() };
 
-		const known = held.answers.get(key) as Promise<T> | undefined;
-		if (known) return known;
+			const known = held.answers.get(key) as Promise<T> | undefined;
+			if (known) return known;
 
-		const answers = held.answers;
-		const asked = ask().catch((reason: unknown) => {
-			answers.delete(key);
-			throw reason;
-		});
-		answers.set(key, asked);
-		return asked;
-	}
+			const answers = held.answers;
+			const asked = ask().catch((reason: unknown) => {
+				answers.delete(key);
+				throw reason;
+			});
+			answers.set(key, asked);
+			return asked;
+		},
+		forget() {
+			held = null;
+		}
+	};
+}
 
-	return { live: (limit) => fresh(`live:${limit}`, () => inner.live(limit)) };
+export function cachePuzzles(inner: PuzzleStore, ttlMs = TTL_MS, now = Date.now): PuzzleStore {
+	const held = window(ttlMs, now);
+	return { live: (limit) => held.fresh(`live:${limit}`, () => inner.live(limit)) };
+}
+
+/**
+ * Players, cached the same way and for a sharper reason: every request now resolves who
+ * is asking, so an uncached `byId` would put a database read in front of every page load
+ * and every check — undoing exactly what the puzzle cache buys.
+ *
+ * A successful registration drops the whole window rather than patching an entry into it.
+ * The player who just registered is redirected straight into the game, so their own next
+ * request must find them; and the standings, which read `all`, would otherwise be up to a
+ * minute late in noticing a new name. Registration happens once per player, so throwing
+ * the window away costs one re-read of a small collection.
+ *
+ * A miss is cached like anything else — a cookie left over from a wiped database would
+ * otherwise re-ask on every request — and dropping the window on registration is what
+ * makes that safe: the id a miss was recorded for is the id registration then claims.
+ */
+export function cachePlayers(inner: PlayerStore, ttlMs = TTL_MS, now = Date.now): PlayerStore {
+	const held = window(ttlMs, now);
+
+	return {
+		async register(player) {
+			const outcome = await inner.register(player);
+			if (outcome === 'ok') held.forget();
+			return outcome;
+		},
+		byId: (id) => held.fresh(`id:${id}`, () => inner.byId(id)),
+		all: (limit) => held.fresh(`all:${limit}`, () => inner.all(limit))
+	};
 }

@@ -1,5 +1,17 @@
+import type { Run } from '$lib/game/log';
 import type { Puzzle } from '$lib/game/types';
-import type { Feedback, FeedbackStore, PuzzleStore, RunRecord, RunStore } from './ports';
+import type {
+	Feedback,
+	FeedbackStore,
+	Player,
+	PlayerStore,
+	Progress,
+	ProgressStore,
+	PuzzleStore,
+	RunRecord,
+	RunStore
+} from './ports';
+import { foldRun, progressKey } from './progress';
 
 /**
  * Puzzles from a list held in memory.
@@ -19,6 +31,51 @@ import type { Feedback, FeedbackStore, PuzzleStore, RunRecord, RunStore } from '
 export function memoryPuzzles(schedule: Puzzle[], published = schedule.length): PuzzleStore {
 	const newestFirst = schedule.slice(0, published).reverse();
 	return { live: async (limit) => newestFirst.slice(0, limit) };
+}
+
+/**
+ * Registered players, for the life of the process.
+ *
+ * The claim is atomic for free here — JavaScript does not interleave the check and the
+ * write — which is exactly the property the other two adapters have to work for.
+ */
+export function memoryPlayers(): PlayerStore {
+	const byId = new Map<string, Player>();
+	const byHandle = new Map<string, string>();
+
+	return {
+		async register(player) {
+			if (byHandle.has(player.handle)) return 'taken';
+			byHandle.set(player.handle, player.id);
+			byId.set(player.id, player);
+			return 'ok';
+		},
+		async byId(id) {
+			return byId.get(id) ?? null;
+		},
+		async all(limit) {
+			return [...byId.values()].slice(0, limit);
+		}
+	};
+}
+
+export function memoryProgress(now: () => number = Date.now): ProgressStore {
+	const boards = new Map<string, Progress>();
+
+	return {
+		async record(userId: string, run: Run) {
+			const key = progressKey(userId, run.puzzle);
+			const folded = foldRun(boards.get(key) ?? null, userId, run, now());
+			boards.set(key, folded);
+			return folded;
+		},
+		async forUser(userId) {
+			return [...boards.values()].filter((p) => p.userId === userId);
+		},
+		async all(limit) {
+			return [...boards.values()].slice(0, limit);
+		}
+	};
 }
 
 /** Runs kept for the life of the process. Readable, so a test can assert what landed. */

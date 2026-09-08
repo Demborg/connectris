@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { loadProgress, loadRuns, recordBest, saveRun, type Run } from './log';
+import { better, bestOf, loadRuns, saveRun, type Run } from './log';
 
 /** The log talks to `localStorage` directly; node has none, so lend it one. */
 function lendStorage(): void {
@@ -26,46 +26,80 @@ const run = (puzzle: string, outcome: 'won' | 'lost' = 'lost'): Run => ({
 	events: []
 });
 
-describe('loadProgress', () => {
+describe('the local log', () => {
 	beforeEach(lendStorage);
 
-	it('says nothing about a browser that has not played', () => {
-		expect(loadProgress()).toEqual({});
-	});
-
-	it('marks a board played without claiming it was solved', () => {
+	it('keeps a run, newest first', () => {
 		saveRun(run('alpha'));
+		saveRun(run('beta'));
 
-		expect(loadProgress()).toEqual({ alpha: { played: true } });
-	});
-
-	it('carries the best of a solved board, so the page can show what it cost', () => {
-		saveRun(run('alpha', 'won'));
-		recordBest('alpha', { timeMs: 90_000, checksLeft: 2, moves: 12, checks: 2 });
-
-		const progress = loadProgress();
-		expect(progress.alpha.best).toMatchObject({ timeMs: 90_000, checksLeft: 2 });
+		expect(loadRuns().map((r) => r.puzzle)).toEqual(['beta', 'alpha']);
 	});
 
 	/**
-	 * The reason `loadProgress` reads both stores rather than just the runs. Runs are
-	 * capped; bests are not — so solving a board outlives the record of having played it.
+	 * The reason this is still only a log. Runs are capped, so what a browser remembers
+	 * having played fades — which is fine now that it is nobody's answer to anything. What
+	 * boards you have solved comes from the server, where it is not capped and not tied to
+	 * one browser. This kept a second, uncapped store of bests for exactly that job, and
+	 * that store was the thing that disagreed with the standings.
 	 */
-	it('keeps a solved board solved after its run has aged out of the log', () => {
+	it('forgets the oldest runs rather than growing without bound', () => {
 		saveRun(run('ancient', 'won'));
-		recordBest('ancient', { timeMs: 60_000, checksLeft: 3, moves: 9, checks: 1 });
 		for (let i = 0; i < 60; i++) saveRun(run(`later-${i}`));
 
+		expect(loadRuns()).toHaveLength(50);
 		expect(loadRuns().some((r) => r.puzzle === 'ancient')).toBe(false);
-		expect(loadProgress().ancient).toMatchObject({ played: true });
-		expect(loadProgress().ancient.best?.checksLeft).toBe(3);
 	});
 
-	/** The matching honesty: a board only ever lost does fall off, and should. */
-	it('forgets a board that was only ever lost once its run ages out', () => {
-		saveRun(run('faded'));
-		for (let i = 0; i < 60; i++) saveRun(run(`later-${i}`));
+	it('treats an unreachable store as an empty one', () => {
+		Object.defineProperty(globalThis, 'localStorage', {
+			configurable: true,
+			get() {
+				throw new Error('private mode');
+			}
+		});
 
-		expect(loadProgress().faded).toBeUndefined();
+		expect(loadRuns()).toEqual([]);
+		expect(() => saveRun(run('alpha'))).not.toThrow();
+	});
+});
+
+describe('better', () => {
+	const best = (checksLeft: number, timeMs: number) => ({
+		checksLeft,
+		timeMs,
+		moves: 0,
+		checks: 0
+	});
+
+	it('takes anything over nothing', () => {
+		expect(better(best(0, 999_000), null)).toBe(true);
+	});
+
+	it('ranks checks in hand above time', () => {
+		// The whole bet of the game is spending checks well, so a win that spent fewer is
+		// the better win even if it took longer to think about.
+		expect(better(best(2, 300_000), best(1, 10_000))).toBe(true);
+		expect(better(best(1, 10_000), best(2, 300_000))).toBe(false);
+	});
+
+	it('breaks a tie on time', () => {
+		expect(better(best(2, 40_000), best(2, 41_000))).toBe(true);
+		expect(better(best(2, 41_000), best(2, 40_000))).toBe(false);
+	});
+
+	it('does not beat an equal result, so a replay does not churn the record', () => {
+		expect(better(best(2, 40_000), best(2, 40_000))).toBe(false);
+	});
+});
+
+describe('bestOf', () => {
+	it('keeps only what a best is judged on', () => {
+		expect(bestOf(run('alpha', 'won'))).toEqual({
+			timeMs: 90_000,
+			checksLeft: 2,
+			moves: 12,
+			checks: 2
+		});
 	});
 });

@@ -1,11 +1,19 @@
 import { PassThroughClient } from 'google-auth-library';
 import { describe } from 'vitest';
-import { feedbackStoreContract, puzzleStoreContract, runStoreContract } from './contract';
+import {
+	feedbackStoreContract,
+	playerStoreContract,
+	progressStoreContract,
+	puzzleStoreContract,
+	runStoreContract
+} from './contract';
 import { shift, today } from './day';
 import {
 	collections,
 	connect,
 	firestoreFeedback,
+	firestorePlayers,
+	firestoreProgress,
 	firestorePuzzles,
 	firestoreRuns,
 	puzzleDoc
@@ -78,6 +86,23 @@ describe.skipIf(!emulating)('firestore stores', () => {
 				recorded: async () =>
 					(await db.collection(collections.feedback).get()).docs.map((d) => d.data() as Feedback)
 			};
+		});
+	});
+
+	describe('players', () => {
+		playerStoreContract(async () => {
+			// Both collections, because a claim outliving its player would make every
+			// following test's name unavailable for a reason no assertion could see.
+			await wipe(collections.players);
+			await wipe(collections.handles);
+			return firestorePlayers(db);
+		});
+	});
+
+	describe('progress', () => {
+		progressStoreContract(async () => {
+			await wipe(collections.progress);
+			return firestoreProgress(db);
 		});
 	});
 });

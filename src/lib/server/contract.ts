@@ -1,7 +1,18 @@
 import { expect, it } from 'vitest';
 import puzzles from '$lib/data/puzzles.json';
+import type { Run } from '$lib/game/log';
 import type { Puzzle } from '$lib/game/types';
-import type { Feedback, FeedbackStore, PuzzleStore, RunRecord, RunStore } from './ports';
+import { handleOf } from '$lib/alias';
+import type {
+	Feedback,
+	FeedbackStore,
+	Player,
+	PlayerStore,
+	ProgressStore,
+	PuzzleStore,
+	RunRecord,
+	RunStore
+} from './ports';
 
 /**
  * One suite per port, run against every adapter.
@@ -17,7 +28,6 @@ export function runOf(over: Partial<RunRecord> = {}): RunRecord {
 	return {
 		id: 'run-1',
 		userId: 'user-1',
-		displayName: null,
 		puzzle: boards[0].id,
 		startedAt: 1_700_000_000_000,
 		outcome: 'won',
@@ -30,6 +40,14 @@ export function runOf(over: Partial<RunRecord> = {}): RunRecord {
 	};
 }
 
+/** A finished game with nobody's name on it — what the progress port is given. */
+export function playOf(over: Partial<Run> = {}): Run {
+	const named = runOf();
+	delete (named as Partial<RunRecord>).id;
+	delete (named as Partial<RunRecord>).userId;
+	return { ...named, ...over };
+}
+
 export function feedbackOf(over: Partial<Feedback> = {}): Feedback {
 	return {
 		runId: 'run-1',
@@ -39,6 +57,17 @@ export function feedbackOf(over: Partial<Feedback> = {}): Feedback {
 		fair: true,
 		comment: '',
 		...over
+	};
+}
+
+export function playerOf(over: Partial<Player> = {}): Player {
+	const alias = over.alias ?? 'Ada';
+	return {
+		id: 'user-1',
+		registeredAt: 1_700_000_000_000,
+		...over,
+		alias,
+		handle: over.handle ?? handleOf(alias)
 	};
 }
 
@@ -118,5 +147,133 @@ export function feedbackStoreContract(make: () => Promise<FeedbackHarness>) {
 		const kept = await recorded();
 		expect(kept).toHaveLength(1);
 		expect(kept[0]).toMatchObject({ difficulty: 'hard', fair: false, comment: 'row 3' });
+	});
+}
+
+export function playerStoreContract(make: () => Promise<PlayerStore>) {
+	it('registers a player and finds them again by id', async () => {
+		const store = await make();
+		expect(await store.register(playerOf())).toBe('ok');
+		expect(await store.byId('user-1')).toEqual(playerOf());
+	});
+
+	it('says nothing about an id nobody registered', async () => {
+		// The cookie outlives the database it was minted against, so this is an ordinary
+		// answer rather than an error: it means "go and register", not "something broke".
+		expect(await (await make()).byId('never-seen')).toBeNull();
+	});
+
+	it('refuses a name someone already has', async () => {
+		const store = await make();
+		await store.register(playerOf({ id: 'first', alias: 'Ada' }));
+
+		expect(await store.register(playerOf({ id: 'second', alias: 'Ada' }))).toBe('taken');
+		expect(await store.byId('second')).toBeNull();
+	});
+
+	it('refuses a name that differs only in case, because a top list cannot show both', async () => {
+		const store = await make();
+		await store.register(playerOf({ id: 'first', alias: 'Ada' }));
+
+		expect(await store.register(playerOf({ id: 'second', alias: 'ADA' }))).toBe('taken');
+	});
+
+	it('keeps names apart when they only look alike in a stripped-down key', async () => {
+		// A store that reduced a handle to its letters — which the filesystem one would do
+		// on its own, since a name is not a safe filename — would file these as one.
+		const store = await make();
+		await store.register(playerOf({ id: 'first', alias: 'ada-lovelace' }));
+
+		expect(await store.register(playerOf({ id: 'second', alias: 'ada lovelace' }))).toBe('ok');
+		expect(await store.register(playerOf({ id: 'third', alias: 'Åke' }))).toBe('ok');
+	});
+
+	it('lists everyone, so the standings can put names to ids', async () => {
+		const store = await make();
+		await store.register(playerOf({ id: 'a', alias: 'Ada' }));
+		await store.register(playerOf({ id: 'b', alias: 'Bo' }));
+
+		const listed = await store.all(10);
+		expect(listed.map((p) => p.id).sort()).toEqual(['a', 'b']);
+	});
+}
+
+export function progressStoreContract(make: () => Promise<ProgressStore>) {
+	const board = boards[0].id;
+	const other = boards[boards.length - 1].id;
+
+	it('records a win as a best', async () => {
+		const store = await make();
+		const kept = await store.record('ada', playOf({ puzzle: board, timeMs: 90_000 }));
+
+		expect(kept).toMatchObject({ userId: 'ada', puzzleId: board, plays: 1 });
+		expect(kept.best).toMatchObject({ timeMs: 90_000, checksLeft: 1 });
+	});
+
+	it('records a loss as a play with nothing to show for it', async () => {
+		// The distinction the boards page draws: attempted is not solved, and a board you
+		// lost should not come back looking untouched.
+		const store = await make();
+		const kept = await store.record('ada', playOf({ outcome: 'lost', checksLeft: 0 }));
+
+		expect(kept.plays).toBe(1);
+		expect(kept.best).toBeNull();
+	});
+
+	it('counts every play of a board on one record', async () => {
+		const store = await make();
+		await store.record('ada', playOf({ outcome: 'lost' }));
+		const kept = await store.record('ada', playOf({ outcome: 'lost' }));
+
+		expect(kept.plays).toBe(2);
+		expect(await store.forUser('ada')).toHaveLength(1);
+	});
+
+	it('keeps the better win and ignores the worse one', async () => {
+		const store = await make();
+		await store.record('ada', playOf({ checksLeft: 2, timeMs: 100_000 }));
+		const kept = await store.record('ada', playOf({ checksLeft: 1, timeMs: 10_000 }));
+
+		// More checks in hand beats a faster time — the same rule the end card and the
+		// standings apply, because there is only one.
+		expect(kept.best).toMatchObject({ checksLeft: 2, timeMs: 100_000 });
+	});
+
+	it('takes a faster win at the same number of checks', async () => {
+		const store = await make();
+		await store.record('ada', playOf({ checksLeft: 2, timeMs: 100_000 }));
+		const kept = await store.record('ada', playOf({ checksLeft: 2, timeMs: 40_000 }));
+
+		expect(kept.best).toMatchObject({ checksLeft: 2, timeMs: 40_000 });
+	});
+
+	it('never loses a solve to a later loss on the same board', async () => {
+		const store = await make();
+		await store.record('ada', playOf({ checksLeft: 2 }));
+		const kept = await store.record('ada', playOf({ outcome: 'lost', checksLeft: 0 }));
+
+		expect(kept.best).toMatchObject({ checksLeft: 2 });
+		expect(kept.plays).toBe(2);
+	});
+
+	it('keeps one player’s boards apart from another’s', async () => {
+		const store = await make();
+		await store.record('ada', playOf({ puzzle: board }));
+		await store.record('bo', playOf({ puzzle: board }));
+		await store.record('ada', playOf({ puzzle: other }));
+
+		expect((await store.forUser('ada')).map((p) => p.puzzleId).sort()).toEqual(
+			[board, other].sort()
+		);
+		expect(await store.forUser('bo')).toHaveLength(1);
+	});
+
+	it('hands back everything, which is what the standings fold over', async () => {
+		const store = await make();
+		await store.record('ada', playOf({ puzzle: board }));
+		await store.record('bo', playOf({ puzzle: other }));
+
+		expect(await store.all(100)).toHaveLength(2);
+		expect(await store.all(1)).toHaveLength(1);
 	});
 }
