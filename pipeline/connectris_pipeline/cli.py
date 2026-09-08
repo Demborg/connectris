@@ -150,7 +150,7 @@ def nightly(
             _llm(cfg),
             cfg,
             FirestoreStore(db),
-            source=FirestoreCategories(db),
+            source=FirestoreCategories(db, language_module.get(cfg.language)),
             count=count,
             seed=seed,
             out_dir=out,

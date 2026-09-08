@@ -216,7 +216,7 @@ async def tonight(
         count=count,
         seed=seed_for(decided.live_on) if seed is None else seed,
         out_dir=out_dir,
-        corpus=corpus_of(schedule),
+        corpus=corpus_of(schedule, lang.code),
         # Three, not two. It was two because two were hand-written; a seed set is however
         # many somebody wrote, and truncating it silently threw a third of one away.
         examples=examples[:3],
