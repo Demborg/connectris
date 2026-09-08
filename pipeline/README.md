@@ -129,16 +129,28 @@ gcloud run jobs execute connectris-generator --region=europe-north1 --wait
 # inside one: a night that fails for Swedish must not take English's board down with it,
 # and two jobs are two lines in the log and two bills that can be read apart. Ten minutes
 # apart so they do not contend for the same quota.
+#
+# The **v2** endpoint, not the v1 `namespaces` one the first job was created against.
+# Container overrides — which is how a schedule says which language it is for — are a v2
+# field; posted to v1 they are ignored, and both jobs would quietly write English.
 for lang in en sv-native; do
   gcloud scheduler jobs create http connectris-nightly-$lang \
     --location=europe-west1 --time-zone=UTC \
     --schedule="$([ $lang = en ] && echo '0 22 * * *' || echo '10 22 * * *')" \
-    --uri="https://europe-north1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/connectris-507519/jobs/connectris-generator:run" \
+    --uri="https://run.googleapis.com/v2/projects/connectris-507519/locations/europe-north1/jobs/connectris-generator:run" \
     --http-method=POST \
-    --message-body="{\"overrides\":{\"containerOverrides\":[{\"args\":[\"nightly\",\"--language\",\"$lang\"]}]}}" \
     --headers=Content-Type=application/json \
+    --message-body="{\"overrides\":{\"containerOverrides\":[{\"args\":[\"nightly\",\"--language\",\"$lang\"]}]}}" \
     --oauth-service-account-email=connectris-deploy@connectris-507519.iam.gserviceaccount.com
 done
+
+# `args` replaces the image's CMD and leaves its ENTRYPOINT alone, so the container runs
+# `connectris-pipeline --verbose nightly --language <lang>`.
+
+# The original single job predates the second language and writes English by falling
+# through to the image's own CMD. Delete it once the pair above is in, or it will write a
+# second English board on the same night as the first.
+gcloud scheduler jobs delete connectris-nightly --location=europe-west1
 
 # And to stop either, at any time, without deleting anything:
 gcloud scheduler jobs pause connectris-nightly-sv-native --location=europe-west1
