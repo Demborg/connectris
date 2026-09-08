@@ -16,7 +16,7 @@ from pathlib import Path
 from conftest import BOARDS
 
 from connectris_pipeline.categories import Category, JsonCategorySource
-from connectris_pipeline.spec import Group, Puzzle
+from connectris_pipeline.spec import Group, Notes, Puzzle, WordNote
 from connectris_pipeline.store import (
     CATEGORIES,
     PUZZLES,
@@ -101,6 +101,11 @@ class FakeDocument:
     def set(self, data: dict) -> None:
         self._collection.docs[self._id] = data
 
+    def update(self, data: dict) -> None:
+        """A merge, and only of the fields named. The distinction is the point of
+        `annotate`: a board already in front of players keeps its date."""
+        self._collection.docs[self._id] = {**self._collection.docs[self._id], **data}
+
 
 class FakeCollection(FakeQuery):
     def document(self, doc_id: str) -> FakeDocument:
@@ -158,6 +163,52 @@ def test_a_published_board_is_exactly_the_document_the_game_reads():
         "label": "Hand tools",
         "words": ["HAMMER", "CHISEL", "PLANE", "WRENCH"],
     }
+
+
+def test_notes_ride_on_the_group_they_explain():
+    """The one field added to a board after it is written, and the shape both ends read.
+
+    `Notes` in src/lib/game/types.ts is the other half of this: it hangs off `Group`, so
+    the game reveals a note by exactly the rule it reveals a label — a row that is on the
+    table has one and a row still in play does not.
+    """
+    explained = board("gen-01")
+    explained.groups[0].notes = Notes(
+        summary="Tools you swing or turn by hand.",
+        words=[WordNote(word=w, note=f"About {w}.") for w in explained.groups[0].words],
+    )
+    written, client = store()
+    written.publish(explained, live_on="2026-09-07", source="pipeline")
+
+    (data,) = client.collections[PUZZLES].docs.values()
+    assert data["groups"][0]["notes"] == {
+        "summary": "Tools you swing or turn by hand.",
+        "words": [{"word": w, "note": f"About {w}."} for w in explained.groups[0].words],
+    }
+    # A board from before notes existed does not grow an empty field for them.
+    assert "notes" not in data["groups"][1]
+
+
+def test_annotating_a_published_board_leaves_its_schedule_alone():
+    """The backfill's one write. `publish` would work and would also rewrite `liveOn` and
+    `source` — a job that is only adding prose must not move a board's date."""
+    written, client = store(
+        puzzles={"gen-01": {**board("gen-01").to_game_json(), "liveOn": "2026-09-05"}}
+    )
+
+    explained = board("gen-01")
+    for g in explained.groups:
+        g.notes = Notes(
+            summary=f"What {g.label} is.",
+            words=[WordNote(word=w, note=f"About {w}.") for w in g.words],
+        )
+    written.annotate(explained)
+
+    data = client.collections[PUZZLES].docs["gen-01"]
+    assert data["liveOn"] == "2026-09-05"
+    assert [g["notes"]["summary"] for g in data["groups"]] == [
+        f"What {g.label} is." for g in explained.groups
+    ]
 
 
 def test_the_document_agrees_with_the_type_the_game_declares():

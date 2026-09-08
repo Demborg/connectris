@@ -102,6 +102,12 @@ class Config:
     #: The critical stage. Strong model, and not the same call as solving.
     red_team: ModelSpec = ModelSpec("gemini-3.8-flash", thinking_level="high")
     grader: ModelSpec = ModelSpec("gemini-3.8-flash", thinking_level="high")
+    #: Writes the notes a player reads under a solved row. Runs once per *accepted* board
+    #: rather than once per candidate, so this is the cheapest stage in the pipeline and
+    #: it still gets the strong model: the output is shipped prose making factual claims
+    #: about who Charles Boycott was, and a cheap model's confident wrong answer would go
+    #: out under the game's name. Thinking low — recall, not reasoning.
+    glosser: ModelSpec = ModelSpec("gemini-3.8-flash", thinking_level="low")
     thresholds: Thresholds = field(default_factory=Thresholds)
 
     #: In-flight model calls across the whole run.
@@ -153,6 +159,7 @@ def load(path: Path | None) -> Config:
         proposer=model("proposer", cfg.proposer),
         red_team=model("red_team", cfg.red_team),
         grader=model("grader", cfg.grader),
+        glosser=model("glosser", cfg.glosser),
         solver=model("solver", cfg.solver),
         thresholds=thresholds,
         **top,

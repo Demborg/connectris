@@ -31,7 +31,7 @@ from typing import TYPE_CHECKING, Protocol
 
 from .categories import Category, Slot, draw
 from .day import today
-from .spec import Corpus, Puzzle
+from .spec import Corpus, Puzzle, group_json
 
 if TYPE_CHECKING:
     from google.cloud.firestore import Client
@@ -69,6 +69,17 @@ class GameStore(Protocol):
 
     def publish(self, puzzle: Puzzle, *, live_on: str, source: str) -> None:
         """Put a board into the game, due on `live_on`. Keyed by id, so it is idempotent."""
+        ...
+
+    def annotate(self, puzzle: Puzzle) -> None:
+        """Rewrite the rows of a board that is already in the game, and nothing else.
+
+        The one write the generator makes to a board it has already handed over, and it
+        exists for one job: backfilling notes onto the boards that shipped before there
+        were any. `publish` cannot do it — the schedule and the provenance live on the
+        same document, and a board already in front of players must not have its date
+        rewritten by a job that is only adding prose.
+        """
         ...
 
 
@@ -145,16 +156,25 @@ class FirestoreStore:
         # Written field by field rather than from `to_game_json`, because the document is
         # not the game's JSON: the id lives in the path and the schedule lives here. This
         # is `puzzleDoc` in src/lib/server/firestore.ts, and the two have to agree.
+        #
+        # A *group* is the same object in the file and in the document, so it is spelled
+        # out once, in `spec.group_json` — which is what stops a field being added to the
+        # game's JSON and forgotten here.
         self._db.collection(PUZZLES).document(puzzle.id).set(
             {
                 "name": puzzle.name,
                 "language": puzzle.language,
-                "groups": [
-                    {"id": g.id, "label": g.label, "words": list(g.words)} for g in puzzle.groups
-                ],
+                "groups": [group_json(g) for g in puzzle.groups],
                 "liveOn": live_on,
                 "source": source,
             }
+        )
+
+    def annotate(self, puzzle: Puzzle) -> None:
+        # `update`, not `set`: a merge of the one field, so a board that is already live
+        # keeps the `liveOn` and `source` it was published with.
+        self._db.collection(PUZZLES).document(puzzle.id).update(
+            {"groups": [group_json(g) for g in puzzle.groups]}
         )
 
 
@@ -184,6 +204,12 @@ class MemoryStore:
     def publish(self, puzzle: Puzzle, *, live_on: str, source: str) -> None:
         self.boards = [b for b in self.boards if b.puzzle.id != puzzle.id]
         self.boards.append(Published(puzzle=puzzle, live_on=live_on))
+
+    def annotate(self, puzzle: Puzzle) -> None:
+        self.boards = [
+            Published(puzzle=puzzle, live_on=b.live_on) if b.puzzle.id == puzzle.id else b
+            for b in self.boards
+        ]
 
 
 class FirestoreCategories:

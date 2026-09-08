@@ -260,6 +260,67 @@ def _red_summary(red: RedTeamReport | None) -> str:
     return "\n".join(lines) or "- nothing found"
 
 
+def gloss(puzzle: Puzzle) -> tuple[str, str]:
+    """The last stage, and the only one written for the player rather than about them.
+
+    Everything else in this file is judgement — is the board fair, is it solvable, is it
+    dull. This is reference: the board is already accepted and the question is only what
+    the row *was*. Playtesters finish a board and go and google the category, so the
+    answer is written once, here, and shipped with it.
+
+    Note what the prompt does not do: it does not grade, does not congratulate, and does
+    not explain the trap. A player who has solved the row knows it was hard. What they do
+    not know is who Adolphe Sax was.
+
+    The word caps and the two worked examples are the correction from the first real run.
+    Without them the notes came back accurate and unreadable — 30-word sentences in
+    reference-work register ("the principal vegetative and reproductive organs of vascular
+    angiosperms"), and, worst of all, summaries that restated the label the player had
+    just read: "___ BONE" glossed as "names for anatomical structures ending in the word
+    bone", which is the one sentence that adds nothing at all. The old prompt banned that
+    move for the word notes and forgot to ban it for the summary.
+    """
+    system = (
+        "You write the short reference note that appears under a solved row of a word "
+        "puzzle. The player has already found this category; nothing here is a hint and "
+        "nothing is a spoiler.\n\n"
+        "Write the sentence that saves them a search. For a category, what the set is. "
+        "For a word, the fact that puts it in the set — who the person was, where the "
+        "place is, which meaning of the word is in play.\n"
+        "Rules:\n"
+        "- One sentence each, and short: at most 25 words for a category, at most 20 for a "
+        "word. A note is read in about three seconds or it is not read.\n"
+        "- Facts only, and only facts you are sure of. If you are not certain what a word "
+        "refers to, write the plain definition rather than a detail you are guessing at.\n"
+        "- Write for a curious player, not for an encyclopedia. Prefer the concrete fact to "
+        "the technical term: 'the thighbone, the longest bone in the body' beats 'a major "
+        "skeletal element of the lower extremity'.\n"
+        "- Never restate the label. Not in a word's note ('a breed of hound dog' under "
+        "BEAGLE says nothing) and not in the summary either. The player has just read the "
+        "label; the summary has to add to it.\n"
+        "- For a fill-in-the-blank category ('___ CLIP', 'STAR ___'), do not describe the "
+        "pattern — it is visible. Say what the four completions have in common, or what is "
+        "worth knowing about the set: for '___ BONE', that none of the four is the "
+        "anatomical name.\n"
+        "- No praise, no commentary on the puzzle, no second person.\n"
+        "- Plain prose. No markdown, no lists inside a note.\n\n"
+        "Two examples of the register, both at the right length:\n"
+        "  Words derived from people's names — 'Eponyms: everyday words that started out as "
+        "somebody's name.'\n"
+        "  BOYCOTT — 'Charles Boycott, the Irish land agent whose tenants refused to deal "
+        "with him in 1880.'"
+    )
+    rows = "\n".join(f"{g.label}: {', '.join(g.words)}" for g in puzzle.groups)
+    prompt = f"""\
+Explain this board's five categories and all {ROWS * COLS} of its words.
+
+{rows}
+
+Copy each label and each word exactly as written above.
+"""
+    return system, prompt
+
+
 def invent(*, count: int, known: list[str]) -> tuple[str, str]:
     """Stage 0. Cheap, bulk, and run before any board exists.
 

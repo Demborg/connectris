@@ -108,6 +108,31 @@ counter and row-rank column are all gone from play. This is the general rule, no
 list of deletions: anything that counts upward while you think changes what the game feels
 like it is about.
 
+**12. A solved row explains itself.**
+_Set by playtesting, and by watching myself do it._ Every player who finished a board went
+and searched for the category — what it actually was, what a BASSET is, why CARDIGAN counts
+as a name. That is not a gap in the puzzle, it is the moment the puzzle creates: the row
+has just been named and the player is curious about it for about thirty seconds. So the
+search is answered in place. Tap a finished row and it opens onto one sentence on the
+category and one line per word.
+
+Three things this rule does **not** allow, and they are the reason it is written down:
+
+- It reveals nothing. Notes hang off `Group`, which is the object the server only ever
+  hands over for a row that is on the table — so a note is revealed by exactly the rule
+  the label is, and pin 4 is untouched.
+- It is not on screen while you play. A row still in play has nothing to open, and a
+  cleared row shows the same one-line summary it always did until it is asked. Pin 11 says
+  nothing may count upward while you think; the corollary is that nothing may _read_ while
+  you think either.
+- It is not commentary. A note says who Adolphe Sax was. It does not say the board was
+  clever, does not explain the trap, and does not congratulate anyone — a player who
+  solved the row already knows what it cost them.
+
+Boards written before this existed carry no notes and their rows simply do not open, which
+is why the affordance is a mark on the row rather than a permanent control. `cli gloss`
+buys the missing ones.
+
 ### Feel
 
 The game lives or dies on this, so these are decisions, not styling.
@@ -332,6 +357,10 @@ project whose last player left months ago.
    intended answer won't surface it.
 6. **Grade** — the only stage that sees the board, the traps, the solver evidence and the
    red-team report at once. Rates, and says what is wrong.
+7. **Gloss** — the notes a player reads under a solved row (pin 12), and the only stage
+   whose output is shipped prose rather than a judgement. It runs _after_ the accept, which
+   is the whole of its cost argument: 45% of candidates are thrown away, and explaining
+   those is paying to annotate puzzles nobody will see.
 
 Auto-accept above thresholds, everything else into a review queue.
 
@@ -339,6 +368,19 @@ Mixing providers in the solver ensemble is a feature — it stops puzzle quality
 overfitted to one model's blind spots.
 
 ### Decided while building it
+
+**The notes are written by their own stage, not by the proposer.** Two reasons, and the
+second is the one that decided it. Cost: a note on a rejected board is money spent
+explaining a puzzle that will never be seen. Quality: the proposer is arguing for its board
+while it writes it, and notes written in that frame come out as advocacy — "a classic
+misdirection" — where what is wanted is "Adolphe Sax, the Belgian instrument maker who
+invented it in the 1840s". A separate call, after the verdict, has nothing to defend.
+
+The pairing is by name rather than by position, and it is all-or-nothing. A note filed
+under the wrong word is not a missing note, it is a false statement about that word — so
+the notes are matched to the row by the label and to the word by the word, and a reply that
+does not cover the board exactly is thrown away whole. A board with no notes is a board
+whose rows do not open; a board with four of five explained reads as one that is broken.
 
 **One puzzle per call, not a batch.** A call asked for ten boards spends its attention on
 the first two and then reuses their vocabulary. Independent calls also buy independent

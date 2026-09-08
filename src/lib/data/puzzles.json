@@ -7,27 +7,132 @@
 			{
 				"id": "living-amphibians",
 				"label": "Living amphibians",
-				"words": ["FROG", "NEWT", "SALAMANDER", "TOAD"]
+				"words": ["FROG", "NEWT", "SALAMANDER", "TOAD"],
+				"notes": {
+					"summary": "The amphibians still alive today, which fall into three orders: frogs and toads, salamanders and newts, and the burrowing caecilians.",
+					"words": [
+						{
+							"word": "FROG",
+							"note": "A tailless amphibian built for jumping; frogs and toads together make up the order Anura."
+						},
+						{
+							"word": "NEWT",
+							"note": "A salamander of the newt subfamily, which lives on land as an adult but returns to water to breed."
+						},
+						{
+							"word": "SALAMANDER",
+							"note": "The tailed amphibians, order Caudata, which keep their tails into adulthood where a frog loses its."
+						},
+						{
+							"word": "TOAD",
+							"note": "A frog, informally — the word picks out the drier, wartier, shorter-legged ones rather than a group of its own."
+						}
+					]
+				}
 			},
 			{
 				"id": "hound-dog-breeds",
 				"label": "Hound dog breeds",
-				"words": ["BASSET", "BEAGLE", "BLOODHOUND", "GREYHOUND"]
+				"words": ["BASSET", "BEAGLE", "BLOODHOUND", "GREYHOUND"],
+				"notes": {
+					"summary": "Hounds hunt by scent or by sight, which is what separates them from the gundogs and the terriers.",
+					"words": [
+						{
+							"word": "BASSET",
+							"note": "The basset hound: short legs and long ears, bred in France to trail game slowly enough to follow on foot."
+						},
+						{
+							"word": "BEAGLE",
+							"note": "A small scent hound bred in England for hunting hare."
+						},
+						{
+							"word": "BLOODHOUND",
+							"note": "The scent hound with the keenest nose of any breed, able to follow a trail hours or days old."
+						},
+						{
+							"word": "GREYHOUND",
+							"note": "A sighthound, which runs its quarry down by sight and speed rather than by scent; the fastest dog there is."
+						}
+					]
+				}
 			},
 			{
 				"id": "undergraduate-class-years",
 				"label": "Undergraduate class years",
-				"words": ["FRESHMAN", "JUNIOR", "SENIOR", "SOPHOMORE"]
+				"words": ["FRESHMAN", "JUNIOR", "SENIOR", "SOPHOMORE"],
+				"notes": {
+					"summary": "The four years of an American undergraduate degree, each with a name of its own.",
+					"words": [
+						{
+							"word": "FRESHMAN",
+							"note": "First year."
+						},
+						{
+							"word": "JUNIOR",
+							"note": "Third year."
+						},
+						{
+							"word": "SENIOR",
+							"note": "Fourth year, and the last one."
+						},
+						{
+							"word": "SOPHOMORE",
+							"note": "Second year; traditionally read as the Greek for 'wise' and 'foolish' at once."
+						}
+					]
+				}
 			},
 			{
 				"id": "adjectives-meaning-principal",
 				"label": "Adjectives meaning 'principal'",
-				"words": ["CHIEF", "MAIN", "MAJOR", "PRIME"]
+				"words": ["CHIEF", "MAIN", "MAJOR", "PRIME"],
+				"notes": {
+					"summary": "Four adjectives for the most important one of a set — each of which also has a second life as a noun.",
+					"words": [
+						{
+							"word": "CHIEF",
+							"note": "Foremost, as in chief executive; as a noun, the head of a group."
+						},
+						{
+							"word": "MAIN",
+							"note": "The principal one, as in the main road."
+						},
+						{
+							"word": "MAJOR",
+							"note": "Greater or more important, as in a major road; also an army rank."
+						},
+						{
+							"word": "PRIME",
+							"note": "First in importance or in quality, as in prime minister."
+						}
+					]
+				}
 			},
 			{
 				"id": "clip",
 				"label": "___ CLIP",
-				"words": ["ALLIGATOR", "BINDER", "BULLDOG", "PAPER"]
+				"words": ["ALLIGATOR", "BINDER", "BULLDOG", "PAPER"],
+				"notes": {
+					"summary": "Four kinds of clip, each named either for what it grips or for what it grips like.",
+					"words": [
+						{
+							"word": "ALLIGATOR",
+							"note": "An alligator clip has serrated jaws that meet like a set of teeth; used to make a temporary electrical connection."
+						},
+						{
+							"word": "BINDER",
+							"note": "A binder clip squeezes a stack of paper between two folding steel handles."
+						},
+						{
+							"word": "BULLDOG",
+							"note": "A bulldog clip is the sprung metal paper clamp, named for the grip."
+						},
+						{
+							"word": "PAPER",
+							"note": "The paper clip: a single loop of bent wire."
+						}
+					]
+				}
 			}
 		]
 	},
@@ -39,27 +144,132 @@
 			{
 				"id": "orchestral-brass-instruments",
 				"label": "Orchestral brass instruments",
-				"words": ["HORN", "TROMBONE", "TRUMPET", "TUBA"]
+				"words": ["HORN", "TROMBONE", "TRUMPET", "TUBA"],
+				"notes": {
+					"summary": "The brass section — instruments sounded by buzzing the lips into a mouthpiece.",
+					"words": [
+						{
+							"word": "HORN",
+							"note": "The French horn: a coiled brass instrument, played with one hand inside the bell."
+						},
+						{
+							"word": "TROMBONE",
+							"note": "The brass instrument that changes pitch on a sliding tube rather than with valves."
+						},
+						{
+							"word": "TRUMPET",
+							"note": "The highest of the standard brass, with three valves."
+						},
+						{
+							"word": "TUBA",
+							"note": "The lowest brass instrument, and the foundation the section is built on."
+						}
+					]
+				}
 			},
 			{
 				"id": "words-derived-from-people-s-names",
 				"label": "Words derived from people's names",
-				"words": ["BOYCOTT", "CARDIGAN", "DIESEL", "SAXOPHONE"]
+				"words": ["BOYCOTT", "CARDIGAN", "DIESEL", "SAXOPHONE"],
+				"notes": {
+					"summary": "Eponyms: everyday words that started out as somebody's name.",
+					"words": [
+						{
+							"word": "BOYCOTT",
+							"note": "Charles Boycott, the Irish land agent whose tenants refused to deal with him in 1880."
+						},
+						{
+							"word": "CARDIGAN",
+							"note": "The 7th Earl of Cardigan, a British commander in the Crimean War, whose officers wore knitted woollen waistcoats."
+						},
+						{
+							"word": "DIESEL",
+							"note": "Rudolf Diesel, the German engineer who patented the compression-ignition engine."
+						},
+						{
+							"word": "SAXOPHONE",
+							"note": "Adolphe Sax, the Belgian instrument maker who invented it in the 1840s."
+						}
+					]
+				}
 			},
 			{
 				"id": "words-meaning-to-officially-forbid",
 				"label": "Words meaning to officially forbid",
-				"words": ["BAN", "OUTLAW", "PROHIBIT", "VETO"]
+				"words": ["BAN", "OUTLAW", "PROHIBIT", "VETO"],
+				"notes": {
+					"summary": "To forbid with authority behind it, rather than merely to disapprove.",
+					"words": [
+						{
+							"word": "BAN",
+							"note": "To forbid outright."
+						},
+						{
+							"word": "OUTLAW",
+							"note": "To make something illegal; of a person, once, to put them outside the protection of the law altogether."
+						},
+						{
+							"word": "PROHIBIT",
+							"note": "To forbid by law or by rule."
+						},
+						{
+							"word": "VETO",
+							"note": "To block a decision that has already been taken; Latin for 'I forbid', and the word a Roman tribune used to do it."
+						}
+					]
+				}
 			},
 			{
 				"id": "cuts-of-jeans",
 				"label": "Cuts of jeans",
-				"words": ["BOOTCUT", "FLARE", "SKINNY", "STRAIGHT"]
+				"words": ["BOOTCUT", "FLARE", "SKINNY", "STRAIGHT"],
+				"notes": {
+					"summary": "The shape of the leg, which is how denim is sold.",
+					"words": [
+						{
+							"word": "BOOTCUT",
+							"note": "Narrow to the knee, then widening just enough to sit over a boot."
+						},
+						{
+							"word": "FLARE",
+							"note": "Widening from the knee down, and more sharply than a bootcut does."
+						},
+						{
+							"word": "SKINNY",
+							"note": "Close-fitting the whole length of the leg."
+						},
+						{
+							"word": "STRAIGHT",
+							"note": "The same width from the knee to the ankle."
+						}
+					]
+				}
 			},
 			{
 				"id": "sleeveless-tops",
 				"label": "Sleeveless tops",
-				"words": ["HALTER", "TANK", "TUBE", "VEST"]
+				"words": ["HALTER", "TANK", "TUBE", "VEST"],
+				"notes": {
+					"summary": "Tops cut without sleeves, each named for the way it stays up.",
+					"words": [
+						{
+							"word": "HALTER",
+							"note": "Tied behind the neck, leaving the shoulders and back bare; a halter is also a rope headcollar for a horse."
+						},
+						{
+							"word": "TANK",
+							"note": "The tank top, named after the tank suit — the one-piece costume worn in a swimming tank."
+						},
+						{
+							"word": "TUBE",
+							"note": "A strapless band of stretch fabric, held up by nothing but its own tension."
+						},
+						{
+							"word": "VEST",
+							"note": "In British use a sleeveless undershirt; in American use, a waistcoat."
+						}
+					]
+				}
 			}
 		]
 	},
@@ -71,27 +281,132 @@
 			{
 				"id": "days-named-after-norse-deities",
 				"label": "Days named after Norse deities",
-				"words": ["TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"]
+				"words": ["TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"],
+				"notes": {
+					"summary": "Four of the English weekday names come from Norse gods; the other three come from the sun, the moon and Saturn.",
+					"words": [
+						{
+							"word": "TUESDAY",
+							"note": "Tiw's day — Tiw, or Tyr, the god of single combat."
+						},
+						{
+							"word": "WEDNESDAY",
+							"note": "Woden's day — Woden, or Odin, the chief of the gods."
+						},
+						{
+							"word": "THURSDAY",
+							"note": "Thor's day: thunder, and the hammer."
+						},
+						{
+							"word": "FRIDAY",
+							"note": "Frigg's day — Frigg, Odin's wife."
+						}
+					]
+				}
 			},
 			{
 				"id": "driver",
 				"label": "___ DRIVER",
-				"words": ["SCREW", "PILE", "SUNDAY", "BACKSEAT"]
+				"words": ["SCREW", "PILE", "SUNDAY", "BACKSEAT"],
+				"notes": {
+					"summary": "Four compounds ending in DRIVER, and only one of them is a person driving anything.",
+					"words": [
+						{
+							"word": "SCREW",
+							"note": "A screwdriver turns screws."
+						},
+						{
+							"word": "PILE",
+							"note": "A pile driver hammers piles into the ground; also, a wrestling move."
+						},
+						{
+							"word": "SUNDAY",
+							"note": "A Sunday driver is a slow and hesitant one, out for the drive rather than to arrive."
+						},
+						{
+							"word": "BACKSEAT",
+							"note": "A backseat driver tells the actual driver what to do from behind them."
+						}
+					]
+				}
 			},
 			{
 				"id": "woodwinds-with-reeds",
 				"label": "Woodwinds with reeds",
-				"words": ["CLARINET", "OBOE", "BASSOON", "SAXOPHONE"]
+				"words": ["CLARINET", "OBOE", "BASSOON", "SAXOPHONE"],
+				"notes": {
+					"summary": "The woodwinds that sound a reed, which is the distinction that leaves the flute out.",
+					"words": [
+						{
+							"word": "CLARINET",
+							"note": "Single reed, cylindrical bore."
+						},
+						{
+							"word": "OBOE",
+							"note": "Double reed, and the instrument the rest of the orchestra tunes to."
+						},
+						{
+							"word": "BASSOON",
+							"note": "Double reed, and the bass of the woodwind section."
+						},
+						{
+							"word": "SAXOPHONE",
+							"note": "Single reed, and made of brass — but a woodwind, because the reed is what decides it."
+						}
+					]
+				}
 			},
 			{
 				"id": "styles-of-drinking-glasses",
 				"label": "Styles of drinking glasses",
-				"words": ["TUMBLER", "GOBLET", "SNIFTER", "FLUTE"]
+				"words": ["TUMBLER", "GOBLET", "SNIFTER", "FLUTE"],
+				"notes": {
+					"summary": "Named glasses, each shaped for what goes in it.",
+					"words": [
+						{
+							"word": "TUMBLER",
+							"note": "A flat-bottomed glass with no stem and no handle."
+						},
+						{
+							"word": "GOBLET",
+							"note": "A bowl on a stem, on a foot."
+						},
+						{
+							"word": "SNIFTER",
+							"note": "A short-stemmed balloon glass for brandy, narrowing at the top to hold the aroma in."
+						},
+						{
+							"word": "FLUTE",
+							"note": "Tall and narrow, for sparkling wine — the shape is what keeps the bubbles."
+						}
+					]
+				}
 			},
 			{
 				"id": "exterior-car-parts",
 				"label": "Exterior car parts",
-				"words": ["BUMPER", "FENDER", "GRILLE", "HOOD"]
+				"words": ["BUMPER", "FENDER", "GRILLE", "HOOD"],
+				"notes": {
+					"summary": "The bodywork: the parts of a car you can put a hand on without opening anything.",
+					"words": [
+						{
+							"word": "BUMPER",
+							"note": "The bar at each end that takes a low-speed impact."
+						},
+						{
+							"word": "FENDER",
+							"note": "The panel over a wheel arch; the American term for what British English calls a wing."
+						},
+						{
+							"word": "GRILLE",
+							"note": "The slotted opening at the front that lets air through to the radiator."
+						},
+						{
+							"word": "HOOD",
+							"note": "The panel over the engine; the American term for a bonnet."
+						}
+					]
+				}
 			}
 		]
 	}

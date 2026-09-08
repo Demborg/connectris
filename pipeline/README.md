@@ -3,8 +3,9 @@
 Offline batch generation for Connectris — the phase 2 sketch in
 [DESIGN.md](../DESIGN.md#puzzle-generation-pipeline-phase-2-sketch), built. A strong model
 proposes a board, a quorum of deliberately weak ones try to solve it and say what they
-think each category was, a red team is paid to break it, and an editor model rates or
-repairs what survives. Everything is written to disk; the accept/review/reject call is a
+think each category was, a red team is paid to break it, an editor model rates or
+repairs what survives, and the board that is accepted gets the notes a player reads under
+each solved row. Everything is written to disk; the accept/review/reject call is a
 pure function over that record, so thresholds can be re-tuned against old runs for free.
 
 It is a separate Python job on purpose. It runs nightly, it never touches a request path,
@@ -28,6 +29,7 @@ uv run --python 3.12 python -m connectris_pipeline.cli nightly
 | `... cli run --count N --all`        | Same, but without stopping at the first accept           |
 | `... cli regrade runs/<stamp>`       | Re-decide a finished run under new thresholds. Free.     |
 | `... cli export runs/<stamp>`        | Append accepted boards to `src/lib/data/puzzles.json`    |
+| `... cli gloss [--published]`        | Backfill the notes under solved rows. One-off, by hand   |
 | `... cli check`                      | Run the pipeline's rules over the shipped puzzles        |
 | `uv run --locked --extra dev pytest` | Tests, all offline                                       |
 
@@ -48,8 +50,21 @@ anyone finished today's board? ──┤
                                   ↓
                         accepted? ─── no ── try again, up to `--count` times
                                   ↓ yes
+                                gloss ─── the notes under each solved row
+                                  ↓
                         publish for tomorrow, stop
 ```
+
+**Gloss is last, and after the accept.** It writes the reference note a player reads once
+a row is on the table — what the category was, what each word is — and it runs on the one
+board that is shipping rather than on all of them, because 45% of candidates are thrown
+away and explaining those is paying to annotate puzzles nobody will see. It is also the
+only stage that is allowed to fail without costing the night: a board with no notes is the
+board this game shipped for its first weeks, and a day with no puzzle on it is worse.
+
+Boards published before the stage existed have no notes and their rows do not open.
+`cli gloss` buys them — over `puzzles.json` by default, over the game's database with
+`--published`, and `--limit` is there to buy a few and read them before buying the rest.
 
 **The demand gate is the point.** A night costs about $0.33 and this game may have nobody
 playing it. The signal is a _finished run_ — the client posts one from `finish()` and

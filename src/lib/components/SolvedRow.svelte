@@ -5,17 +5,52 @@
 		group,
 		colour,
 		missed = false,
-		enterDelay = 0
-	}: { group: Group; colour: string; missed?: boolean; enterDelay?: number } = $props();
+		enterDelay = 0,
+		/** Whether this row's notes are the ones currently on screen. */
+		open = false,
+		onopen
+	}: {
+		group: Group;
+		colour: string;
+		missed?: boolean;
+		enterDelay?: number;
+		open?: boolean;
+		onopen: () => void;
+	} = $props();
+
+	/**
+	 * A row with notes is a control; a row without them is a label.
+	 *
+	 * Boards written before the notes stage existed carry none, and a button that opens
+	 * an empty panel is worse than no button — so the element itself changes rather than
+	 * the row staying a button that sometimes does nothing.
+	 */
+	let openable = $derived(!!group.notes);
 </script>
 
-<div class="row" class:missed style:--colour={colour} style:--enter="{enterDelay}ms">
+<svelte:element
+	this={openable ? 'button' : 'div'}
+	class="row"
+	class:missed
+	class:openable
+	style:--colour={colour}
+	style:--enter="{enterDelay}ms"
+	role={openable ? 'button' : undefined}
+	aria-haspopup={openable ? 'dialog' : undefined}
+	aria-expanded={openable ? open : undefined}
+	onclick={openable ? onopen : undefined}
+>
 	<span class="chip"></span>
 	<div class="text">
 		<span class="label">{group.label}</span>
 		<span class="words">{group.words.join('  ·  ')}</span>
 	</div>
-</div>
+	{#if openable}
+		<!-- The one hint that there is more here. Quiet on purpose: the row landing is the
+		     moment, and an inviting button on top of it competes with the clear. -->
+		<span class="more" aria-hidden="true">&#9656;</span>
+	{/if}
+</svelte:element>
 
 <style>
 	/* A solved row keeps a full row's height and spans the rail, so the board never
@@ -24,9 +59,10 @@
 	.row {
 		grid-column: 1 / -1;
 		display: grid;
-		grid-template-columns: 26px 1fr;
+		grid-template-columns: 26px 1fr auto;
 		align-items: center;
 		gap: var(--gap);
+		text-align: left;
 		/* Matches the height an active row's frame reaches with its bleed, so solved and
 		   unsolved rows sit on exactly the same rhythm. */
 		min-height: calc(var(--row-h) + 2 * var(--row-bleed));
@@ -43,6 +79,28 @@
 		   its own — the sequencing is the wave's. The delay is only for the rows a loss
 		   reveals, which have no wave to inherit their order from. */
 		animation: consolidate 300ms var(--ease) var(--enter) both;
+	}
+
+	/* Reads as "there is more of this", not as a second action: the whole row is the
+	   target, so nothing here should look like a button of its own. */
+	.more {
+		font-size: var(--fs-xs);
+		color: color-mix(in oklab, var(--colour) 30%, var(--text));
+		opacity: 0.5;
+		transition: opacity 160ms ease;
+	}
+
+	.openable:hover .more,
+	.openable:focus-visible .more {
+		opacity: 1;
+	}
+
+	/* The row draws its own outline for decoration, which outranks the global ring — so
+	   it has to redraw the ring itself or a keyboard player never sees where they are.
+	   See focus.spec.ts. */
+	.row:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
 	}
 
 	.chip {

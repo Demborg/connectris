@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { flip } from 'svelte/animate';
+	import CategoryNotes from './CategoryNotes.svelte';
+	import Sheet from './Sheet.svelte';
 	import SolvedRow from './SolvedRow.svelte';
 	import Tile from './Tile.svelte';
 	import { RIPPLE_STEP } from '$lib/game/session.svelte';
@@ -49,6 +51,17 @@
 		...session.missed.map((g, i) => ({ key: g.id, group: g, missed: true, order: i }))
 	]);
 	let active = $derived(session.status === 'lost' ? [] : session.rows);
+
+	/**
+	 * Which finished category is showing its notes, by group id rather than by place in
+	 * `done` — a loss appends the rows it reveals one at a time, and a player reading a
+	 * cleared row's notes while that happens must not have the panel change under them.
+	 */
+	let openedId = $state<string | null>(null);
+	let opened = $derived.by(() => {
+		const i = done.findIndex((d) => d.group.id === openedId);
+		return i === -1 ? null : { group: done[i].group, colour: colourOf(i) };
+	});
 
 	let tiles = $derived(
 		active.flatMap((row, r) =>
@@ -168,6 +181,8 @@
 				colour={colourOf(i)}
 				missed={d.missed}
 				enterDelay={d.missed ? d.order * 90 : 0}
+				open={openedId === d.group.id}
+				onopen={() => (openedId = d.group.id)}
 			/>
 		</div>
 	{/each}
@@ -219,6 +234,19 @@
 		</div>
 	{/each}
 </div>
+
+<!-- `above`, because the end card is already up whenever a run is over and the notes are
+     opened from a row behind it. -->
+{#if opened}
+	<Sheet
+		dismissLabel="Close the category"
+		labelledBy="category-title"
+		above
+		ondismiss={() => (openedId = null)}
+	>
+		<CategoryNotes group={opened.group} colour={opened.colour} />
+	</Sheet>
+{/if}
 
 <style>
 	/* Rows are spaced further apart than the tiles within them, so the row reads as the

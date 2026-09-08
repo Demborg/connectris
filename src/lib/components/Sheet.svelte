@@ -1,3 +1,8 @@
+<script lang="ts" module>
+	/** Every sheet currently open, oldest first. See the Escape handler below. */
+	const stack: symbol[] = [];
+</script>
+
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
@@ -24,6 +29,8 @@
 		label,
 		/** False once the panel is showing something the player wants the board behind. */
 		dim = true,
+		/** True for a sheet opened from under another one, which has to sit over it. */
+		above = false,
 		ondismiss,
 		children
 	}: {
@@ -31,17 +38,47 @@
 		labelledBy?: string;
 		label?: string;
 		dim?: boolean;
+		above?: boolean;
 		ondismiss: () => void;
 		children: Snippet;
 	} = $props();
 
 	let panel = $state<HTMLElement | null>(null);
-	$effect(() => panel?.focus());
+
+	/**
+	 * The panel takes focus on open and gives it back on close.
+	 *
+	 * Handing it back is what makes the keyboard path work now that a sheet can be opened
+	 * from a control on the board: tab to a solved row, open its notes, close them, and
+	 * without this focus is on nothing — the next tab starts again from the wordmark, and
+	 * the player has lost their place on a board of five rows.
+	 *
+	 * Read inside the effect rather than at init: effects do not run on the server, and by
+	 * the time this one does the panel has not taken focus yet, so `activeElement` is
+	 * still whatever opened it. `??=` so a re-run cannot overwrite it with the panel.
+	 */
+	let opener: HTMLElement | null = null;
+	$effect(() => {
+		if (!panel) return;
+		opener ??= document.activeElement as HTMLElement | null;
+		panel.focus();
+		return () => opener?.focus();
+	});
+
+	// Escape belongs to the sheet on top, and sheets do stack: a category's notes open
+	// over the end card. Every open sheet takes a ticket, the newest one is the topmost,
+	// and the ones underneath ignore the key — otherwise one press dismissed the whole
+	// pile, closing the card the player was not looking at.
+	const me = Symbol();
+	$effect(() => {
+		stack.push(me);
+		return () => stack.splice(stack.indexOf(me), 1);
+	});
 </script>
 
 <svelte:window
 	onkeydown={(e) => {
-		if (e.key === 'Escape') ondismiss();
+		if (e.key === 'Escape' && stack[stack.length - 1] === me) ondismiss();
 	}}
 />
 
@@ -51,10 +88,16 @@
 <!-- Tapping outside a sheet to dismiss it is the thing everyone tries first, so it had
      better work. A button rather than a div with a handler: it is a real control, and it
      should answer to a keyboard like one. -->
-<button class="scrim" class:thin={!dim} tabindex="-1" aria-label={dismissLabel} onclick={ondismiss}
+<button
+	class="scrim"
+	class:thin={!dim}
+	class:above
+	tabindex="-1"
+	aria-label={dismissLabel}
+	onclick={ondismiss}
 ></button>
 
-<div class="sheet">
+<div class="sheet" class:above>
 	<div
 		class="panel"
 		bind:this={panel}
@@ -83,10 +126,28 @@
 		z-index: 10;
 	}
 
-	/* When the panel is out of the way, the board is what the player came back for, so
-	   stop dimming it. */
+	/* When the panel is out of the way, the board is what the player came back for — so
+	   stop dimming it, and stop standing in front of it.
+
+	   `pointer-events` is the load-bearing half. A scrim is `inset: 0`, so the end card's
+	   covered the whole board even once it had been put away: every tap on a solved row
+	   landed on the scrim and was read as "dismiss", which made a category's notes
+	   unreachable at the one moment a player wants them — the run has just ended and they
+	   are looking at the five answers. A thin scrim has nothing left to dismiss, so it
+	   gets out of the way entirely. */
 	.scrim.thin {
 		opacity: 0.35;
+		pointer-events: none;
+	}
+
+	/* Over whatever sheet was already up, scrim included, so the pair reads as one
+	   panel on top of another rather than two panels arguing. */
+	.scrim.above {
+		z-index: 20;
+	}
+
+	.sheet.above {
+		z-index: 21;
 	}
 
 	.sheet {

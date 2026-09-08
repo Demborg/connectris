@@ -44,6 +44,7 @@ from .pipeline import Run
 from .pipeline import run as run_pipeline
 from .record import Candidate
 from .spec import Puzzle
+from .stages import gloss as gloss_board
 from .store import GameStore, Published, corpus_of
 
 log = logging.getLogger(__name__)
@@ -222,6 +223,18 @@ async def tonight(
     # human rather than stacked onto future dates by a job that cannot see whether they
     # are any good.
     board = _publishable(accepted[0], decided.live_on)
+
+    # The notes a player reads under a solved row, written now that there is a board worth
+    # explaining. Last, and after the accept, because 45% of candidates are thrown away
+    # and glossing those would be paying to explain puzzles nobody will see.
+    #
+    # Not fatal. A board with no notes is the board this game shipped for its first weeks
+    # and its rows simply do not open; a board withheld because one stage of prose failed
+    # is a day with no puzzle on it.
+    try:
+        board = Published(puzzle=await gloss_board(llm, cfg, board.puzzle), live_on=board.live_on)
+    except Exception:
+        log.exception("could not write notes for %s; publishing it without them", board.puzzle.id)
 
     # Logged before the write, not after. The run directory lives in the container and dies
     # with the task, so if `publish` throws — a permission, a bad date, an outage — this log

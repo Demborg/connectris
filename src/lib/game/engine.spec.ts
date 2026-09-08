@@ -34,6 +34,25 @@ describe('puzzle data', () => {
 		// stops being readable even with the font autoscaling. See DESIGN.md.
 		for (const g of p.groups) for (const w of g.words) expect(w.length).toBeLessThanOrEqual(12);
 	});
+
+	it.each(all.map((p) => [p.id, p] as const))('%s explains all of a row or none', (_id, p) => {
+		// Notes arrived after the first boards did, so a board without them is legal and
+		// its rows just do not open. A board with *some* of them is not: five bars where
+		// three open reads as three that are broken, so the gloss stage writes all five
+		// or leaves the board alone.
+		const explained = p.groups.filter((g) => g.notes).length;
+		expect([0, ROWS]).toContain(explained);
+
+		for (const g of p.groups) {
+			if (!g.notes) continue;
+			expect(g.notes.summary).not.toBe('');
+			// Paired by word rather than by position, so this is the check that the pairing
+			// is possible at all: every word in the row has a line, and no line names a
+			// word that is not in it.
+			expect(g.notes.words.map((w) => w.word).sort()).toEqual([...g.words].sort());
+			for (const w of g.notes.words) expect(w.note).not.toBe('');
+		}
+	});
 });
 
 describe('deal', () => {

@@ -40,6 +40,13 @@ thinking_level = "high"
 name = "gemini-3.1-flash-lite"
 thinking_level = "low"
 
+# Writes the note a player reads under a solved row. Runs once per accepted board, so it
+# is the cheapest stage there is — and it still gets the strong model, because the output
+# is shipped prose stating who Charles Boycott was.
+[glosser]
+name = "gemini-3.8-flash"
+thinking_level = "low"
+
 # Three gates. The other four were measured across a real run: none of them ever
 # changed a verdict, because the grader had already decided. The evidence they were
 # gating on still reaches the grader as prose.
