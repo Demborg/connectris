@@ -95,7 +95,11 @@ class ScriptedLLM:
         if schema is InventedCategories:
             return InventedCategories(
                 categories=[
-                    InventedCategory(label=f"Invented {i}", reads_as="reads wider")
+                    InventedCategory(
+                        label=f"Invented {i}",
+                        reads_as="reads wider",
+                        concept=f"invented idea {i}",
+                    )
                     for i in range(3)
                 ]
             )
@@ -117,7 +121,12 @@ class ScriptedLLM:
         return ProposedPuzzle(
             name=f"Board {self._proposed}",
             groups=[
-                ProposedGroup(label=label, words=list(ws), trap=f"{ws[0]} baits another row")
+                ProposedGroup(
+                    label=label,
+                    words=list(ws),
+                    concept=label.lower(),
+                    trap=f"{ws[0]} baits another row",
+                )
                 for label, ws in rows
             ],
         )
@@ -178,9 +187,19 @@ class MemoryCategorySource:
     def known(self) -> list[Category]:
         return list(self.categories)
 
-    def bank(self, categories: list[Category]) -> int:
+    def bank(self, categories: list[Category], *, taken: set[frozenset[str]] | None = None) -> int:
         seen = {c.key for c in self.categories}
-        fresh = [c for c in categories if c.key and c.key not in seen and not seen.add(c.key)]
+        spoken_for = {k for c in self.categories if (k := c.concept_key)} | (taken or set())
+        fresh = [
+            c
+            for c in categories
+            if c.key
+            and c.key not in seen
+            and not any(
+                c.concept_key <= x or x <= c.concept_key for x in spoken_for if c.concept_key
+            )
+            and not seen.add(c.key)
+        ]
         self.categories += fresh
         return len(fresh)
 

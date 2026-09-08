@@ -239,19 +239,30 @@ class FirestoreCategories:
                 label=str(data.get("label", "")),
                 reads_as=str(data.get("reads_as", "")),
                 used=str(data.get("used", "")),
+                concept=str(data.get("concept", "")),
             )
             for doc in self._collection().stream()
             if (data := doc.to_dict() or {})
         ]
 
-    def bank(self, categories: list[Category]) -> int:
+    def bank(self, categories: list[Category], *, taken: set[frozenset[str]] | None = None) -> int:
         have = self.known()
         seen = {c.key for c in have}
+        # The cross-language half of the guard. `seen` is lexical and cannot tell that
+        # 'Bleckblåsinstrument' is a category the English pool already holds; the concept
+        # keys can, and `taken` carries the ones that live outside this pool entirely.
+        concepts = {k for c in have if (k := c.concept_key)} | (taken or set())
         fresh = []
         for c in categories:
-            if c.key and c.key not in seen:
-                seen.add(c.key)
-                fresh.append(c)
+            key = c.concept_key
+            if not c.key or c.key in seen:
+                continue
+            if key and any(key <= other or other <= key for other in concepts):
+                continue
+            seen.add(c.key)
+            if key:
+                concepts.add(key)
+            fresh.append(c)
 
         # Keyed by the folded label, so banking the same idea twice is one document rather
         # than two — the same guard `bank` applies in memory, made durable.
@@ -273,7 +284,12 @@ class FirestoreCategories:
 
 
 def _category_doc(category: Category) -> dict:
-    return {"label": category.label, "reads_as": category.reads_as, "used": category.used}
+    return {
+        "label": category.label,
+        "reads_as": category.reads_as,
+        "used": category.used,
+        "concept": category.concept,
+    }
 
 
 def _doc_id(key: str) -> str:

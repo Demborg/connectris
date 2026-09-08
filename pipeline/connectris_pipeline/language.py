@@ -24,7 +24,7 @@ prompting in Swedish is better is an open question and it is cheap to test later
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 #: Structural kinds, English. A board gets one, and the pool avoids repeating one too soon,
 #: so a week of boards differs in shape rather than only in subject.
@@ -60,6 +60,29 @@ SV_DEVICES: list[str] = [
     "four words that are each the load-bearing noun of a fixed Swedish expression",
     "four words that are all a specific kind of noun with an everyday second meaning",
 ]
+
+#: The same eight devices, written in Swedish. Only used by the `sv-native` arm, where the
+#: whole authoring prompt is Swedish and an English device string would be a leak in it.
+#: Translated clause for clause from `SV_DEVICES`, deliberately not improved.
+SV_DEVICES_NATIVE: list[str] = [
+    "fyra förled — fyra stammar som var och en bildar en verklig, vardaglig "
+    "sammansättning med samma efterled (SOL, MÅN, STJÄRN + LJUS). Sätt bara förledet på "
+    "brickan. Alla fyra sammansättningarna måste vara ord folk faktiskt säger",
+    "fyra efterled — fyra efterled som var och ett bildar en verklig sammansättning med "
+    "samma förled. Sätt bara efterledet på brickan",
+    "fyra ord som var och ett gömmer ett kortare ord av samma slag",
+    "fyra ord som skiljer sig från ett vanligt ord enbart på Å, Ä eller Ö — ett minimalt "
+    "par på vokalen (RÅTTA/RATTA, HÖNA/HONA). Ordet på brädet är det riktiga",
+    "fyra medlemmar av en ordnad följd (grader, storlekar, stadier)",
+    "fyra ord som alla betyder ungefär samma sak",
+    "fyra ord som vart och ett är det bärande substantivet i ett fast svenskt uttryck",
+    "fyra ord som alla är ett bestämt slags substantiv med en vardaglig andrabetydelse",
+]
+
+SV_KINDS_NATIVE = (
+    "sådant-som-är-X, förled eller efterled i en gemensam sammansättning, minimala par på "
+    "Å/Ä/Ö, substantiv ur fasta uttryck, medlemmar av en följd, ord som gömmer ett annat ord"
+)
 
 #: Extra construction rules, appended to the shared ones. Empty for English, because the
 #: shared rules were written for English and already say what they need to.
@@ -97,6 +120,11 @@ class Language:
     kinds: str = ""
     #: Appended to CONSTRUCTION_RULES. Empty when the shared rules already suffice.
     rules: str = ""
+    #: Whether the *authoring* prompts (invent, propose) are written in this language
+    #: rather than in English about it. Solve, red-team and grade stay English either way:
+    #: they are the measurement, and an instrument that moves between arms measures
+    #: nothing. See `prompts_sv`.
+    prompt_native: bool = False
 
     @property
     def is_default(self) -> bool:
@@ -120,7 +148,18 @@ SWEDISH = Language(
     rules=SV_RULES,
 )
 
-LANGUAGES: dict[str, Language] = {lang.code: lang for lang in (ENGLISH, SWEDISH)}
+#: Same board language, same alphabet, same validation — the prompts differ and nothing
+#: else. Registered under its own key so `--language` can select it, while `code` stays
+#: "sv" so every board it writes is stamped, validated and deduped as ordinary Swedish.
+SWEDISH_NATIVE = replace(
+    SWEDISH, devices=SV_DEVICES_NATIVE, kinds=SV_KINDS_NATIVE, prompt_native=True
+)
+
+LANGUAGES: dict[str, Language] = {
+    "en": ENGLISH,
+    "sv": SWEDISH,
+    "sv-native": SWEDISH_NATIVE,
+}
 
 
 def get(code: str) -> Language:
@@ -129,4 +168,4 @@ def get(code: str) -> Language:
     return LANGUAGES[code]
 
 
-__all__ = ["ENGLISH", "LANGUAGES", "SWEDISH", "Language", "get"]
+__all__ = ["ENGLISH", "LANGUAGES", "SWEDISH", "SWEDISH_NATIVE", "Language", "get"]

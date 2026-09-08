@@ -150,14 +150,16 @@ async def run(
     # already thought hard about.
     if len(source.known()) < count:
         try:
-            banked = await invent(llm, cfg, source, count=cfg.invent_batch)
+            banked = await invent(
+                llm, cfg, source, count=cfg.invent_batch, taken=set(corpus.concepts)
+            )
             log.info("banked %d new categories", banked)
         except Exception:
             log.exception("category invention failed; allocating from what the pool has")
 
     # Our own copy: `run` must not leave the caller's corpus carrying boards that were
     # proposed and then thrown away.
-    against = Corpus(set(corpus.words), set(corpus.labels))
+    against = corpus.copy()
 
     writer = _Writer(directory)
     candidates: list[Candidate] = []
@@ -178,7 +180,7 @@ async def run(
                 candidate_id=cid,
                 slot=slot,
                 examples=examples,
-                corpus=Corpus(set(against.words), set(against.labels)),
+                corpus=against.copy(),
                 lang=lang,
             )
         except Exception:

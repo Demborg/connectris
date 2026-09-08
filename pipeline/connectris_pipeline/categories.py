@@ -27,7 +27,7 @@ from typing import Protocol
 
 from .day import today
 from .language import EN_DEVICES, Language
-from .spec import label_key
+from .spec import concept_key, label_key
 
 #: Lives beside the pipeline rather than in the game's data — it is production state for
 #: the generator, not something the app reads.
@@ -77,10 +77,17 @@ class Category:
     reads_as: str = ""
     #: ISO date it was last handed out, so recently-used themes can be held back.
     used: str = ""
+    #: The same idea in English, whatever `label` is written in. Two pools in two
+    #: languages are deduped against each other through this and nothing else.
+    concept: str = ""
 
     @property
     def key(self) -> str:
         return label_key(self.label)
+
+    @property
+    def concept_key(self) -> frozenset[str]:
+        return concept_key(self.concept)
 
 
 class CategorySource(Protocol):
@@ -90,8 +97,12 @@ class CategorySource(Protocol):
         """`count` slots, distinct within the batch and held back from recent use."""
         ...
 
-    def bank(self, categories: list[Category]) -> int:
-        """Add newly invented categories, skipping near-duplicates. Returns how many stuck."""
+    def bank(self, categories: list[Category], *, taken: set[frozenset[str]] | None = None) -> int:
+        """Add newly invented categories, skipping near-duplicates. Returns how many stuck.
+
+        `taken` names concepts already spoken for outside this pool, so that a second
+        language's pool can be deduped against the first's and against shipped boards.
+        """
         ...
 
     def known(self) -> list[Category]:
@@ -184,14 +195,24 @@ class JsonCategorySource:
     def known(self) -> list[Category]:
         return list(self._load())
 
-    def bank(self, categories: list[Category]) -> int:
+    def bank(self, categories: list[Category], *, taken: set[frozenset[str]] | None = None) -> int:
+        """Add what is new. `taken` is concepts already spoken for *elsewhere* — in the
+        other language's pool, or in shipped boards — and it is how a Swedish pool is
+        stopped from re-inventing the English catalogue in translation."""
         have = self._load()
         seen = {c.key for c in have}
+        concepts = {k for c in have if (k := c.concept_key)} | (taken or set())
         fresh = []
         for c in categories:
-            if c.key and c.key not in seen:
-                seen.add(c.key)
-                fresh.append(c)
+            key = c.concept_key
+            if not c.key or c.key in seen:
+                continue
+            if key and any(key <= other or other <= key for other in concepts):
+                continue
+            seen.add(c.key)
+            if key:
+                concepts.add(key)
+            fresh.append(c)
         if fresh:
             self._save(have + fresh)
         return len(fresh)

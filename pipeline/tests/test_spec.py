@@ -11,6 +11,7 @@ from connectris_pipeline.spec import (
     Corpus,
     Group,
     Puzzle,
+    concept_key,
     is_fatal,
     label_key,
     normalise_word,
@@ -175,3 +176,62 @@ def test_corpus_is_scoped_by_language():
     assert Corpus.from_game_json(raw, "en").words == {"BAND"}
     assert Corpus.from_game_json(raw, "sv").words == {"KORT"}
     assert Corpus.from_game_json(raw).words == {"BAND", "KORT"}
+
+
+def test_a_whole_duplicated_row_is_flagged():
+    """The gate was `> 4` and a row is exactly four words, so one copied row slid through.
+
+    It did, in a real run: two boards shipped FÄNRIK, LÖJTNANT, KAPTEN, MAJOR identically
+    and nothing said a word about it.
+    """
+    shipped = Corpus(words={"HAMMER", "CHISEL", "PLANE", "WRENCH"})
+    assert "stale-words" in codes(board(), shipped)
+    # Three shared words is still a coincidence rather than a copy.
+    assert "stale-words" not in codes(board(), Corpus(words={"HAMMER", "CHISEL", "PLANE"}))
+
+
+def test_concepts_compare_across_languages_where_labels_cannot():
+    """The one thing `label_key` structurally cannot do.
+
+    'Bleckblåsinstrument' and 'Orchestral brass instruments' share not one character, so
+    the lexical index rates them maximally different. They are the same board.
+    """
+    shipped = Corpus(concepts={concept_key("brass instruments")})
+    assert label_key("Bleckblåsinstrument") not in shipped.labels
+    assert shipped.matches_concept("brass instruments")
+    # Containment either way: one extra word of precision is the same category.
+    assert shipped.matches_concept("orchestral brass instruments")
+    assert not shipped.matches_concept("woodwind instruments")
+
+
+def test_the_concept_index_is_not_scoped_by_language():
+    """The opposite call from `words`, and deliberately so: a word being taken in English
+    says nothing about Swedish, but an *idea* being taken says everything."""
+    raw = [
+        {
+            "id": "a",
+            "language": "en",
+            "groups": [{"label": "Stone fruit", "words": ["PLUM"], "concept": "stone fruit"}],
+        }
+    ]
+    assert Corpus.from_game_json(raw, "sv").words == set()
+    assert Corpus.from_game_json(raw, "sv").matches_concept("stone fruit")
+
+
+def test_a_translated_category_is_warned_about_and_a_native_one_is_not():
+    p = board(
+        [
+            Group(
+                "a",
+                "Bleckblåsinstrument",
+                ["TRUMPET", "TROMBON", "TUBA", "KORNETT"],
+                concept="brass instruments",
+            ),
+            Group("b", "Schackpjäser", ["BONDE", "DAM", "KUNG", "TORN"], concept="chess pieces"),
+        ]
+    )
+    p.language = "sv"
+    problems = validate(p, Corpus(concepts={concept_key("brass instruments")}))
+    stale = [x.message for x in problems if x.code == "stale-concept"]
+    assert len(stale) == 1
+    assert "Bleckblåsinstrument" in stale[0]

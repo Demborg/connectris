@@ -39,7 +39,12 @@ def to_puzzle(
             gid += "-b"
         used.add(gid)
         groups.append(
-            Group(id=gid, label=g.label.strip(), words=[normalise_word(w) for w in g.words])
+            Group(
+                id=gid,
+                label=g.label.strip(),
+                words=[normalise_word(w) for w in g.words],
+                concept=g.concept.strip(),
+            )
         )
         traps[gid] = g.trap.strip()
 
@@ -62,6 +67,7 @@ async def propose(
         examples=examples,
         avoid_words=sorted(corpus.words),
         avoid_labels=sorted(corpus.labels),
+        avoid_concepts=sorted(" ".join(sorted(c)) for c in corpus.concepts),
         lang=lang,
     )
     out = await llm.generate(

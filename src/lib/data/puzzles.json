@@ -28,7 +28,8 @@
 							"note": "A frog, informally — the word picks out the drier, wartier, shorter-legged ones rather than a group of its own."
 						}
 					]
-				}
+				},
+				"concept": "amphibians"
 			},
 			{
 				"id": "hound-dog-breeds",
@@ -54,7 +55,8 @@
 							"note": "A sighthound, which runs its quarry down by sight and speed rather than by scent; the fastest dog there is."
 						}
 					]
-				}
+				},
+				"concept": "hound dog breeds"
 			},
 			{
 				"id": "undergraduate-class-years",
@@ -80,7 +82,8 @@
 							"note": "Second year; traditionally read as the Greek for 'wise' and 'foolish' at once."
 						}
 					]
-				}
+				},
+				"concept": "undergraduate class years"
 			},
 			{
 				"id": "adjectives-meaning-principal",
@@ -106,7 +109,8 @@
 							"note": "First in importance or in quality, as in prime minister."
 						}
 					]
-				}
+				},
+				"concept": "adjectives meaning main"
 			},
 			{
 				"id": "clip",
@@ -132,7 +136,8 @@
 							"note": "The paper clip: a single loop of bent wire."
 						}
 					]
-				}
+				},
+				"concept": "clip compounds"
 			}
 		]
 	},
@@ -165,7 +170,8 @@
 							"note": "The lowest brass instrument, and the foundation the section is built on."
 						}
 					]
-				}
+				},
+				"concept": "brass instruments"
 			},
 			{
 				"id": "words-derived-from-people-s-names",
@@ -191,7 +197,8 @@
 							"note": "Adolphe Sax, the Belgian instrument maker who invented it in the 1840s."
 						}
 					]
-				}
+				},
+				"concept": "eponyms"
 			},
 			{
 				"id": "words-meaning-to-officially-forbid",
@@ -217,7 +224,8 @@
 							"note": "To block a decision that has already been taken; Latin for 'I forbid', and the word a Roman tribune used to do it."
 						}
 					]
-				}
+				},
+				"concept": "verbs meaning to ban"
 			},
 			{
 				"id": "cuts-of-jeans",
@@ -243,7 +251,8 @@
 							"note": "The same width from the knee to the ankle."
 						}
 					]
-				}
+				},
+				"concept": "jeans cuts"
 			},
 			{
 				"id": "sleeveless-tops",
@@ -269,7 +278,8 @@
 							"note": "In British use a sleeveless undershirt; in American use, a waistcoat."
 						}
 					]
-				}
+				},
+				"concept": "sleeveless tops"
 			}
 		]
 	},
@@ -302,7 +312,8 @@
 							"note": "Frigg's day — Frigg, Odin's wife."
 						}
 					]
-				}
+				},
+				"concept": "weekdays named after norse gods"
 			},
 			{
 				"id": "driver",
@@ -328,7 +339,8 @@
 							"note": "A backseat driver tells the actual driver what to do from behind them."
 						}
 					]
-				}
+				},
+				"concept": "driver compounds"
 			},
 			{
 				"id": "woodwinds-with-reeds",
@@ -354,7 +366,8 @@
 							"note": "Single reed, and made of brass — but a woodwind, because the reed is what decides it."
 						}
 					]
-				}
+				},
+				"concept": "woodwind instruments"
 			},
 			{
 				"id": "styles-of-drinking-glasses",
@@ -380,7 +393,8 @@
 							"note": "Tall and narrow, for sparkling wine — the shape is what keeps the bubbles."
 						}
 					]
-				}
+				},
+				"concept": "drinking vessels"
 			},
 			{
 				"id": "exterior-car-parts",
@@ -406,7 +420,8 @@
 							"note": "The panel over the engine; the American term for a bonnet."
 						}
 					]
-				}
+				},
+				"concept": "exterior car parts"
 			}
 		]
 	}

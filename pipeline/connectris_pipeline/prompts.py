@@ -11,6 +11,7 @@ players we are calibrating against.
 
 from __future__ import annotations
 
+from . import prompts_sv
 from .categories import Slot
 from .language import ENGLISH, Language
 from .schema import RedTeamReport
@@ -116,13 +117,24 @@ def propose(
     examples: list[Puzzle],
     avoid_words: list[str],
     avoid_labels: list[str],
+    avoid_concepts: list[str] | None = None,
     lang: Language = ENGLISH,
 ) -> tuple[str, str]:
+    if lang.prompt_native:
+        return prompts_sv.propose(
+            slot=slot,
+            examples=examples,
+            avoid_words=avoid_words,
+            avoid_labels=avoid_labels,
+            avoid_concepts=avoid_concepts,
+            lang=lang,
+        )
     # The fallback is not decoration: a language with no shipped boards and no seeds hands
     # this an empty list, and an empty examples block reads as a truncated prompt.
     shown = "\n\n".join(_puzzle_as_example(p) for p in examples) or "(none shipped yet)"
     words = ", ".join(_sample(avoid_words, 200)) or "(nothing yet)"
     labels = "; ".join(_sample(avoid_labels, 80)) or "(nothing yet)"
+    concepts = "; ".join(_sample(avoid_concepts or [], 80)) or "(nothing yet)"
     system = (
         "You are a puzzle constructor. You write one board at a time and you care more "
         "about whether it has exactly one answer than about whether it is clever.\n\n"
@@ -153,6 +165,12 @@ so their words collide with these two.
 
 Already shipped, so do not reuse — words: {words}
 Already shipped, so do not repeat the idea — categories: {labels}
+Already shipped in some language, so do not repeat the idea in yours — concepts: {concepts}
+
+Give every category a `concept`: the same idea as a short English noun phrase, whatever \
+language the label is written in. It is an identifier, not a translation for the player. \
+If the concept you are about to write is on the list above, the category is a repeat even \
+though its label is new, and you should replace it.
 
 For each category, state its trap: which word on this board its *obvious* reading would \
 pull in, and what in its precise reading keeps that word out. "Stone fruit — reads as \
@@ -395,6 +413,8 @@ def invent(*, count: int, known: list[str], lang: Language = ENGLISH) -> tuple[s
     board is a design with five interacting parts and degrades when batched, a category is
     a one-line idea.
     """
+    if lang.prompt_native:
+        return prompts_sv.invent(count=count, known=known, lang=lang)
     system = (
         "You invent categories for a word puzzle. Not boards — just categories, one line "
         "each, to be drawn on later.\n\n" + GAME_BRIEF + "\n"

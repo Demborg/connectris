@@ -21,8 +21,20 @@ from ..prompts import invent as invent_prompt
 from ..schema import InventedCategories
 
 
-async def invent(llm: LLM, cfg: Config, source: CategorySource, *, count: int) -> int:
-    """Top the pool up. Returns how many categories were new."""
+async def invent(
+    llm: LLM,
+    cfg: Config,
+    source: CategorySource,
+    *,
+    count: int,
+    taken: set[frozenset[str]] | None = None,
+) -> int:
+    """Top the pool up. Returns how many categories were new.
+
+    `taken` is every concept that has already shipped, in any language. It is the reason
+    a Swedish pool does not come back holding *Stenfrukter* — which is what happened when
+    the only dedupe available was lexical and the English pool was invisible to it.
+    """
     system, prompt = invent_prompt(
         count=count,
         known=[c.label for c in source.known()],
@@ -32,5 +44,9 @@ async def invent(llm: LLM, cfg: Config, source: CategorySource, *, count: int) -
         stage="invent", model=cfg.proposer, system=system, prompt=prompt, schema=InventedCategories
     )
     return source.bank(
-        [Category(label=c.label.strip(), reads_as=c.reads_as.strip()) for c in out.categories]
+        [
+            Category(label=c.label.strip(), reads_as=c.reads_as.strip(), concept=c.concept.strip())
+            for c in out.categories
+        ],
+        taken=taken,
     )
