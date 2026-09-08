@@ -1,5 +1,6 @@
 import { error } from '@sveltejs/kit';
 import { boardOf } from '$lib/game/engine';
+import type { Best } from '$lib/game/log';
 import { BACKLOG, stores } from './stores';
 
 /**
@@ -25,20 +26,43 @@ export async function gameData(wanted?: string) {
 	};
 }
 
+/** A board on the picker, and what this player has done with it. */
+export type ListedBoard = {
+	id: string;
+	name: string;
+	played: boolean;
+	best: Best | null;
+};
+
 /**
- * Every board reachable right now, newest first — so the head of the list is today's.
+ * Every board reachable right now, newest first — so the head of the list is today's,
+ * each carrying what the player asking has done with it.
  *
  * Separate from `gameData` because the boards page wants the list and nothing else, and
  * dealing a board it will never show is work a cold start pays for. Same window and same
  * rule about what is reachable: this cannot name a board the game would refuse to load.
  *
+ * The marks used to be read from localStorage on hydration, which made them a second
+ * opinion: the standings counted a board solved from one store while the picker decided
+ * from another, and a browser that had been cleared disagreed with both. They are joined
+ * here instead, so the page ships complete in the first response and says the same thing
+ * the standings do — including on a phone that has never seen this board before.
+ *
  * No dates. When a board is due is a fact about the schedule rather than about the board,
  * and it is kept off `Puzzle` for that reason — so the list carries its own order and the
  * page says "today" by position.
  */
-export async function boardList() {
-	const live = await stores().puzzles.live(BACKLOG);
+export async function boardList(userId: string): Promise<{ boards: ListedBoard[] }> {
+	const { puzzles, progress } = stores();
+	const [live, played] = await Promise.all([puzzles.live(BACKLOG), progress.forUser(userId)]);
 	if (!live.length) error(503, 'No puzzles yet');
 
-	return { boards: live.map(({ id, name }) => ({ id, name })) };
+	const mine = new Map(played.map((p) => [p.puzzleId, p]));
+
+	return {
+		boards: live.map(({ id, name }) => {
+			const record = mine.get(id);
+			return { id, name, played: Boolean(record), best: record?.best ?? null };
+		})
+	};
 }

@@ -1,11 +1,17 @@
 import { boardList } from '$lib/server/board';
+import { requirePlayer } from '$lib/server/identity';
 import type { PageServerLoad } from './$types';
 
 /**
- * Every board still in the window.
+ * Every board still in the window, marked with what this player has done with it.
  *
- * Which of them you have played is not here and cannot be: it lives in your browser, so
- * the server has nothing to say about it. The list ships in the first response and the
- * marks arrive on hydration.
+ * Both halves ship in the first response now. They used to arrive separately — the list
+ * from here, the marks from localStorage on hydration — which was the right shape while
+ * the server had nothing to say about who was asking, and is the wrong one now that it
+ * does.
+ *
+ * `requirePlayer` cannot actually fire here: the layout gate has already sent an
+ * unregistered visitor to register. It is here so the load does not have to guess, and so
+ * this route would fail loudly rather than anonymously if that gate ever moved.
  */
-export const load: PageServerLoad = async () => boardList();
+export const load: PageServerLoad = async ({ locals }) => boardList(requirePlayer(locals).id);

@@ -1,12 +1,15 @@
 import { isHttpError } from '@sveltejs/kit';
 import { describe, expect, it } from 'vitest';
-import { feedbackOf, runOf } from './contract';
-import { parseFeedback, parseRun } from './parse';
+import { feedbackOf, playerOf, runOf } from './contract';
+import { parseFeedback, parseRun, runRecord } from './parse';
 
 /** A run as it arrives on the wire, before anything has vouched for it. */
 const sent = (over: Record<string, unknown> = {}) => ({ ...runOf(), ...over });
 
-function rejects(body: unknown, parse = parseRun as (b: unknown) => unknown): number {
+/** Whoever the cookie resolved to. Nothing in a body can change this. */
+const ada = playerOf({ id: 'user-1' });
+
+function rejects(body: unknown, parse: (b: unknown) => unknown = parseRun): number {
 	try {
 		parse(body);
 		return 200;
@@ -17,8 +20,16 @@ function rejects(body: unknown, parse = parseRun as (b: unknown) => unknown): nu
 }
 
 describe('parseRun', () => {
-	it('accepts a run and hands back exactly the fields it knows', async () => {
-		expect(parseRun(sent())).toEqual(runOf());
+	it('accepts a run and files it under whoever the cookie says is playing', async () => {
+		expect(runRecord(parseRun(sent()), ada)).toEqual(runOf());
+	});
+
+	it('ignores a userId in the body, whatever it says', async () => {
+		// The one field that used to be taken on trust. A body can still carry it — a
+		// stale client will — and it is simply not read: the record is filed under the
+		// player the cookie resolved to.
+		const parsed = runRecord(parseRun(sent({ userId: 'somebody-else' })), ada);
+		expect(parsed.userId).toBe('user-1');
 	});
 
 	it('drops anything it was not asked for', async () => {
@@ -65,22 +76,21 @@ describe('parseRun', () => {
 
 /** Answers as they arrive on the wire, one tap at a time. */
 const said = (over: Record<string, unknown> = {}) => ({ ...feedbackOf(), ...over });
-const rejectsAnswer = (body: unknown) => rejects(body, parseFeedback);
+const rejectsAnswer = (body: unknown) => rejects(body, (b) => parseFeedback(b, ada));
 
 describe('parseFeedback', () => {
 	it('accepts a full answer', async () => {
-		expect(parseFeedback(said())).toEqual(feedbackOf());
+		expect(parseFeedback(said(), ada)).toEqual(feedbackOf());
+	});
+
+	it('files the opinion under the cookie rather than the body', async () => {
+		expect(parseFeedback(said({ userId: 'somebody-else' }), ada).userId).toBe('user-1');
 	});
 
 	it('accepts an answer to only the first question', async () => {
 		// The screen posts on every tap and is skippable, so this is the common shape, not
 		// a degraded one. Difficulty alone is the answer most worth having.
-		const partial = parseFeedback({
-			runId: 'run-1',
-			userId: 'user-1',
-			puzzleId: 'p',
-			difficulty: 'hard'
-		});
+		const partial = parseFeedback({ runId: 'run-1', puzzleId: 'p', difficulty: 'hard' }, ada);
 		expect(partial).toMatchObject({ difficulty: 'hard', fair: null, comment: '' });
 	});
 

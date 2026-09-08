@@ -10,12 +10,18 @@ and clearing several rows at once — is what keeps them.
 
 **Play it:** https://connectris-214765692756.europe-north1.run.app
 
-Phase 1: a SvelteKit app on Cloud Run backed by Firestore, serving a small set of boards. The
-client never holds the answer key — it gets twenty words, and every check is graded by the
-server. Runs and a two-question survey are recorded, because the point of this phase is to
-find out how real people play. The reasoning behind every rule, what is deliberately
-dropped, what is still undecided, and where this is going next is in
-**[DESIGN.md](./DESIGN.md)**.
+A SvelteKit app on Cloud Run backed by Firestore, serving a board a day from a generator
+that writes them nightly. The client never holds the answer key — it gets twenty words, and
+every check is graded by the server. Runs and a two-question survey are recorded, because
+the point of this phase is to find out how real people play.
+
+Everyone picks a name before their first board. It is not an account — no password, no
+email — but it is server-side: the id is minted on registration and kept in an httpOnly
+cookie, so a run, an opinion and a place in the standings all belong to the same someone.
+Which boards you have solved and where you stand come from the database rather than from
+the browser, so they say the same thing on your phone as on your laptop. The reasoning
+behind every rule, what is deliberately dropped, what is still undecided, and where this is
+going next is in **[DESIGN.md](./DESIGN.md)**.
 
 ## Running it
 
@@ -25,8 +31,10 @@ pnpm dev
 ```
 
 With no `GOOGLE_CLOUD_PROJECT` set, the app runs entirely on itself: boards come from
-`src/lib/data/puzzles.json` on a schedule derived from today, and runs and survey answers
-are written as JSON files under `.data/`. No cloud project, no emulator, no network.
+`src/lib/data/puzzles.json` on a schedule derived from today, and players, runs, progress
+and survey answers are written as JSON files under `.data/`. No cloud project, no emulator,
+no network. Registering on a dev server is real — delete `.data/players` and `.data/handles`
+to start over.
 
 | Command       | Does                                           |
 | ------------- | ---------------------------------------------- |
@@ -46,10 +54,15 @@ and have ADC (`gcloud auth application-default login`).
 src/lib/game/engine.ts          Pure rules: dealing, checking, moves. Client and server.
 src/lib/game/checker.ts         Grading, local or over the wire. The answer key's seam.
 src/lib/game/session.svelte.ts  Runtime state for one run — budget, verdict, animation beats.
-src/lib/game/log.ts             Local play log and personal bests.
-src/lib/server/ports.ts         What the game needs from outside. Four ports.
+src/lib/game/log.ts             Local play log — kept so a run that failed to post is not lost.
+src/lib/alias.ts                What a player may call themselves, and how names compare.
+src/lib/server/ports.ts         What the game needs from outside. Five ports.
 src/lib/server/{memory,json,firestore}.ts   Three adapters answering to one contract.
+src/lib/server/identity.ts      Registration, and who a request belongs to.
+src/lib/server/progress.ts      A run folded into a board record; those folded into standings.
 src/lib/server/stores.ts        The one place that picks an adapter.
+src/routes/+layout.server.ts    The gate: no name, no game.
+src/routes/{hello,top}/         Pick a name; who is ahead.
 src/routes/api/                 checks, runs, feedback.
 pipeline/                       Offline puzzle generation (Python, separate job).
 ```

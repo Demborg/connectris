@@ -28,6 +28,22 @@
 	);
 
 	/**
+	 * Where that put you, once the server has counted it.
+	 *
+	 * Arrives a moment after the card does and appears without moving anything: it is a
+	 * link in the row that already holds the ways out, not a new row. The end of a run is
+	 * the one moment a standing is interesting, and making someone go and look for it is
+	 * how a scoreboard becomes a page nobody opens.
+	 */
+	let standing = $derived(session.standing);
+
+	/** "2nd", "3rd". English only, which is what the rest of this card's words are. */
+	function suffix(place: number): string {
+		if (place % 100 >= 11 && place % 100 <= 13) return 'th';
+		return ['th', 'st', 'nd', 'rd'][place % 10] ?? 'th';
+	}
+
+	/**
 	 * Whether the questions are showing.
 	 *
 	 * The board is exactly as tall as the screen — solved rows keep a full row's height so
@@ -168,6 +184,19 @@
 					bind:value={comment}
 					onblur={answer}></textarea>
 			</div>
+		{/if}
+
+		<!-- Only ever on a win, which is what makes it affordable: a loss does not move
+		     anyone's place, so the server does not compute one and this line does not
+		     render. The loss card therefore keeps the exact height it was fixed to have,
+		     and the extra line lands only on the card that is already tall because the
+		     questions are open under it. -->
+		{#if standing}
+			<a class="standing" href={resolve('/top')}>
+				{standing.place === 1
+					? `Top of the standings, of ${standing.of}`
+					: `${standing.place}${suffix(standing.place)} of ${standing.of} in the standings`}
+			</a>
 		{/if}
 
 		<!-- Beside the primary rather than under it. "Next puzzle" is a guess — it walks the
@@ -367,6 +396,25 @@
 	.asks {
 		max-height: 52dvh;
 		overflow-y: auto;
+	}
+
+	/* A line of text that happens to be a link, not a third button. The row below it holds
+	   the two things a player is being asked to choose between, and a third filled control
+	   beside them would make the choice look like it had three answers. */
+	.standing {
+		display: block;
+		padding: 0 0 12px;
+		font-size: var(--fs-xs);
+		font-weight: 600;
+		color: var(--muted);
+		text-decoration: underline;
+		text-underline-offset: 3px;
+		text-decoration-color: var(--tile-edge);
+	}
+
+	.standing:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 2px;
 	}
 
 	.ways-out {

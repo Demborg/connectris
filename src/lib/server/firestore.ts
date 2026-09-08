@@ -1,7 +1,19 @@
 import { Firestore, type Settings } from '@google-cloud/firestore';
+import type { Run } from '$lib/game/log';
 import type { Puzzle } from '$lib/game/types';
 import { today } from './day';
-import type { Feedback, FeedbackStore, PuzzleStore, RunRecord, RunStore } from './ports';
+import type {
+	Feedback,
+	FeedbackStore,
+	Player,
+	PlayerStore,
+	Progress,
+	ProgressStore,
+	PuzzleStore,
+	RunRecord,
+	RunStore
+} from './ports';
+import { foldRun, progressKey } from './progress';
 
 /**
  * Firestore, over REST.
@@ -19,7 +31,10 @@ import type { Feedback, FeedbackStore, PuzzleStore, RunRecord, RunStore } from '
 export const collections = {
 	puzzles: 'puzzles',
 	runs: 'runs',
-	feedback: 'feedback'
+	feedback: 'feedback',
+	players: 'players',
+	handles: 'handles',
+	progress: 'progress'
 } as const;
 
 export function connect(settings: Settings = {}): Firestore {
@@ -70,6 +85,98 @@ export function firestoreFeedback(db: Firestore): FeedbackStore {
 	const feedback = db.collection(collections.feedback);
 	// Keyed by run, so answering in stages is one opinion revised rather than several.
 	return { record: async (f: Feedback) => void (await feedback.doc(f.runId).set(f)) };
+}
+
+/**
+ * Players, and the index that makes a name unique.
+ *
+ * Two documents per registration: the player under their id, and a claim on their handle
+ * under the handle itself. The claim exists because Firestore has no unique constraint on
+ * a field — the only uniqueness it offers is that a document id is unique — so the way to
+ * make a name unique is to make it a document id.
+ *
+ * Both writes go in one transaction, which is the point. This is the single place in the
+ * app where two requests racing produce a *wrong* answer rather than a repeated one: a
+ * check-then-write would let two people register the same name in the same second and
+ * leave the standings with two rows nobody can tell apart. The transaction's read of the
+ * handle document is what makes the second one lose.
+ *
+ * The handle is encoded rather than used verbatim as that id, because a document id is
+ * not allowed to be "." or "..", to contain "/", or to be wrapped in double underscores —
+ * three ways an otherwise reasonable name would land as an exception instead of a "that
+ * one's taken". The name rules have no business knowing any of that, so the encoding
+ * absorbs it and the readable spelling lives in the document.
+ */
+export function firestorePlayers(db: Firestore): PlayerStore {
+	const players = db.collection(collections.players);
+	const handles = db.collection(collections.handles);
+	// Prefixed, so the encoding can never produce the one id Firestore refuses: a value
+	// wrapped in double underscores. base64url's alphabet includes "_", so without this it
+	// is a remote possibility rather than an impossible one, and the cost of ruling it out
+	// is a character.
+	const keyOf = (handle: string) => `h${Buffer.from(handle, 'utf8').toString('base64url')}`;
+
+	return {
+		async register(player) {
+			return db.runTransaction(async (tx) => {
+				const claim = handles.doc(keyOf(player.handle));
+				if ((await tx.get(claim)).exists) return 'taken' as const;
+
+				tx.set(claim, { id: player.id, alias: player.alias, handle: player.handle });
+				tx.set(players.doc(player.id), player);
+				return 'ok' as const;
+			});
+		},
+		async byId(id) {
+			const found = await players.doc(id).get();
+			return found.exists ? (found.data() as Player) : null;
+		},
+		async all(limit) {
+			const found = await players.limit(limit).get();
+			return found.docs.map((d) => d.data() as Player);
+		}
+	};
+}
+
+/**
+ * One player's history with one board.
+ *
+ * Read-modify-write in a transaction, because two runs finishing at once would otherwise
+ * lose a play between them — and unlike a lost run, a lost play is a board that goes back
+ * to looking untouched.
+ *
+ * `forUser` filters on a single field, which Firestore indexes on its own; there is no
+ * composite index to declare and none to forget at deploy time. `all` reads the
+ * collection, which is what the standings fold over — see the note in `progress.ts` about
+ * why that is affordable and when it stops being.
+ */
+export function firestoreProgress(db: Firestore, now: () => number = Date.now): ProgressStore {
+	const progress = db.collection(collections.progress);
+
+	return {
+		async record(userId, run: Run) {
+			const doc = progress.doc(progressKey(userId, run.puzzle));
+			return db.runTransaction(async (tx) => {
+				const found = await tx.get(doc);
+				const folded = foldRun(
+					found.exists ? (found.data() as Progress) : null,
+					userId,
+					run,
+					now()
+				);
+				tx.set(doc, folded);
+				return folded;
+			});
+		},
+		async forUser(userId) {
+			const found = await progress.where('userId', '==', userId).get();
+			return found.docs.map((d) => d.data() as Progress);
+		},
+		async all(limit) {
+			const found = await progress.limit(limit).get();
+			return found.docs.map((d) => d.data() as Progress);
+		}
+	};
 }
 
 /**

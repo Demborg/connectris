@@ -1,33 +1,20 @@
 /**
- * Who is playing, as far as this phase needs to know.
+ * What is left of identity in the browser.
  *
- * A random id minted on first play and kept in localStorage. There is no account and no
- * login: the point is to tell one player's runs from another's, not to know who they are.
- * DESIGN.md defers auth and asks only that the payload be shaped so a real user id can be
- * attached later — this is that shape, filled with something anonymous.
+ * Who is playing is the server's answer now: registering mints an id, sets it as an
+ * httpOnly cookie, and every run and every opinion is filed under whoever that cookie
+ * resolves to. The browser is not told the id and does not need it — see
+ * `lib/server/identity.ts` for why that moved.
  *
- * Lossy on failure, like the play log. A private window or a full store costs us a data
+ * Two things stay here. Run ids, because a run is named before it is finished so that
+ * feedback can be filed against it. And the id this browser used to play under, kept only
+ * so registration can offer it back and carry an existing history into a name.
+ *
+ * Lossy on failure, like the play log. A private window or a full store costs a data
  * point; it must never cost a game.
  */
 
 const ID_KEY = 'connectris:user:v1';
-const NAME_KEY = 'connectris:name:v1';
-
-function read(key: string): string | null {
-	try {
-		return localStorage.getItem(key);
-	} catch {
-		return null;
-	}
-}
-
-function write(key: string, value: string): void {
-	try {
-		localStorage.setItem(key, value);
-	} catch {
-		// Full, blocked, or private mode. Not worth breaking a game over.
-	}
-}
 
 /**
  * An opaque id. `randomUUID` needs a secure context, and this is called at the end of a
@@ -41,21 +28,20 @@ export function randomId(): string {
 	}
 }
 
-/** A stable id for this browser, minted on first use. */
-export function userId(): string {
-	const known = read(ID_KEY);
-	if (known) return known;
-
-	const minted = randomId();
-	write(ID_KEY, minted);
-	return minted;
-}
-
-/** Set by an invite link, so an invited tester's runs are legible rather than a uuid. */
-export function displayName(): string | null {
-	return read(NAME_KEY);
-}
-
-export function setDisplayName(name: string): void {
-	write(NAME_KEY, name);
+/**
+ * The id this browser played under before it had a name, if it ever did.
+ *
+ * Written by every version of this game up to now and never removed, because it is the
+ * only thread back to the runs, opinions and solves recorded against it. The registration
+ * page offers it to the server, which adopts it if nobody has registered it yet.
+ *
+ * Nothing writes this key any more. When the last browser holding one has registered it
+ * will simply stop returning anything, and this can go.
+ */
+export function playedAs(): string | null {
+	try {
+		return localStorage.getItem(ID_KEY);
+	} catch {
+		return null;
+	}
 }

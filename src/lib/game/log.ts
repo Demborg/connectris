@@ -1,11 +1,17 @@
 /**
  * Local play log.
  *
- * Phase 0 has no backend, but the whole point of the prototype is to find out whether
- * the mechanics are fun — which means capturing enough to replay a run afterwards and
- * to retro-score it against metrics we have not committed to yet (moves in particular).
+ * Phase 0 had no backend, and the whole point of the prototype was to find out whether
+ * the mechanics are fun — which means capturing enough to replay a run afterwards and to
+ * retro-score it against metrics we have not committed to yet (moves in particular).
  * Everything here is deliberately cheap and lossy-on-failure: a full localStorage or a
  * private window must never break the game.
+ *
+ * What this browser has *achieved* no longer lives here. Bests and which boards are
+ * solved are the server's answer now, because they are the same facts the standings are
+ * built from and one of them being local was one of them being a second opinion. What is
+ * left is the raw log, kept locally for the reason pin 10 gives: a run that failed to
+ * post is still a run that was played.
  */
 
 export type GameEvent =
@@ -33,15 +39,34 @@ export type Run = {
 	events: GameEvent[];
 };
 
-/** Personal best per puzzle — the local stand-in for the leaderboard. */
+/** Personal best per puzzle. Written by wins only — a loss has nothing to be best at. */
 export type Best = Pick<Run, 'timeMs' | 'checksLeft' | 'moves' | 'checks'>;
+
+/**
+ * Which of two results is better, and the only ranking rule this game has.
+ *
+ * The axes are kept separate on purpose — there is no combined score — so "better" means
+ * finishing with more checks in hand, or the same number of checks in less time. The
+ * standings sort players by the same two axes in the same order, because a rule that
+ * differed between "your best" and "who is ahead" would be two games.
+ */
+export function better(run: Best, than: Best | null | undefined): boolean {
+	if (!than) return true;
+	if (run.checksLeft !== than.checksLeft) return run.checksLeft > than.checksLeft;
+	return run.timeMs < than.timeMs;
+}
+
+/** A run reduced to what a best is made of. */
+export function bestOf(run: Run): Best {
+	const { timeMs, checksLeft, moves, checks } = run;
+	return { timeMs, checksLeft, moves, checks };
+}
 
 // v3: the budget tightened from six checks to four, so the most a win can now leave in hand
 // is three. A v2 best holding four or five is unreachable and would sit on the end card as a
 // target nobody can beat. Same reason v2 replaced v1, where runs recorded lives rather than
 // checksLeft: a budget change invalidates the comparison, so it invalidates the key.
 const RUNS_KEY = 'connectris:runs:v3';
-const BEST_KEY = 'connectris:best:v3';
 const MAX_RUNS = 50;
 
 function read<T>(key: string, fallback: T): T {
@@ -67,50 +92,4 @@ export function saveRun(run: Run): void {
 
 export function loadRuns(): Run[] {
 	return read<Run[]>(RUNS_KEY, []);
-}
-
-export function loadBests(): Record<string, Best> {
-	return read<Record<string, Best>>(BEST_KEY, {});
-}
-
-/** What this browser has to say about one board. A `best` is only ever written by a win. */
-export type BoardProgress = { played: true; best?: Best };
-
-/**
- * Which boards this browser has played, and which it solved.
- *
- * Derived rather than stored: both halves already exist, and a third key that had to be
- * kept in step with them is a third key that can disagree with them.
- *
- * The two sources age differently, which is the point of reading both. Runs are capped at
- * `MAX_RUNS`, so a board that was lost long enough ago falls out and goes back to looking
- * untouched — a real limitation, and the honest one to have, because the alternative is an
- * unbounded log. Bests are never trimmed, so a board that was *solved* stays solved for as
- * long as the browser keeps its storage.
- */
-export function loadProgress(): Record<string, BoardProgress> {
-	const progress: Record<string, BoardProgress> = {};
-	for (const run of loadRuns()) progress[run.puzzle] = { played: true };
-	for (const [puzzle, best] of Object.entries(loadBests()))
-		progress[puzzle] = { played: true, best };
-	return progress;
-}
-
-/**
- * Records a personal best. The axes are kept separate on purpose — there is no combined
- * score, so "better" here means finishing with more checks in hand, or the same number
- * of checks in less time.
- */
-export function recordBest(puzzle: string, run: Best): Best {
-	const bests = loadBests();
-	const prev = bests[puzzle];
-	const better =
-		!prev ||
-		run.checksLeft > prev.checksLeft ||
-		(run.checksLeft === prev.checksLeft && run.timeMs < prev.timeMs);
-	if (better) {
-		bests[puzzle] = run;
-		write(BEST_KEY, bests);
-	}
-	return bests[puzzle];
 }

@@ -1,9 +1,16 @@
 import { join } from 'node:path';
 import puzzles from '$lib/data/puzzles.json';
 import type { Puzzle } from '$lib/game/types';
-import { cachePuzzles } from './cache';
-import { connect, firestoreFeedback, firestorePuzzles, firestoreRuns } from './firestore';
-import { jsonFeedback, jsonRuns } from './json';
+import { cachePlayers, cachePuzzles } from './cache';
+import {
+	connect,
+	firestoreFeedback,
+	firestorePlayers,
+	firestoreProgress,
+	firestorePuzzles,
+	firestoreRuns
+} from './firestore';
+import { jsonFeedback, jsonPlayers, jsonProgress, jsonRuns } from './json';
 import { memoryPuzzles } from './memory';
 import type { Stores } from './ports';
 
@@ -22,6 +29,17 @@ import type { Stores } from './ports';
  * being pushed out — thirty days of archive, whatever the collection has grown to.
  */
 export const BACKLOG = 30;
+
+/**
+ * How much of the player and progress collections the standings will read.
+ *
+ * A ceiling rather than a page: there is no "next page" of a top list, and a bound is
+ * what stops one runaway night turning a page load into a full-collection scan. If this
+ * is ever actually reached, the fold in `progress.ts` has stopped being the right shape
+ * and its own note says what to do about it.
+ */
+export const ROSTER = 500;
+export const HISTORY = 5000;
 
 /** Where play data lands when there is no database. Real sessions, not fixtures. */
 export const DATA_DIR = process.env.CONNECTRIS_DATA_DIR ?? '.data';
@@ -42,6 +60,11 @@ function build(): Stores {
 		return {
 			// The boards compiled into the bundle, in the order they are written down.
 			puzzles: memoryPuzzles(puzzles as Puzzle[]),
+			// Players on disk rather than in memory even here: registration is a gate, and
+			// a gate that forgot everyone on every restart would make a dev server
+			// unusable within a day.
+			players: jsonPlayers(DATA_DIR),
+			progress: jsonProgress(join(DATA_DIR, 'progress')),
 			runs: jsonRuns(join(DATA_DIR, 'runs')),
 			feedback: jsonFeedback(join(DATA_DIR, 'feedback'))
 		};
@@ -50,6 +73,8 @@ function build(): Stores {
 	const db = connect({ projectId: project });
 	return {
 		puzzles: cachePuzzles(firestorePuzzles(db)),
+		players: cachePlayers(firestorePlayers(db)),
+		progress: firestoreProgress(db),
 		runs: firestoreRuns(db),
 		feedback: firestoreFeedback(db)
 	};

@@ -257,10 +257,12 @@ client gets twenty words and no answer key; every check is a POST that answers w
 and the categories that cleared. Runs and a two-question survey are recorded, because the
 question this phase exists to answer is how real people play.
 
-Three things the original sketch listed are not here. The **shared leaderboard** is not
-built — see the note on stateless checks below, which is what it would have to pay for.
-**Sharing a link to family** is half-built: boards have their own URLs, but named invites
-are not in yet. And **daily rollover** was removed and has now come back — see below.
+Three things the original sketch listed were not here at the end of this phase, and two of
+them have since arrived. The **shared leaderboard** is built, as standings rather than a
+ladder — see Registration below, and the stateless-checks note for what it deliberately
+still does not guarantee. **Sharing a link to family** is built: boards have their own URLs,
+and whoever follows one picks a name on the way in. And **daily rollover** was removed and
+has now come back — see below.
 
 Rollover was built, removed, and rebuilt, and the removal was right at the time. With
 nothing scheduling ahead, every board's date was in the past, so "today's puzzle" was a
@@ -284,7 +286,10 @@ that generates nothing repeats a day rather than leaving a hole.
 **Phase 2 — generated puzzles** _(built; running nightly against the game's own
 database)_. Below, and in `pipeline/`.
 
-**Phase 3 — accounts and histograms.** Percentile distributions once a puzzle has ~30 plays.
+**Phase 3 — names and standings** _(built)_. Everyone picks a name before their first
+board; solved boards and a top list are served from the database. Histograms are still
+ahead of us — percentile distributions want ~30 plays on a puzzle, and that is a question
+about how many people play rather than about what is built. See **Registration** below.
 
 ---
 
@@ -487,9 +492,56 @@ Model names are the fastest-ageing thing in this repo and live in config, not in
 generation split matters more than the names: Gemini 3 takes a thinking _level_ and wants
 temperature left alone, 2.5 takes a token _budget_ and does not.
 
-**Auth: deferred.** A display name in localStorage is enough to compete with family. Google
-sign-in when it's needed. Shape the score payload now so a user id can be attached later.
-_Done:_ a random id is minted on first play and travels with every run.
+**Auth: still deferred. Identity: no longer.** _Overturns the localStorage half of the
+decision below, which was right for a game nobody was ranked in._
+
+The old note said a display name in localStorage was enough to compete with family, and
+asked only that the payload be shaped so a real user id could be attached later. The name
+never got built, and the id it did get was the browser's own word: minted client-side and
+posted in the body of every run.
+
+That was free while the id only tagged runs for analysis. The people playing had no reason
+to lie, and the only person a forged id misled was whoever forged it. A top list changes
+who benefits — an id in a request body is an id anyone can type — so the id moved to the
+server. Registering mints one and returns it as an httpOnly cookie; every write reads the
+player from there and ignores whatever the body claims. `parse.ts` no longer takes a
+`userId` at all.
+
+**Registration is a gate, not a prompt.** One check in `+layout.server.ts` in front of every
+page: no name, no game. A skippable version was considered and dropped — it adds an
+anonymous branch to every read path and to the standings, to protect a wall that is one
+word high. The page it redirects to is a form action rather than a `fetch`, so it works
+before hydration; this is the one screen that stands in front of everything else, and a
+slow first load must not be a game nobody can get into.
+
+**Existing players keep their history.** Every browser that had played has a random id in
+localStorage. The registration page offers it back, and the server adopts it if nobody has
+registered it — so a returning player's runs, opinions and solves arrive with the name
+rather than being orphaned beside it. Knowing an unregistered id is enough to claim it,
+which is a real hole and a small one: the ids are uuids, so knowing one means having been
+that browser, and a registered id can never be adopted. The alternative was resetting
+everyone to zero.
+
+**What this still does not buy**, and must not be described as buying: anyone can clear the
+cookie and register again under another name, and nothing witnessed the run whose time is
+reported — see the stateless-checks note below, which is unchanged. The standings are a
+family scoreboard, not a ranked ladder. Google sign-in is still the answer if that ever
+stops being true.
+
+**Names are unique, case-folded.** Two rows called "Ada" and "ada" are one name in a top
+list, so the store refuses the second. Firestore has no unique constraint on a field — the
+only uniqueness it offers is that a document id is unique — so a claim on the handle is
+written as a document, in the same transaction as the player. It is the one write in this
+app where two requests racing produce a _wrong_ answer rather than a repeated one.
+
+**Solved boards and standings come from the server.** They used to be read from
+localStorage on the boards page, which made them a second opinion: the picker decided a
+board was solved from one store while the standings counted from another, and a cleared
+browser disagreed with both. A run is now folded into one document per player per board —
+plays, and the best of them — and the standings are a fold over those. Per-board records
+answer "which have I solved" in one query; the standings read the collection and reduce it
+in process, which is what the database note above says is the right shape at ten players
+and thirty boards. `progress.ts` carries the note about when it stops being.
 
 **Checks are graded statelessly, and that is a deliberate hole.** The server holds the
 answer key and the client posts an arrangement; there is no game document. `deal` is a pure
@@ -498,9 +550,16 @@ means a check costs one cached read and no writes — that is what makes scaling
 cheap enough to do without thinking about it.
 
 What is not delivered: the server does not enforce the check budget, and nothing in a
-recorded run was witnessed. The client counts its own four. That is only exploitable
-against a leaderboard, and a leaderboard is exactly what would pay for the game documents
-that would close it. Building it now would be paying for a guarantee nothing yet needs.
+recorded run was witnessed. The client counts its own four.
+
+There is now a leaderboard, which is the thing this note said would pay for closing it —
+and it has not been closed. Deliberately: what a standings page changes is who _benefits_
+from a forged run, and the answer among people who know each other is nobody. Fixing it
+means a game document per run, which is a write on every check, on the path that is
+currently free and is what makes scaling to zero cheap. That trade is worth making when a
+stranger has a reason to win, and not before. Naming the players did close the cheaper half
+of it — a run can no longer be posted under someone else's id — which is the half that
+would have made the list meaningless rather than merely optimistic.
 
 The property that mattered is delivered in full: the client cannot see the answer, and per
 pin 1 the 3×10¹¹ arrangement space makes probing worthless.

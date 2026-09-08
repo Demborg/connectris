@@ -1,6 +1,6 @@
 import { randomId } from '$lib/user';
 import { CHECKS, swapTiles } from './engine';
-import { recordBest, saveRun, type Best, type EventInput, type GameEvent } from './log';
+import { saveRun, type Best, type EventInput, type GameEvent } from './log';
 import { noReporter, type Reporter } from './report';
 import type {
 	Board,
@@ -135,7 +135,18 @@ export class Session {
 	crash = $state(0);
 	/** Whether that impact was a failed check rather than a clear landing. */
 	crashMiss = $state(false);
+	/**
+	 * This player's best on this board, and where they stand — both the server's answer,
+	 * both arriving after the run has been posted.
+	 *
+	 * Late rather than immediate, which is the trade for having one number instead of two.
+	 * A best kept in localStorage could be shown the instant a run ended, but it was a
+	 * second opinion: it disagreed with the standings, with the boards page, and with the
+	 * same player's other phone. The card copes by simply not showing a line it does not
+	 * have yet.
+	 */
 	best = $state<Best | undefined>(undefined);
+	standing = $state<{ place: number; of: number } | null>(null);
 	/** Categories never found, revealed once the run is lost. Only a grader can name them. */
 	missed = $state<Group[]>([]);
 	/**
@@ -418,7 +429,14 @@ export class Session {
 			events: this.events
 		};
 		saveRun(run);
-		this.report(this.id, run);
-		if (outcome === 'won') this.best = recordBest(this.puzzle.id, run);
+
+		// Not awaited: the card is already on screen and the run is already local. What
+		// comes back only ever adds a line to it.
+		void this.report(this.id, run).then((recorded) => {
+			if (!recorded) return;
+			this.best = recorded.best ?? undefined;
+			this.standing =
+				recorded.place && recorded.of ? { place: recorded.place, of: recorded.of } : null;
+		});
 	}
 }

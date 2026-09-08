@@ -2,8 +2,14 @@ import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { feedbackStoreContract, runOf, runStoreContract } from './contract';
-import { jsonFeedback, jsonRuns } from './json';
+import {
+	feedbackStoreContract,
+	playerStoreContract,
+	progressStoreContract,
+	runOf,
+	runStoreContract
+} from './contract';
+import { jsonFeedback, jsonPlayers, jsonProgress, jsonRuns } from './json';
 
 const made: string[] = [];
 
@@ -29,6 +35,14 @@ describe('json feedback store', () => {
 		const store = jsonFeedback(await dir());
 		return { store, recorded: () => store.all() };
 	});
+});
+
+describe('json player store', () => {
+	playerStoreContract(async () => jsonPlayers(await dir()));
+});
+
+describe('json progress store', () => {
+	progressStoreContract(async () => jsonProgress(await dir()));
 });
 
 describe('record keys become filenames', () => {
