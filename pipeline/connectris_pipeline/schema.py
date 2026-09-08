@@ -116,6 +116,37 @@ class RedTeamReport(BaseModel):
     )
 
 
+class GlossedWord(BaseModel):
+    word: str = Field(description="The word, copied from the board exactly as given.")
+    note: str = Field(
+        description="One sentence. What this thing is, in the terms the category needs — "
+        "the fact a player would have gone and looked up. Name the person, the place or "
+        "the meaning: 'Charles Boycott, the Irish land agent whose tenants shunned him in "
+        "1880.' Do not restate the category, and do not say 'this belongs because'."
+    )
+
+
+class GlossedCategory(BaseModel):
+    label: str = Field(description="The category's label, copied exactly as given.")
+    summary: str = Field(
+        description="One sentence on what the category is, for a player who has just "
+        "solved it and wants to know what it was. Say the thing that makes the four a "
+        "set — 'Everyday words that began as the surname of a real person' — and where "
+        "the label is a narrowing, say what it excludes. No praise, no second sentence."
+    )
+    words: list[GlossedWord] = Field(
+        description="One entry per word in this category, in the order they were given."
+    )
+
+
+class PuzzleGloss(BaseModel):
+    """The board explained, once it has been accepted. Never shown to a player mid-run."""
+
+    categories: list[GlossedCategory] = Field(
+        description="One per category on the board, in the order they were given."
+    )
+
+
 class Grade(BaseModel):
     verdict: Literal["accept", "review", "reject"] = Field(
         description="'accept' ships it as it stands. 'reject' kills it. 'review' means "

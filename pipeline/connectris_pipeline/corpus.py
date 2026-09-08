@@ -24,6 +24,28 @@ def load(path: Path = PUZZLES_JSON) -> tuple[list[Puzzle], Corpus]:
     return [Puzzle.from_game_json(p) for p in raw], Corpus.from_game_json(raw)
 
 
+def rewrite(puzzles: list[Puzzle], path: Path = PUZZLES_JSON) -> int:
+    """Replace puzzles already in the file, in place and in order. Returns how many.
+
+    The counterpart to `append`, and the only other write this file takes. It exists for
+    the gloss backfill: notes are added to boards that shipped without them, which is an
+    edit to a puzzle rather than a new one, and an append would duplicate every id.
+
+    Ids not already in the file are ignored rather than added, so this can never publish
+    a board as a side effect of annotating one.
+    """
+    existing = json.loads(path.read_text()) if path.exists() else []
+    updated = {p.id: p.to_game_json() for p in puzzles}
+    landed = [p for p in existing if p["id"] in updated]
+    if not landed:
+        return 0
+    path.write_text(
+        json.dumps([updated.get(p["id"], p) for p in existing], indent="\t", ensure_ascii=False)
+        + "\n"
+    )
+    return len(landed)
+
+
 def append(puzzles: list[Puzzle], path: Path = PUZZLES_JSON) -> int:
     """Append accepted puzzles, skipping ids already present. Returns how many landed.
 

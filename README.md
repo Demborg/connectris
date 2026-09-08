@@ -8,6 +8,10 @@ rank your rows by how sure you are, and bet. Clearing rows light up in a wave ro
 the board and lock in place. Every check spends one of four, so getting the order right —
 and clearing several rows at once — is what keeps them.
 
+When a row clears it names its category, and tapping it opens the rest: one sentence on
+what the category was, and one line per word. Everybody who played a board went and
+searched for it afterwards, so the search is answered in place.
+
 **Play it:** https://connectris-214765692756.europe-north1.run.app
 
 Phase 1: a SvelteKit app on Cloud Run backed by Firestore, serving a small set of boards. The
@@ -66,6 +70,12 @@ adapter has is a bug in the port.
 Append to `src/lib/data/puzzles.json`: five groups of four words each, unique across the
 puzzle, **at most 12 characters per word** (four columns on a phone is about 70px a tile).
 `pnpm test` enforces all of that.
+
+A group may also carry `notes` — the summary and the per-word lines a player reads once
+the row has cleared. Optional, and all-or-nothing per board: `pnpm test` will reject a
+board that explains some of its rows and not the others, because five bars where three
+open reads as three that are broken. Write them by hand, or buy them with
+`cd pipeline && uv run python -m connectris_pipeline.cli gloss`.
 
 Write real traps — a word that looks like it belongs to another group, where that group is
 already full without it. And check there is no _second_ valid partition; that's the failure

@@ -1,9 +1,35 @@
+/** One word of a category, and what puts it there. */
+export type WordNote = {
+	/** Carries its own word rather than riding on position, so a note cannot slide. */
+	word: string;
+	note: string;
+};
+
+/**
+ * A category, written out.
+ *
+ * Players finish a board and go and look the row up — which category that was, what a
+ * BASSET is, why CARDIGAN counts as a name. This is that search, answered in place.
+ *
+ * It travels on `Group`, which means it is revealed by exactly the rule the label is:
+ * only a row that is on the table has one. Boards written before this existed have none,
+ * and their rows simply do not open.
+ */
+export type Notes = {
+	/** One sentence on what the category is. */
+	summary: string;
+	/** One line per word, in the order the category lists them. */
+	words: WordNote[];
+};
+
 /** A category: exactly `COLS` words that belong together. */
 export type Group = {
 	id: string;
 	/** Revealed only once the row is cleared. */
 	label: string;
 	words: string[];
+	/** Revealed with the label, and read after it. Absent on boards written before notes. */
+	notes?: Notes;
 };
 
 export type Puzzle = {

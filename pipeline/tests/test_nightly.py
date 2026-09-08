@@ -182,6 +182,37 @@ async def test_an_accepted_board_goes_up_for_tomorrow():
     assert game.schedule()[-1].puzzle.id == night.published.puzzle.id
 
 
+async def test_the_board_that_goes_up_has_its_rows_explained():
+    """The gloss stage runs after the accept and before the publish, so a board reaches a
+    player with the notes already on it — there is no second pass, and nothing to fetch
+    while somebody is playing."""
+    game = store(played=[NOW - timedelta(hours=2)])
+    night = await tonight(game)
+
+    assert night.published is not None
+    published = game.schedule()[-1].puzzle
+    for g in published.groups:
+        assert g.notes is not None, f"{g.id} went up with nothing under it"
+        assert [w.word for w in g.notes.words] == g.words
+
+
+async def test_a_board_whose_notes_fail_still_goes_up():
+    """A day with a puzzle and no notes beats a day with no puzzle. The board is already
+    paid for and already judged; the prose is the one part of it that is optional."""
+
+    class NoNotes(ScriptedLLM):
+        async def generate(self, **kwargs):
+            if kwargs["stage"] == "gloss":
+                raise RuntimeError("no")
+            return await super().generate(**kwargs)
+
+    game = store(played=[NOW - timedelta(hours=2)])
+    night = await tonight(game, llm=NoNotes())
+
+    assert night.published is not None
+    assert all(g.notes is None for g in game.schedule()[-1].puzzle.groups)
+
+
 async def test_a_night_that_accepts_nothing_publishes_nothing():
     """The board that is up stays up. A day repeated is a smaller failure than a day
     missing, and a retry would only spend the same money on the same bad idea."""

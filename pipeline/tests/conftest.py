@@ -20,11 +20,14 @@ from connectris_pipeline.config import Config, ModelSpec
 from connectris_pipeline.day import today
 from connectris_pipeline.llm import Call, Ledger
 from connectris_pipeline.schema import (
+    GlossedCategory,
+    GlossedWord,
     Grade,
     InventedCategories,
     InventedCategory,
     ProposedGroup,
     ProposedPuzzle,
+    PuzzleGloss,
     RedTeamReport,
     SolveAttempt,
     SolvedGroup,
@@ -96,6 +99,8 @@ class ScriptedLLM:
                     for i in range(3)
                 ]
             )
+        if schema is PuzzleGloss:
+            return self._gloss(prompt)
         if schema is RedTeamReport:
             return self._red
         if schema is Grade:
@@ -115,6 +120,30 @@ class ScriptedLLM:
                 ProposedGroup(label=label, words=list(ws), trap=f"{ws[0]} baits another row")
                 for label, ws in rows
             ],
+        )
+
+    def _gloss(self, prompt: str) -> PuzzleGloss:
+        """Reads the board back off the prompt, like the solver does.
+
+        Canned prose over a real parse of the ask, because what the gloss stage has to get
+        right is the pairing — these notes are deliberately identifiable, so a test can
+        tell which word a line ended up under.
+        """
+        rows = [
+            (label, [w.strip() for w in words.split(",")])
+            for line in prompt.splitlines()
+            if ": " in line and line.split(": ")[1].strip().isupper()
+            for label, words in [line.split(": ", 1)]
+        ]
+        return PuzzleGloss(
+            categories=[
+                GlossedCategory(
+                    label=label,
+                    summary=f"What {label} is.",
+                    words=[GlossedWord(word=w, note=f"About {w}.") for w in words],
+                )
+                for label, words in rows
+            ]
         )
 
     def _solve(self, prompt: str) -> SolveAttempt:

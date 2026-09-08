@@ -46,10 +46,50 @@ class Problem:
 
 
 @dataclass
+class WordNote:
+    """One word of a category, and what puts it there."""
+
+    word: str
+    note: str
+
+
+@dataclass
+class Notes:
+    """A category written out, for the player who has already solved the row.
+
+    Carried on the group rather than beside it, because that is what makes it safe: the
+    game only ever hands a `Group` to a player whose row is on the table, so notes are
+    revealed by exactly the rule the label is. See `Notes` in src/lib/game/types.ts.
+
+    `words` carries each word rather than lining up with `Group.words` by position, so a
+    note cannot end up under its neighbour.
+    """
+
+    summary: str
+    words: list[WordNote]
+
+    @classmethod
+    def from_game_json(cls, raw: dict) -> Self:
+        return cls(
+            summary=raw.get("summary", ""),
+            words=[WordNote(word=w["word"], note=w["note"]) for w in raw.get("words", [])],
+        )
+
+    def to_game_json(self) -> dict:
+        return {
+            "summary": self.summary,
+            "words": [{"word": w.word, "note": w.note} for w in self.words],
+        }
+
+
+@dataclass
 class Group:
     id: str
     label: str
     words: list[str]
+    #: Written by the gloss stage, after a board is accepted. `None` on every board that
+    #: was published before that stage existed; those rows simply do not open.
+    notes: Notes | None = None
 
 
 @dataclass
@@ -71,18 +111,42 @@ class Puzzle:
             name=raw["name"],
             language=raw.get("language", "en"),
             groups=[
-                Group(id=g["id"], label=g["label"], words=list(g["words"])) for g in raw["groups"]
+                Group(
+                    id=g["id"],
+                    label=g["label"],
+                    words=list(g["words"]),
+                    notes=Notes.from_game_json(g["notes"]) if g.get("notes") else None,
+                )
+                for g in raw["groups"]
             ],
         )
 
     def to_game_json(self) -> dict:
-        """The exact object shape `src/lib/data/puzzles.json` holds."""
+        """The exact object shape `src/lib/data/puzzles.json` holds.
+
+        `notes` is written only where there are some, so a board from before the gloss
+        stage round-trips byte-identical rather than growing a row of nulls.
+        """
         return {
             "id": self.id,
             "name": self.name,
             "language": self.language,
-            "groups": [{"id": g.id, "label": g.label, "words": list(g.words)} for g in self.groups],
+            "groups": [group_json(g) for g in self.groups],
         }
+
+
+def group_json(group: Group) -> dict:
+    """One group as both the game's JSON file and its Firestore document hold it.
+
+    The two shapes were written out by hand in three places, which is how a field gets
+    added to the file and forgotten in the database. `store.py` writes the document field
+    by field on purpose — the document is not the file — but a *group* is the same object
+    in both, so it is spelled out once here.
+    """
+    doc: dict = {"id": group.id, "label": group.label, "words": list(group.words)}
+    if group.notes is not None:
+        doc["notes"] = group.notes.to_game_json()
+    return doc
 
 
 def normalise_word(word: str) -> str:
@@ -181,6 +245,33 @@ def validate(
             for other in puzzle.groups
             for w in other.words
             if normalise_word(w).lower() in label_words
+        )
+
+    # Notes are written by a model after the board is accepted, so this is the one thing
+    # in the file that no earlier stage has already checked. A note under the wrong word
+    # is worse than a missing one: the player reads it as fact about a word it is not
+    # about. Warn rather than fatal — the board itself is fine, and `attach` in the gloss
+    # stage is what refuses to write a set that does not line up.
+    for g in puzzle.groups:
+        if g.notes is None:
+            continue
+        if not g.notes.summary.strip():
+            problems.append(Problem("no-summary", f"group {g.id!r} has empty notes", "warn"))
+        noted = {normalise_word(w.word) for w in g.notes.words}
+        if noted != {normalise_word(w) for w in g.words}:
+            problems.append(
+                Problem("notes-mismatch", f"group {g.id!r} has notes for {sorted(noted)}", "warn")
+            )
+
+    explained = sum(1 for g in puzzle.groups if g.notes is not None)
+    if explained not in (0, len(puzzle.groups)):
+        # Five bars where three open reads as three that are broken.
+        problems.append(
+            Problem(
+                "part-explained",
+                f"{explained} of {len(puzzle.groups)} rows have notes",
+                "warn",
+            )
         )
 
     if corpus is not None:

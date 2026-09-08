@@ -260,6 +260,45 @@ def _red_summary(red: RedTeamReport | None) -> str:
     return "\n".join(lines) or "- nothing found"
 
 
+def gloss(puzzle: Puzzle) -> tuple[str, str]:
+    """The last stage, and the only one written for the player rather than about them.
+
+    Everything else in this file is judgement — is the board fair, is it solvable, is it
+    dull. This is reference: the board is already accepted and the question is only what
+    the row *was*. Playtesters finish a board and go and google the category, so the
+    answer is written once, here, and shipped with it.
+
+    Note what the prompt does not do: it does not grade, does not congratulate, and does
+    not explain the trap. A player who has solved the row knows it was hard. What they do
+    not know is who Adolphe Sax was.
+    """
+    system = (
+        "You write the short reference note that appears under a solved row of a word "
+        "puzzle. The player has already found this category; nothing here is a hint and "
+        "nothing is a spoiler.\n\n"
+        "Write the sentence that saves them a search. For a category, what the set is. "
+        "For a word, the fact that puts it in the set — who the person was, where the "
+        "place is, which meaning of the word is in play.\n"
+        "Rules:\n"
+        "- One sentence each. A note is read in about three seconds or it is not read.\n"
+        "- Facts only, and only facts you are sure of. If you are not certain what a word "
+        "refers to, write the plain definition rather than a detail you are guessing at.\n"
+        "- Never restate the label as the note ('a breed of hound dog' under BEAGLE says "
+        "nothing). Say what is specific to that word.\n"
+        "- No praise, no commentary on the puzzle, no second person.\n"
+        "- Plain prose. No markdown, no lists inside a note."
+    )
+    rows = "\n".join(f"{g.label}: {', '.join(g.words)}" for g in puzzle.groups)
+    prompt = f"""\
+Explain this board's five categories and all {ROWS * COLS} of its words.
+
+{rows}
+
+Copy each label and each word exactly as written above.
+"""
+    return system, prompt
+
+
 def invent(*, count: int, known: list[str]) -> tuple[str, str]:
     """Stage 0. Cheap, bulk, and run before any board exists.
 

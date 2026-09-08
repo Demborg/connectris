@@ -28,8 +28,15 @@ function svelteFiles(dir: string): string[] {
 const src = join(new URL('.', import.meta.url).pathname, '..', '..');
 const components = svelteFiles(src);
 
-/** Elements a player can put keyboard focus on, or that wrap something they can. */
-const FOCUSABLE = /<(?:button|textarea|select|label|a)\s[^>]*?class="([^"{}]+)"/g;
+/**
+ * Elements a player can put keyboard focus on, or that wrap something they can.
+ *
+ * `svelte:element` is in here because a solved row is a `button` when it has notes to
+ * open and a `div` when it does not — a dynamic tag hides a real control from a check
+ * that only reads the markup, and the rule is safe to over-apply: a ring on something
+ * that never takes focus costs nothing.
+ */
+const FOCUSABLE = /<(?:button|textarea|select|label|a|svelte:element)\s[^>]*?class="([^"{}]+)"/g;
 
 /** Classes on focusable elements in the markup, ignoring Svelte's `class:` directives. */
 function controlClasses(markup: string): string[] {
