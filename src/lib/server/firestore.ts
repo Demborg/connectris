@@ -57,30 +57,41 @@ export function firestorePuzzles(db: Firestore, now: () => string = () => today(
 
 	return {
 		async live(limit, language) {
-			// Filtered and ordered on the same single field, which Firestore indexes
-			// automatically — no composite index to declare and none to forget when
-			// deploying. It is also why `liveOn` is a `YYYY-MM-DD` string: it compares as a
-			// date because it sorts as one.
+			// Ordered on the one field that is indexed automatically, and narrowed to a
+			// language in memory. An equality on `language` beside the range on `liveOn` is
+			// exactly the shape that needs a composite index — a thing to declare, deploy
+			// and forget — and the same trade was already made for `finishedRuns`.
 			//
-			// The nightly job writes tomorrow's board tonight, so there is normally one
-			// document ahead of this window. Excluding it here is what stops a board being
-			// playable the evening before it is due, and it costs a range bound.
-			//
-			// Language is narrowed here rather than in the query. An equality on `language`
-			// beside the range on `liveOn` is exactly the shape that needs a composite
-			// index, and the same trade was already made for `finished_runs`: read a bounded
-			// window on the one indexed field and narrow it in memory. The bound is
-			// `limit * LOCALES.length` because the schedule publishes one board per language
-			// per day, so that many documents always covers `limit` days of any one of them.
-			const found = await puzzles
-				.where('liveOn', '<=', now())
-				.orderBy('liveOn', 'desc')
-				.limit(limit * LOCALES.length)
-				.get();
-			return found.docs
-				.map((d) => puzzleOf(d.id, d.data()))
-				.filter((p) => p.language === language)
-				.slice(0, limit);
+			// It pages, rather than over-fetching a fixed multiple of `limit` and hoping.
+			// The two languages are not interleaved: Swedish starts months after English,
+			// so the newest documents can be a run of one language and a single page of
+			// them may hold none of the other. In the steady state of a board a night each,
+			// the first page answers and the loop runs once.
+			const wanted = limit * LOCALES.length;
+			const found: Puzzle[] = [];
+			let after: FirebaseFirestore.QueryDocumentSnapshot | undefined;
+
+			while (found.length < limit) {
+				// The nightly job writes tomorrow's board tonight, so there is normally one
+				// document ahead of this window. Excluding it is what stops a board being
+				// playable the evening before it is due, and it costs a range bound.
+				let query = puzzles.where('liveOn', '<=', now()).orderBy('liveOn', 'desc');
+				// The snapshot, not its `liveOn`: both languages publish on the same day, so
+				// a cursor on the value alone would step over the second board of a date.
+				if (after) query = query.startAfter(after);
+
+				const page = await query.limit(wanted).get();
+				if (page.empty) break;
+
+				for (const doc of page.docs) {
+					const puzzle = puzzleOf(doc.id, doc.data());
+					if (puzzle.language === language) found.push(puzzle);
+				}
+				after = page.docs[page.docs.length - 1];
+				if (page.size < wanted) break;
+			}
+
+			return found.slice(0, limit);
 		}
 	};
 }
