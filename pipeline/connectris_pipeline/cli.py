@@ -331,6 +331,58 @@ def gloss(
 
 
 @app.command()
+def concepts(
+    published: Annotated[
+        bool,
+        typer.Option("--published", help="Name the boards in the game's database."),
+    ] = False,
+    project: Annotated[
+        str | None,
+        typer.Option(envvar="GOOGLE_CLOUD_PROJECT", help="Needed with --published."),
+    ] = None,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Print what would be written, write nothing.")
+    ] = False,
+) -> None:
+    """Give published boards the English concept the cross-language index compares on.
+
+    A one-off and a free one: no model runs, because an English board's label already is
+    an English noun phrase. Boards written from now on carry a concept from the proposer.
+
+    Run it once against the database before the first Swedish night, or the index is
+    present and inert — a Swedish batch is told nothing has shipped and re-invents the
+    English catalogue in translation, which is what it did.
+    """
+    # The hand-written concepts, where there are any: an idea is better recorded as the
+    # idea ("drinking vessels") than as one board's wording of it.
+    shipped, _ = corpus_module.load()
+    known = {g.label: g.concept for p in shipped for g in p.groups if g.concept}
+
+    if published:
+        if not project:
+            typer.secho("GOOGLE_CLOUD_PROJECT is not set", err=True, fg=typer.colors.RED)
+            raise typer.Exit(2)
+        store = FirestoreStore(connect(project))
+        boards = [entry.puzzle for entry in store.schedule()]
+        write = (lambda p: None) if dry_run else store.annotate
+    else:
+        boards = shipped
+        written: list[Puzzle] = []
+        write = written.append
+
+    done = backfill_module.name_concepts(boards, write, known)
+    if not published and not dry_run and written:
+        corpus_module.rewrite(written)
+
+    for board in boards:
+        named = backfill_module.concepts_for(board, known)
+        if named is not None and dry_run:
+            for g in named.groups:
+                typer.echo(f"  {board.id}  {g.label!r} -> {g.concept!r}")
+    typer.echo(done.summary())
+
+
+@app.command()
 def check() -> None:
     """Run the pipeline's own rules over the shipped puzzles.
 

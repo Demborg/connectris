@@ -386,3 +386,46 @@ def test_a_swedish_board_is_glossed_in_swedish():
     odd = board()
     odd.language = "no"
     assert gloss_prompt(odd, language_of(odd.language))[0] == system
+
+
+# --- the concept backfill ----------------------------------------------------------------
+
+
+def test_a_published_board_is_given_the_concept_the_index_compares_on():
+    """Free, and the thing that makes the cross-language index work at all.
+
+    Without it the index is present and inert: boards that shipped before the field
+    existed carry no concept, so a Swedish batch is told nothing has shipped and
+    re-invents the English catalogue in translation. It did exactly that, banking
+    *Bleckblåsinstrument* against a live board called "Orchestral brass instruments".
+    """
+    written: list[Puzzle] = []
+    known = {"Hound dog breeds": "hound dog breeds"}
+    done = backfill_module.name_concepts([board()], written.append, known)
+
+    assert done.named == ["gen-01"]
+    named = {g.label: g.concept for g in written[0].groups}
+    # The hand-written concept wins where there is one; the label is the concept otherwise,
+    # because an English label already is an English noun phrase.
+    assert named["Hound dog breeds"] == "hound dog breeds"
+    assert named["___ CLIP"] == "___ clip"
+    assert named["Living amphibians"] == "living amphibians"
+
+
+def test_a_board_that_already_has_concepts_is_left_alone():
+    already = board()
+    for g in already.groups:
+        g.concept = "kept"
+    written: list[Puzzle] = []
+    done = backfill_module.name_concepts([already], written.append, {})
+    assert done.skipped == ["gen-01"] and written == []
+
+
+def test_a_swedish_board_is_skipped_rather_than_guessed_at():
+    """Its label is not English and nothing here could make it so. Boards written from now
+    on carry a concept from the proposer; the few that predate that want a person."""
+    swedish = board()
+    swedish.language = "sv"
+    written: list[Puzzle] = []
+    done = backfill_module.name_concepts([swedish], written.append, {})
+    assert done.skipped == ["gen-01"] and written == []
