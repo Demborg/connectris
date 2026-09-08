@@ -18,7 +18,10 @@ writing the part of it that does.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from ..config import Config
+from ..language import of as language_of
 from ..llm import LLM
 from ..prompts import gloss as gloss_prompt
 from ..schema import GlossedCategory, PuzzleGloss
@@ -36,7 +39,7 @@ class GlossError(RuntimeError):
 
 async def gloss(llm: LLM, cfg: Config, puzzle: Puzzle) -> Puzzle:
     """The board, with a note on every category and every word. Same board otherwise."""
-    system, prompt = gloss_prompt(puzzle)
+    system, prompt = gloss_prompt(puzzle, language_of(puzzle.language))
     out = await llm.generate(
         stage="gloss",
         model=cfg.glosser,
@@ -59,12 +62,13 @@ def attach(puzzle: Puzzle, out: PuzzleGloss) -> Puzzle:
         labels = ", ".join(repr(c.label) for c in out.categories)
         raise GlossError(f"{puzzle.id}: notes name {labels}, which is not this board")
 
-    return Puzzle(
-        id=puzzle.id,
-        name=puzzle.name,
-        language=puzzle.language,
+    return replace(
+        puzzle,
         groups=[
-            Group(id=g.id, label=g.label, words=list(g.words), notes=_notes_for(g, matched[g.id]))
+            # `replace`, not a fresh Group: this rebuilds every board that ships, so a
+            # field spelled out here is a field that silently vanishes the day someone
+            # adds another one. `concept` was lost exactly that way.
+            replace(g, notes=_notes_for(g, matched[g.id]))
             for g in puzzle.groups
         ],
     )

@@ -168,4 +168,14 @@ def get(code: str) -> Language:
     return LANGUAGES[code]
 
 
-__all__ = ["ENGLISH", "LANGUAGES", "SWEDISH", "SWEDISH_NATIVE", "Language", "get"]
+def of(puzzle_language: str) -> Language:
+    """The language of a board already in hand, falling back rather than raising.
+
+    `get` is for configuration, where an unknown code is a typo worth stopping for. This is
+    for data: a board read back out of the database carries whatever tag it was written
+    with, and a stage that runs at publish time must not die because a row says "no".
+    """
+    return LANGUAGES.get(puzzle_language, ENGLISH)
+
+
+__all__ = ["ENGLISH", "LANGUAGES", "SWEDISH", "SWEDISH_NATIVE", "Language", "get", "of"]

@@ -13,6 +13,8 @@ import json
 from conftest import CONFIG, ScriptedLLM
 
 from connectris_pipeline import backfill as backfill_module
+from connectris_pipeline.language import of as language_of
+from connectris_pipeline.prompts import gloss as gloss_prompt
 from connectris_pipeline.schema import GlossedCategory, GlossedWord, PuzzleGloss
 from connectris_pipeline.spec import Group, Notes, Puzzle, WordNote, validate
 from connectris_pipeline.stages import gloss
@@ -346,3 +348,41 @@ async def test_each_board_is_written_as_it_lands():
 
     await backfill_module.backfill(ScriptedLLM(), CONFIG, boards, write)
     assert seen == [0, 1, 2]
+
+
+def test_glossing_a_board_keeps_the_fields_it_does_not_touch():
+    """`attach` rebuilds every board that ships, so anything it forgets is gone for good.
+
+    `concept` was forgotten exactly once, and the damage was quiet: boards published fine,
+    and the cross-language index they were supposed to fill stayed empty for ever.
+    """
+    p = board()
+    p.language = "sv"
+    for g in p.groups:
+        g.concept = f"idea of {g.id}"
+
+    out = attach(p, reply())
+
+    assert out.language == "sv"
+    assert [g.concept for g in out.groups] == [f"idea of {g.id}" for g in p.groups]
+    assert all(g.notes is not None for g in out.groups)
+
+
+def test_a_swedish_board_is_glossed_in_swedish():
+    """The only stage a player reads, and the only one where the language is not a detail.
+
+    Nothing downstream reads a note, so English prose under a Swedish row would have
+    shipped without a single check objecting.
+    """
+    sv = board()
+    sv.language = "sv"
+    system, _ = gloss_prompt(sv, language_of(sv.language))
+    assert "write every summary and every word note in Swedish" in system
+
+    system, _ = gloss_prompt(board(), language_of("en"))
+    assert "Swedish" not in system
+
+    # A board tagged with a language the generator has never heard of still gets glossed.
+    odd = board()
+    odd.language = "no"
+    assert gloss_prompt(odd, language_of(odd.language))[0] == system

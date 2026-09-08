@@ -345,7 +345,7 @@ def _red_summary(red: RedTeamReport | None) -> str:
     return "\n".join(lines) or "- nothing found"
 
 
-def gloss(puzzle: Puzzle) -> tuple[str, str]:
+def gloss(puzzle: Puzzle, lang: Language = ENGLISH) -> tuple[str, str]:
     """The last stage, and the only one written for the player rather than about them.
 
     Everything else in this file is judgement — is the board fair, is it solvable, is it
@@ -364,6 +364,11 @@ def gloss(puzzle: Puzzle) -> tuple[str, str]:
     just read: "___ BONE" glossed as "names for anatomical structures ending in the word
     bone", which is the one sentence that adds nothing at all. The old prompt banned that
     move for the word notes and forgot to ban it for the summary.
+
+    This is the only stage whose output a *player* reads, which makes it the only one where
+    the board's language is not a detail. A Swedish board glossed in English ships English
+    prose under Swedish rows — and because nothing downstream reads the notes, no check in
+    the pipeline would have said a word about it.
     """
     system = (
         "You write the short reference note that appears under a solved row of a word "
@@ -394,6 +399,14 @@ def gloss(puzzle: Puzzle) -> tuple[str, str]:
         "somebody's name.'\n"
         "  BOYCOTT — 'Charles Boycott, the Irish land agent whose tenants refused to deal "
         "with him in 1880.'"
+        + (
+            ""
+            if lang.is_default
+            else f"\n\nThis board is in {lang.name} and the player reads these notes, so "
+            f"write every summary and every word note in {lang.name}. The two examples above "
+            f"are English because the board they came from was; copy their length and their "
+            f"register, not their language."
+        )
     )
     rows = "\n".join(f"{g.label}: {', '.join(g.words)}" for g in puzzle.groups)
     prompt = f"""\

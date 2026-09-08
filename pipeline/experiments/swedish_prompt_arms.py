@@ -13,7 +13,9 @@ Held constant across all four arms, on purpose and at some cost:
 - **One category pool, shared.** Inventing per arm would have let theme sampling — three
   themes drawn from twelve — swamp an effect measured on three boards. So the pool is
   invented once, copied to each arm, and every arm draws the same three (device, theme)
-  slots under the same rng seed. The inventor is a prompt too, and the question of whether
+  slots. (Themes are drawn from one rng seed; devices are walked from the date's ordinal,
+  so arms run on the same day agree on those too.) The inventor is a prompt too, and the
+  question of whether
   *it* should be Swedish is answered separately and far more cheaply, by running it both
   ways and reading the two pools side by side (`invent_only`).
 - **Three examples per arm, not two.** Production shows `[:2]`; the Swedish seeds are
@@ -51,6 +53,13 @@ ARMS = {
     "sv-seed_en-prompt": ("sv", "sv"),
     "en-seed_sv-prompt": ("en", "sv-native"),
     "sv-seed_sv-prompt": ("sv", "sv-native"),
+    # The follow-up, run after the 2x2 and against the *other* pool. The 2x2 held the pool
+    # fixed at the English-prompted one, which came back full of Nordic themes and pushed
+    # every arm toward folklore and capital cities. This arm is the winning configuration
+    # drawing from the Swedish-prompted pool instead, whose themes are ordinary categories
+    # that happen to be in Swedish. Whether that is better is a judgement about register,
+    # not a number the pipeline can produce.
+    "sv-seed_sv-prompt_neutral-pool": ("sv", "sv-native"),
 }
 
 
@@ -93,6 +102,9 @@ async def one_arm(name: str, seeds: str, language: str, pool: Path, count: int) 
         cfg,
         count=count,
         seed=0,
+        # `count` is a ceiling in production and a sample size here. An arm that stopped at
+        # its first accepted board would report a sample whose size is itself a result.
+        stop_on_accept=False,
         out_dir=arm_dir,
         # Words narrowed to Swedish (so: none shipped); concepts pooled across languages.
         corpus=corpus_module.load(language="sv")[1],
@@ -131,7 +143,13 @@ async def main() -> None:
             # today's production behaviour. Giving each prompt language its own pool was
             # tried and rejected: the two pools come back with different themes, and at
             # three boards an arm's subject matter would have swamped its prompt.
-            one_arm(name, seeds, lang, pools["sv"], args.count)
+            one_arm(
+                name,
+                seeds,
+                lang,
+                pools["sv-native" if name.endswith("neutral-pool") else "sv"],
+                args.count,
+            )
             for name, (seeds, lang) in ARMS.items()
             if name in wanted
         )
