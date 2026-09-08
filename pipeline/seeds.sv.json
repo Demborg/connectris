@@ -1,0 +1,113 @@
+[
+	{
+		"id": "seed-sv-01",
+		"name": "SPÄNNVIDD",
+		"language": "sv",
+		"groups": [
+			{
+				"id": "band",
+				"label": "___BAND",
+				"words": ["ARM", "HALS", "HÅR", "GUMMI"],
+				"concept": "band compounds"
+			},
+			{
+				"id": "ansikte",
+				"label": "Ansiktets delar",
+				"words": ["HAKA", "KIND", "NÄSA", "LÄPP"],
+				"concept": "parts of the face"
+			},
+			{
+				"id": "skrivdon",
+				"label": "Redskap man ritar eller skriver med",
+				"words": ["PENNA", "KRITA", "KOL", "STIFT"],
+				"concept": "writing and drawing implements"
+			},
+			{
+				"id": "hjul",
+				"label": "Delar av ett cykelhjul",
+				"words": ["EKER", "NAV", "FÄLG", "DÄCK"],
+				"concept": "bicycle wheel parts"
+			},
+			{
+				"id": "makt",
+				"label": "Ord för att härska över ett land",
+				"words": ["VÄLDE", "REGIM", "STYRE", "MAKT"],
+				"concept": "nouns meaning rule over a country"
+			}
+		]
+	},
+	{
+		"id": "seed-sv-02",
+		"name": "GÖMSTÄLLEN",
+		"language": "sv",
+		"groups": [
+			{
+				"id": "sol",
+				"label": "SOL___",
+				"words": ["ROS", "STOL", "HATT", "KATT"],
+				"concept": "sun compounds"
+			},
+			{
+				"id": "lok",
+				"label": "Blommor som växer ur en lök",
+				"words": ["TULPAN", "PÅSKLILJA", "HYACINT", "KROKUS"],
+				"concept": "bulb flowers"
+			},
+			{
+				"id": "forvaring",
+				"label": "Möbler man förvarar saker i",
+				"words": ["BYRÅ", "SKÅP", "HYLLA", "KISTA"],
+				"concept": "storage furniture"
+			},
+			{
+				"id": "stall",
+				"label": "Hovdjur som hålls i ett stall",
+				"words": ["HÄST", "PONNY", "ÅSNA", "MULA"],
+				"concept": "stable hoofed animals"
+			},
+			{
+				"id": "dolda",
+				"label": "Ord som börjar med ett kortare djurnamn",
+				"words": ["KOSTYM", "GETING", "ÅLDER", "MASKIN"],
+				"concept": "words beginning with a hidden animal"
+			}
+		]
+	},
+	{
+		"id": "seed-sv-03",
+		"name": "FINT MALET",
+		"language": "sv",
+		"groups": [
+			{
+				"id": "kaka",
+				"label": "___KAKA",
+				"words": ["OST", "TVÅL", "SOCKER", "CHOKLAD"],
+				"concept": "cake compounds"
+			},
+			{
+				"id": "pulver",
+				"label": "Vita pulver som inte smakar sött",
+				"words": ["MJÖL", "SALT", "BAKPULVER", "STÄRKELSE"],
+				"concept": "white pantry powders that are not sweet"
+			},
+			{
+				"id": "tvattstuga",
+				"label": "Maskiner i en tvättstuga",
+				"words": ["MANGEL", "TORKSKÅP", "TUMLARE", "CENTRIFUG"],
+				"concept": "laundry room machines"
+			},
+			{
+				"id": "palagg",
+				"label": "Det man breder på en smörgås",
+				"words": ["SMÖR", "MARMELAD", "KAVIAR", "LEVERPASTEJ"],
+				"concept": "sandwich spreads"
+			},
+			{
+				"id": "stran",
+				"label": "Redskap med strån",
+				"words": ["BORSTE", "KVAST", "PENSEL", "VISKA"],
+				"concept": "bristled tools"
+			}
+		]
+	}
+]

@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from .config import Config
 from .llm import LLM
@@ -98,3 +98,60 @@ async def backfill(
 
 
 __all__ = ["Backfill", "backfill", "wants_notes"]
+
+
+@dataclass
+class Concepts:
+    """What a concept backfill did. Same shape as `Backfill`, and for the same reason."""
+
+    named: list[str] = field(default_factory=list)
+    skipped: list[str] = field(default_factory=list)
+
+    def summary(self) -> str:
+        return f"{len(self.named)} board(s) given concepts, {len(self.skipped)} skipped"
+
+
+def concepts_for(puzzle: Puzzle, known: dict[str, str]) -> Puzzle | None:
+    """Fill in the concepts a board is missing, or None if it needs none.
+
+    No model, and it does not need one for an English board: the label already *is* an
+    English noun phrase, which is what a concept is. `known` overrides it wherever a
+    hand-written concept exists for that exact label, because "Styles of drinking glasses"
+    is better recorded as the idea — drinking vessels — than as its own wording.
+
+    A board in another language is skipped rather than guessed at. Its label is not English
+    and there is nothing here that could make it so; boards written from now on carry a
+    concept from the proposer, and the handful that predate that are a job for a person.
+    """
+    if puzzle.language != "en" or all(g.concept for g in puzzle.groups):
+        return None
+    return replace(
+        puzzle,
+        groups=[
+            g if g.concept else replace(g, concept=known.get(g.label) or g.label.lower())
+            for g in puzzle.groups
+        ],
+    )
+
+
+def name_concepts(
+    boards: list[Puzzle], write: Callable[[Puzzle], None], known: dict[str, str]
+) -> Concepts:
+    """Give every published board a concept, so the cross-language index has something to
+    compare against.
+
+    Without this the index is present and inert: the boards that shipped before the field
+    existed carry none, so a Swedish batch is told nothing has shipped and re-invents the
+    English catalogue in translation — which is exactly what it did, banking
+    *Bleckblåsinstrument* against a live English board called "Orchestral brass
+    instruments".
+    """
+    done = Concepts()
+    for board in boards:
+        named = concepts_for(board, known)
+        if named is None:
+            done.skipped.append(board.id)
+            continue
+        write(named)
+        done.named.append(board.id)
+    return done

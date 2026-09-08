@@ -26,25 +26,37 @@ from pathlib import Path
 from typing import Protocol
 
 from .day import today
-from .spec import label_key
+from .language import EN_DEVICES, Language
+from .spec import concept_key, label_key
 
 #: Lives beside the pipeline rather than in the game's data — it is production state for
 #: the generator, not something the app reads.
 DEFAULT_POOL = Path(__file__).resolve().parents[1] / "categories.json"
 
-#: Structural kinds. A board gets one, and `draw` walks this list from the date's own
+
+def pool_for(language: str, base: Path = DEFAULT_POOL) -> Path:
+    """One pool file per language: `categories.json`, `categories.sv.json`.
+
+    Not one file with a language column. A category in the pool is a *label in a language*
+    — 'Stone fruit' is not a slot a Swedish board can fill — so the two pools never share a
+    row, and the only thing a shared file would buy is a filter on every read. Keeping
+    English at the unsuffixed name also means the existing file and every path that names
+    it keep working untouched.
+    """
+    return base if language == "en" else base.with_name(f"{base.stem}.{language}{base.suffix}")
+
+
+#: Structural kinds. A board gets one, and `draw` walks the list from the date's own
 #: ordinal — so seven of them is exactly a week of boards that differ in shape and not only
 #: in subject. Adding an eighth is fine and breaks the weekly alignment, which is arguably
 #: an improvement; removing one below seven means a repeat inside the same week.
-DEVICES: list[str] = [
-    "a ___ WORD compound, where all four words take the same following word",
-    "a WORD ___ compound, where all four words take the same preceding word",
-    "four words that each contain a smaller hidden word of the same kind",
-    "four words that are homophones of something else entirely",
-    "four members of an ordered set (ranks, sizes, stages)",
-    "four words that all mean roughly the same thing",
-    "four words that are all a specific kind of noun with an everyday second meaning",
-]
+#:
+#: The list itself is per-language and lives in `language.py`, because the two compound
+#: devices are English grammar rather than puzzle design — see the note there. Swedish has
+#: eight, so its week rotates rather than aligning, which is the harmless half of the note
+#: above. Re-exported under the old name so nothing that only builds English boards has to
+#: know, and it is `draw`'s default for the same reason.
+DEVICES: list[str] = EN_DEVICES
 
 
 @dataclass(frozen=True)
@@ -65,21 +77,37 @@ class Category:
     reads_as: str = ""
     #: ISO date it was last handed out, so recently-used themes can be held back.
     used: str = ""
+    #: The same idea in English, whatever `label` is written in. Two pools in two
+    #: languages are deduped against each other through this and nothing else.
+    concept: str = ""
 
     @property
     def key(self) -> str:
         return label_key(self.label)
 
+    @property
+    def concept_key(self) -> frozenset[str]:
+        return concept_key(self.concept)
+
 
 class CategorySource(Protocol):
     """The port. Everything the pipeline needs from a pool of categories."""
 
-    def allocate(self, count: int, *, rng: random.Random) -> list[Slot]:
-        """`count` slots, distinct within the batch and held back from recent use."""
+    def allocate(self, count: int, *, rng: random.Random, offset: int = 0) -> list[Slot]:
+        """`count` slots, distinct within the batch and held back from recent use.
+
+        `offset` advances the device walk. It exists because `run` asks for one slot at a
+        time: without it every board in a run is handed the same device, which is what a
+        night of competing drafts wants and the opposite of what a sample does.
+        """
         ...
 
-    def bank(self, categories: list[Category]) -> int:
-        """Add newly invented categories, skipping near-duplicates. Returns how many stuck."""
+    def bank(self, categories: list[Category], *, taken: set[frozenset[str]] | None = None) -> int:
+        """Add newly invented categories, skipping near-duplicates. Returns how many stuck.
+
+        `taken` names concepts already spoken for outside this pool, so that a second
+        language's pool can be deduped against the first's and against shipped boards.
+        """
         ...
 
     def known(self) -> list[Category]:
@@ -88,7 +116,14 @@ class CategorySource(Protocol):
 
 
 def draw(
-    pool: list[Category], count: int, *, rng: random.Random, cooldown: int, day: str
+    pool: list[Category],
+    count: int,
+    *,
+    rng: random.Random,
+    cooldown: int,
+    day: str,
+    devices: list[str] | None = None,
+    offset: int = 0,
 ) -> tuple[list[Slot], list[Category]]:
     """Pick `count` slots out of `pool`, and say which categories were spent doing it.
 
@@ -107,8 +142,13 @@ def draw(
     Themes prefer the least recently used, and fall back to an empty theme when the pool
     is too small — a board with only a device allocated is still a valid board, just a
     less constrained one.
+
+    `devices` defaults to the English list. It is a parameter rather than a lookup because
+    the rule above is about *rotation* and has nothing to say about which language's
+    devices are rotating; a Swedish batch walks its own eight the same way.
     """
-    start = date.fromisoformat(day).toordinal()
+    devices = devices or DEVICES
+    start = date.fromisoformat(day).toordinal() + offset
 
     pool.sort(key=lambda c: (c.used, c.key))
     available = pool[: max(count, len(pool) - cooldown)] if pool else []
@@ -122,7 +162,7 @@ def draw(
             theme.used = day
             spent.append(theme)
         slots.append(
-            Slot(device=DEVICES[(start + i) % len(DEVICES)], theme=theme.label if theme else "")
+            Slot(device=devices[(start + i) % len(devices)], theme=theme.label if theme else "")
         )
     return slots, spent
 
@@ -140,6 +180,8 @@ class JsonCategorySource:
     path: Path
     #: A theme is not offered again until this many boards have been drawn since.
     cooldown: int = 60
+    #: Whose devices to cycle. The pool holds themes; the device list is the language's.
+    devices: list[str] = field(default_factory=lambda: list(EN_DEVICES))
 
     _cache: list[Category] | None = field(default=None, init=False, repr=False)
 
@@ -159,21 +201,44 @@ class JsonCategorySource:
     def known(self) -> list[Category]:
         return list(self._load())
 
-    def bank(self, categories: list[Category]) -> int:
+    def bank(self, categories: list[Category], *, taken: set[frozenset[str]] | None = None) -> int:
+        """Add what is new. `taken` is concepts already spoken for *elsewhere* — in the
+        other language's pool, or in shipped boards — and it is how a Swedish pool is
+        stopped from re-inventing the English catalogue in translation."""
         have = self._load()
         seen = {c.key for c in have}
+        concepts = {k for c in have if (k := c.concept_key)} | (taken or set())
         fresh = []
         for c in categories:
-            if c.key and c.key not in seen:
-                seen.add(c.key)
-                fresh.append(c)
+            key = c.concept_key
+            if not c.key or c.key in seen:
+                continue
+            if key and any(key <= other or other <= key for other in concepts):
+                continue
+            seen.add(c.key)
+            if key:
+                concepts.add(key)
+            fresh.append(c)
         if fresh:
             self._save(have + fresh)
         return len(fresh)
 
-    def allocate(self, count: int, *, rng: random.Random) -> list[Slot]:
+    def allocate(self, count: int, *, rng: random.Random, offset: int = 0) -> list[Slot]:
         pool = self._load()
-        slots, _ = draw(pool, count, rng=rng, cooldown=self.cooldown, day=today())
+        slots, _ = draw(
+            pool,
+            count,
+            rng=rng,
+            cooldown=self.cooldown,
+            day=today(),
+            devices=self.devices,
+            offset=offset,
+        )
         if pool:
             self._save(pool)
         return slots
+
+
+def source_for(language: Language, base: Path = DEFAULT_POOL) -> JsonCategorySource:
+    """The pool and the device list that go with one language."""
+    return JsonCategorySource(pool_for(language.code, base), devices=list(language.devices))

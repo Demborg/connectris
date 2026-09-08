@@ -13,6 +13,8 @@ import json
 from conftest import CONFIG, ScriptedLLM
 
 from connectris_pipeline import backfill as backfill_module
+from connectris_pipeline.language import of as language_of
+from connectris_pipeline.prompts import gloss as gloss_prompt
 from connectris_pipeline.schema import GlossedCategory, GlossedWord, PuzzleGloss
 from connectris_pipeline.spec import Group, Notes, Puzzle, WordNote, validate
 from connectris_pipeline.stages import gloss
@@ -346,3 +348,84 @@ async def test_each_board_is_written_as_it_lands():
 
     await backfill_module.backfill(ScriptedLLM(), CONFIG, boards, write)
     assert seen == [0, 1, 2]
+
+
+def test_glossing_a_board_keeps_the_fields_it_does_not_touch():
+    """`attach` rebuilds every board that ships, so anything it forgets is gone for good.
+
+    `concept` was forgotten exactly once, and the damage was quiet: boards published fine,
+    and the cross-language index they were supposed to fill stayed empty for ever.
+    """
+    p = board()
+    p.language = "sv"
+    for g in p.groups:
+        g.concept = f"idea of {g.id}"
+
+    out = attach(p, reply())
+
+    assert out.language == "sv"
+    assert [g.concept for g in out.groups] == [f"idea of {g.id}" for g in p.groups]
+    assert all(g.notes is not None for g in out.groups)
+
+
+def test_a_swedish_board_is_glossed_in_swedish():
+    """The only stage a player reads, and the only one where the language is not a detail.
+
+    Nothing downstream reads a note, so English prose under a Swedish row would have
+    shipped without a single check objecting.
+    """
+    sv = board()
+    sv.language = "sv"
+    system, _ = gloss_prompt(sv, language_of(sv.language))
+    assert "write every summary and every word note in Swedish" in system
+
+    system, _ = gloss_prompt(board(), language_of("en"))
+    assert "Swedish" not in system
+
+    # A board tagged with a language the generator has never heard of still gets glossed.
+    odd = board()
+    odd.language = "no"
+    assert gloss_prompt(odd, language_of(odd.language))[0] == system
+
+
+# --- the concept backfill ----------------------------------------------------------------
+
+
+def test_a_published_board_is_given_the_concept_the_index_compares_on():
+    """Free, and the thing that makes the cross-language index work at all.
+
+    Without it the index is present and inert: boards that shipped before the field
+    existed carry no concept, so a Swedish batch is told nothing has shipped and
+    re-invents the English catalogue in translation. It did exactly that, banking
+    *Bleckblåsinstrument* against a live board called "Orchestral brass instruments".
+    """
+    written: list[Puzzle] = []
+    known = {"Hound dog breeds": "hound dog breeds"}
+    done = backfill_module.name_concepts([board()], written.append, known)
+
+    assert done.named == ["gen-01"]
+    named = {g.label: g.concept for g in written[0].groups}
+    # The hand-written concept wins where there is one; the label is the concept otherwise,
+    # because an English label already is an English noun phrase.
+    assert named["Hound dog breeds"] == "hound dog breeds"
+    assert named["___ CLIP"] == "___ clip"
+    assert named["Living amphibians"] == "living amphibians"
+
+
+def test_a_board_that_already_has_concepts_is_left_alone():
+    already = board()
+    for g in already.groups:
+        g.concept = "kept"
+    written: list[Puzzle] = []
+    done = backfill_module.name_concepts([already], written.append, {})
+    assert done.skipped == ["gen-01"] and written == []
+
+
+def test_a_swedish_board_is_skipped_rather_than_guessed_at():
+    """Its label is not English and nothing here could make it so. Boards written from now
+    on carry a concept from the proposer; the few that predate that want a person."""
+    swedish = board()
+    swedish.language = "sv"
+    written: list[Puzzle] = []
+    done = backfill_module.name_concepts([swedish], written.append, {})
+    assert done.skipped == ["gen-01"] and written == []

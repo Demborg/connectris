@@ -32,6 +32,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from dataclasses import replace
 from pathlib import Path
 from typing import Annotated
 
@@ -40,6 +41,7 @@ import typer
 from . import backfill as backfill_module
 from . import config as config_module
 from . import corpus as corpus_module
+from . import language as language_module
 from . import nightly as nightly_module
 from . import pipeline
 from .llm import GeminiLLM, Ledger
@@ -114,8 +116,16 @@ def nightly(
     dry_run: Annotated[
         bool, typer.Option("--dry-run", help="Generate, write the run directory, publish nothing.")
     ] = False,
+    language: Annotated[
+        str | None,
+        typer.Option(help="Which language to write tonight: en, sv, sv-native."),
+    ] = None,
 ) -> None:
     """The scheduled job: publish tomorrow's board, if anyone is still playing today's.
+
+    One language per run, and the scheduler runs it once per language. Two invocations
+    rather than a loop so that a night failing for one cannot take the other's board down
+    with it, and so the two bills are separable in the logs.
 
     Exits 0 for every outcome it planned for, including the two that publish nothing — a
     night with no players and a night where no board was good enough are both the system
@@ -127,6 +137,9 @@ def nightly(
         raise typer.Exit(2)
 
     cfg = config_module.load(config)
+    if language is not None:
+        language_module.get(language)  # fail here, not eight calls in
+        cfg = replace(cfg, language=language)
     # One client, two adapters on it: the game's boards and runs, and the generator's own
     # category pool. The pool lives in the database rather than beside the code because a
     # Cloud Run task's disk does not survive it, and a pool re-invented nightly is not a
@@ -137,7 +150,7 @@ def nightly(
             _llm(cfg),
             cfg,
             FirestoreStore(db),
-            source=FirestoreCategories(db),
+            source=FirestoreCategories(db, language_module.get(cfg.language)),
             count=count,
             seed=seed,
             out_dir=out,
@@ -169,13 +182,23 @@ def run(
             help="Propose all `count` boards instead of stopping at the first accepted one.",
         ),
     ] = False,
+    language: Annotated[
+        str | None,
+        typer.Option(help="Language for this batch: en, sv, sv-native. Overrides the config."),
+    ] = None,
 ) -> None:
     """Generate, solve, red-team and grade, into a run directory. Publishes nothing.
 
     `--all` is for experiments: comparing two configurations wants a sample of a known
     size, and a run that stops early gives a sample whose size is the result.
+
+    `--language` is the other experiment knob, and it lives here rather than on `nightly`
+    on purpose: a night publishes to the game, and the game is not bilingual yet.
     """
     cfg = config_module.load(config)
+    if language is not None:
+        language_module.get(language)  # fail here, not eight calls in
+        cfg = replace(cfg, language=language)
     result = asyncio.run(
         pipeline.run(
             _llm(cfg),
@@ -305,6 +328,58 @@ def gloss(
     # Nothing explained and something tried is a failure worth an exit code; a run with
     # nothing left to do is not.
     raise typer.Exit(1 if done.failed and not done.glossed else 0)
+
+
+@app.command()
+def concepts(
+    published: Annotated[
+        bool,
+        typer.Option("--published", help="Name the boards in the game's database."),
+    ] = False,
+    project: Annotated[
+        str | None,
+        typer.Option(envvar="GOOGLE_CLOUD_PROJECT", help="Needed with --published."),
+    ] = None,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Print what would be written, write nothing.")
+    ] = False,
+) -> None:
+    """Give published boards the English concept the cross-language index compares on.
+
+    A one-off and a free one: no model runs, because an English board's label already is
+    an English noun phrase. Boards written from now on carry a concept from the proposer.
+
+    Run it once against the database before the first Swedish night, or the index is
+    present and inert — a Swedish batch is told nothing has shipped and re-invents the
+    English catalogue in translation, which is what it did.
+    """
+    # The hand-written concepts, where there are any: an idea is better recorded as the
+    # idea ("drinking vessels") than as one board's wording of it.
+    shipped, _ = corpus_module.load()
+    known = {g.label: g.concept for p in shipped for g in p.groups if g.concept}
+
+    if published:
+        if not project:
+            typer.secho("GOOGLE_CLOUD_PROJECT is not set", err=True, fg=typer.colors.RED)
+            raise typer.Exit(2)
+        store = FirestoreStore(connect(project))
+        boards = [entry.puzzle for entry in store.schedule()]
+        write = (lambda p: None) if dry_run else store.annotate
+    else:
+        boards = shipped
+        written: list[Puzzle] = []
+        write = written.append
+
+    done = backfill_module.name_concepts(boards, write, known)
+    if not published and not dry_run and written:
+        corpus_module.rewrite(written)
+
+    for board in boards:
+        named = backfill_module.concepts_for(board, known)
+        if named is not None and dry_run:
+            for g in named.groups:
+                typer.echo(f"  {board.id}  {g.label!r} -> {g.concept!r}")
+    typer.echo(done.summary())
 
 
 @app.command()

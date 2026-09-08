@@ -16,6 +16,7 @@ from pathlib import Path
 from conftest import BOARDS
 
 from connectris_pipeline.categories import Category, JsonCategorySource
+from connectris_pipeline.language import ENGLISH, SWEDISH
 from connectris_pipeline.spec import Group, Notes, Puzzle, WordNote
 from connectris_pipeline.store import (
     CATEGORIES,
@@ -342,3 +343,73 @@ def test_both_pools_hand_out_the_same_slots(tmp_path):
     from_disk = JsonCategorySource(on_disk).allocate(3, rng=random.Random(4))
     from_db = in_db.allocate(3, rng=random.Random(4))
     assert from_disk == from_db
+
+
+def test_each_language_keeps_its_own_pool():
+    """A pool entry is a label *in* a language, so the two never share a collection.
+
+    Sharing one would have handed a Swedish night an English theme — "Hound dog breeds" is
+    not a slot a Swedish board can fill — and then banked its Swedish categories into the
+    English pool, where they would sit until somebody read a board and wondered.
+    """
+    client = FakeClient()
+    english = FirestoreCategories(client, ENGLISH)  # ty: ignore
+    swedish = FirestoreCategories(client, SWEDISH)  # ty: ignore
+
+    english.bank([Category(label="Stone fruit", concept="stone fruit")])
+    swedish.bank([Category(label="Barrträd", concept="coniferous trees")])
+
+    assert [c.label for c in english.known()] == ["Stone fruit"]
+    assert [c.label for c in swedish.known()] == ["Barrträd"]
+    # English keeps the collection it already had, so nothing has to be migrated.
+    assert CATEGORIES in client.collections
+    assert f"{CATEGORIES}_sv" in client.collections
+
+
+def test_a_swedish_night_is_allocated_swedish_devices():
+    """The device is prompt text, handed to the proposer verbatim.
+
+    The database pool never carried a device list, so every board it allocated got the
+    English seven — including `a ___ WORD compound`, which is English orthography and the
+    exact anglicism the Swedish work exists to remove.
+    """
+    client = FakeClient()
+    swedish = FirestoreCategories(client, SWEDISH)  # ty: ignore
+    swedish.bank([Category(label="Barrträd")])
+
+    (slot,) = swedish.allocate(1, rng=random.Random(0))
+    assert slot.device in SWEDISH.devices
+    assert "___ WORD" not in slot.device
+
+
+def test_the_corpus_scopes_words_by_language_but_never_concepts():
+    """The two axes pull opposite ways, and a night that got this wrong would be subtle.
+
+    A word being taken in English says nothing about Swedish — BAND, PARK, HAND and KORT
+    are ordinary words in both — so scoping words is not an optimisation, it is the only
+    correct reading. An *idea* being taken says everything, which is the whole point of
+    the concept index, so that axis stays open across languages.
+    """
+    english = Puzzle(
+        id="en-1",
+        name="English",
+        language="en",
+        groups=[Group(id="g", label="Bands", words=["BAND"], concept="musical groups")],
+    )
+    swedish = Puzzle(
+        id="sv-1",
+        name="Svenskt",
+        language="sv",
+        groups=[Group(id="g", label="Kort", words=["KORT"], concept="playing cards")],
+    )
+    schedule = [
+        Published(puzzle=english, live_on="2026-09-01"),
+        Published(puzzle=swedish, live_on="2026-09-02"),
+    ]
+
+    for_swedish = corpus_of(schedule, "sv")
+    assert for_swedish.words == {"KORT"}, "an English word must not block a Swedish board"
+    assert for_swedish.matches_concept("musical groups"), "an idea is taken in any language"
+
+    assert corpus_of(schedule, "en").words == {"BAND"}
+    assert corpus_of(schedule).words == {"BAND", "KORT"}

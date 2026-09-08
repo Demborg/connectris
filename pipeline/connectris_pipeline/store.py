@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING, Protocol
 
 from .categories import Category, Slot, draw
 from .day import today
+from .language import ENGLISH, Language
 from .spec import Corpus, Puzzle, group_json
 
 if TYPE_CHECKING:
@@ -83,17 +84,20 @@ class GameStore(Protocol):
         ...
 
 
-def corpus_of(schedule: list[Published]) -> Corpus:
+def corpus_of(schedule: list[Published], language: str | None = None) -> Corpus:
     """What a new board has to be new against: every board already written, due or not.
 
     Boards dated ahead count. Tomorrow's board is written tonight and is as much a repeat
     to avoid as one from last year — more so, since the player would meet them two days
     apart.
+
+    `language` narrows the word and label axes and deliberately does not narrow concepts:
+    a word being taken in English says nothing about Swedish — BAND, PARK, HAND and KORT
+    are ordinary words in both — but an *idea* being taken says everything. Delegated to
+    `Corpus.from_game_json` rather than restated, because that rule is subtle enough that
+    a second copy of it would be a second copy to get wrong.
     """
-    corpus = Corpus()
-    for entry in schedule:
-        corpus.extend(entry.puzzle)
-    return corpus
+    return Corpus.from_game_json([entry.puzzle.to_game_json() for entry in schedule], language)
 
 
 def connect(project: str) -> Client:
@@ -224,14 +228,24 @@ class FirestoreCategories:
     that wants a real database the moment there is more than one machine". The allocation
     rule itself is not repeated here — `draw` is shared, so the pool rotates the same way
     wherever it is kept.
+
+    One collection per language, mirroring `pool_for`'s one file per language, and for the
+    same reason: a pool entry is a label *in* a language, so "Hound dog breeds" is not a
+    slot a Swedish board can fill. Sharing one collection would have handed a Swedish night
+    an English theme and then banked its Swedish categories into the English pool, which is
+    the sort of thing that is discovered a fortnight later by reading a board.
     """
 
-    def __init__(self, client: Client, cooldown: int = 60) -> None:
+    def __init__(self, client: Client, language: Language = ENGLISH, cooldown: int = 60) -> None:
         self._db = client
+        self._language = language
         self._cooldown = cooldown
 
     def _collection(self):  # noqa: ANN202 — a Firestore collection reference
-        return self._db.collection(CATEGORIES)
+        # English keeps the unsuffixed name, so the collection that already exists stays
+        # exactly where it is and nothing has to be migrated.
+        name = CATEGORIES if self._language.is_default else f"{CATEGORIES}_{self._language.code}"
+        return self._db.collection(name)
 
     def known(self) -> list[Category]:
         return [
@@ -239,19 +253,30 @@ class FirestoreCategories:
                 label=str(data.get("label", "")),
                 reads_as=str(data.get("reads_as", "")),
                 used=str(data.get("used", "")),
+                concept=str(data.get("concept", "")),
             )
             for doc in self._collection().stream()
             if (data := doc.to_dict() or {})
         ]
 
-    def bank(self, categories: list[Category]) -> int:
+    def bank(self, categories: list[Category], *, taken: set[frozenset[str]] | None = None) -> int:
         have = self.known()
         seen = {c.key for c in have}
+        # The cross-language half of the guard. `seen` is lexical and cannot tell that
+        # 'Bleckblåsinstrument' is a category the English pool already holds; the concept
+        # keys can, and `taken` carries the ones that live outside this pool entirely.
+        concepts = {k for c in have if (k := c.concept_key)} | (taken or set())
         fresh = []
         for c in categories:
-            if c.key and c.key not in seen:
-                seen.add(c.key)
-                fresh.append(c)
+            key = c.concept_key
+            if not c.key or c.key in seen:
+                continue
+            if key and any(key <= other or other <= key for other in concepts):
+                continue
+            seen.add(c.key)
+            if key:
+                concepts.add(key)
+            fresh.append(c)
 
         # Keyed by the folded label, so banking the same idea twice is one document rather
         # than two — the same guard `bank` applies in memory, made durable.
@@ -262,9 +287,17 @@ class FirestoreCategories:
             batch.commit()
         return len(fresh)
 
-    def allocate(self, count: int, *, rng: random.Random) -> list[Slot]:
+    def allocate(self, count: int, *, rng: random.Random, offset: int = 0) -> list[Slot]:
         pool = self.known()
-        slots, spent = draw(pool, count, rng=rng, cooldown=self._cooldown, day=today())
+        slots, spent = draw(
+            pool,
+            count,
+            rng=rng,
+            cooldown=self._cooldown,
+            day=today(),
+            devices=self._language.devices,
+            offset=offset,
+        )
         # Only what was handed out. The file adapter rewrites the whole pool because
         # rewriting a small file is simpler than diffing it; here a write is a write.
         for c in spent:
@@ -273,7 +306,12 @@ class FirestoreCategories:
 
 
 def _category_doc(category: Category) -> dict:
-    return {"label": category.label, "reads_as": category.reads_as, "used": category.used}
+    return {
+        "label": category.label,
+        "reads_as": category.reads_as,
+        "used": category.used,
+        "concept": category.concept,
+    }
 
 
 def _doc_id(key: str) -> str:

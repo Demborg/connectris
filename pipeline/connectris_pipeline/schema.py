@@ -27,6 +27,13 @@ class InventedCategory(BaseModel):
         "mistake would pull in. 'Reads as fruit, so it pulls APPLE.' This is the trap, and "
         "it belongs to the category rather than to any word."
     )
+    concept: str = Field(
+        description="The same category as a short English noun phrase, ALWAYS in English "
+        "however the label is written: 'stone fruit', 'orchestral brass instruments'. It "
+        "is not a translation for the player to read — it is an identifier, used to notice "
+        "that a category already exists in another language. Two labels that mean the same "
+        "thing must get the same concept."
+    )
 
 
 class InventedCategories(BaseModel):
@@ -36,7 +43,15 @@ class InventedCategories(BaseModel):
 class ProposedGroup(BaseModel):
     label: str = Field(
         description="The category, as the player sees it once the row clears. Short. "
-        "Use '___ WORD' or 'WORD ___' for word-joining categories."
+        "For word-joining categories use the notation the board's own language writes: "
+        "English writes its compounds open, so '___ WORD' or 'WORD ___'; a language that "
+        "writes compounds closed takes no gap, so '___WORD' or 'WORD___'."
+    )
+    concept: str = Field(
+        description="This category as a short English noun phrase, ALWAYS in English "
+        "however the label is written: 'stone fruit', 'orchestral brass instruments'. An "
+        "identifier rather than a translation, used to notice that the same category has "
+        "already shipped in another language."
     )
     words: list[str] = Field(
         description="Exactly 4 words, uppercase, at most 12 characters each, no spaces "

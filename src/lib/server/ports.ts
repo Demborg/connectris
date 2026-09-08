@@ -8,6 +8,7 @@
  */
 
 import type { Best, Run } from '$lib/game/log';
+import type { Locale } from '$lib/i18n';
 import type { Difficulty, Puzzle } from '$lib/game/types';
 
 /**
@@ -125,8 +126,12 @@ export type PuzzleStore = {
 	 * This is the only way the request path learns a board exists — there is no lookup by
 	 * id beside it, deliberately, so a board scheduled for next week cannot be reached by
 	 * guessing its URL.
+	 *
+	 * `language` narrows it to the boards one interface can show. It is a filter here
+	 * rather than a separate collection because the schedule is one schedule: two languages
+	 * publish on the same days, and a board's language is a fact about the board.
 	 */
-	live(limit: number): Promise<Puzzle[]>;
+	live(limit: number, language: Locale): Promise<Puzzle[]>;
 };
 
 export type Stores = {

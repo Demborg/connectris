@@ -24,9 +24,14 @@ import re
 from dataclasses import asdict, dataclass, field
 
 from .schema import SolveAttempt
-from .spec import COLS, ROWS, Puzzle, normalise_word
+from .spec import _LETTERS, COLS, ROWS, Puzzle, normalise_word
 
+#: One set for both languages rather than a per-language table. The words do not collide,
+#: and legibility is a floor rather than a measurement — over-stripping a stopword costs a
+#: fair board a trip to the review queue, which is the direction this is allowed to be
+#: wrong in. "som" and "på" are the Swedish members that actually showed up in solver names.
 _STOPWORDS = {
+    # English
     "the",
     "a",
     "an",
@@ -41,6 +46,21 @@ _STOPWORDS = {
     "types",
     "things",
     "words",
+    # Swedish
+    "en",
+    "ett",
+    "av",
+    "och",
+    "eller",
+    "i",
+    "på",
+    "till",
+    "för",
+    "som",
+    "med",
+    "sorter",
+    "saker",
+    "ord",
 }
 
 
@@ -121,7 +141,7 @@ class SolveStats:
 
 
 def _tokens(label: str) -> set[str]:
-    words = re.sub(r"[^a-z ]+", " ", label.lower()).split()
+    words = re.sub(rf"[^{_LETTERS} ]+", " ", label.lower()).split()
     return {w for w in words if w not in _STOPWORDS} or set(words)
 
 

@@ -30,7 +30,10 @@ import { foldRun, progressKey } from './progress';
  */
 export function memoryPuzzles(schedule: Puzzle[], published = schedule.length): PuzzleStore {
 	const newestFirst = schedule.slice(0, published).reverse();
-	return { live: async (limit) => newestFirst.slice(0, limit) };
+	return {
+		live: async (limit, language) =>
+			newestFirst.filter((p) => p.language === language).slice(0, limit)
+	};
 }
 
 /**

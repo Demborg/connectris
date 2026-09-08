@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Sheet from './Sheet.svelte';
 	import { resolve } from '$app/paths';
-	import { formatTime } from '$lib/format';
+	import { ui } from '$lib/i18n/ui.svelte';
 	import type { AnswerReporter } from '$lib/game/report';
 	import type { Session } from '$lib/game/session.svelte';
 	import type { Difficulty } from '$lib/game/types';
@@ -12,18 +12,20 @@
 		onanswer
 	}: { session: Session; onnext: () => void; onanswer: AnswerReporter } = $props();
 
+	const { t, lang } = $derived(ui());
+
 	let won = $derived(session.status === 'won');
 
 	// Time is a score once the run is over; it was only corrosive as a clock ticking while
 	// you think. Moves and checks stay in the log and off the card — showing them is what
 	// made the game read as a move-optimisation puzzle. One line rather than a grid: the
 	// board behind this card is the thing worth the space.
-	let score = $derived(`${formatTime(session.elapsedMs)} · ${session.left} left`);
+	let score = $derived(t.end.score(session.elapsedMs, session.left));
 	// Separator included, rather than sitting as a leading space inside a span the
 	// compiler is free to trim — which it was, rendering "3 left· best 0:03".
 	let best = $derived(
 		won && session.best && session.best.timeMs !== session.elapsedMs
-			? ` · best ${formatTime(session.best.timeMs)}`
+			? t.end.best(session.best.timeMs)
 			: ''
 	);
 
@@ -36,12 +38,6 @@
 	 * how a scoreboard becomes a page nobody opens.
 	 */
 	let standing = $derived(session.standing);
-
-	/** "2nd", "3rd". English only, which is what the rest of this card's words are. */
-	function suffix(place: number): string {
-		if (place % 100 >= 11 && place % 100 <= 13) return 'th';
-		return ['th', 'st', 'nd', 'rd'][place % 10] ?? 'th';
-	}
 
 	/**
 	 * Whether the questions are showing.
@@ -78,11 +74,11 @@
 	 * Both post the moment they are tapped rather than on a submit, so leaving without
 	 * finishing still tells us something. Neither blocks the way out.
 	 */
-	const LEVELS: { value: Difficulty; label: string }[] = [
-		{ value: 'easy', label: 'Too easy' },
-		{ value: 'right', label: 'Just right' },
-		{ value: 'hard', label: 'Too hard' }
-	];
+	const LEVELS: { value: Difficulty; label: string }[] = $derived([
+		{ value: 'easy', label: t.end.levels.easy },
+		{ value: 'right', label: t.end.levels.right },
+		{ value: 'hard', label: t.end.levels.hard }
+	]);
 
 	let difficulty = $state<Difficulty | null>(null);
 	let fair = $state<boolean | null>(null);
@@ -104,7 +100,7 @@
 <!-- Dismissing the card means putting the questions away, not leaving the run: the board
      underneath is the last thing the player has to look at. -->
 <Sheet
-	dismissLabel="See the board"
+	dismissLabel={t.end.seeBoard}
 	labelledBy="outcome"
 	dim={asking}
 	ondismiss={() => (asking = false)}
@@ -115,11 +111,11 @@
 		     only has two states. A chevron and a word do the same job and cannot be got
 		     half right. -->
 		<button class="head" onclick={() => (asking = !asking)} aria-expanded={asking}>
-			<span class="outcome" id="outcome">{won ? 'Solved' : 'Out of checks'}</span>
+			<span class="outcome" id="outcome">{won ? t.end.won : t.end.lost}</span>
 			<span class="score">{score}{best}</span>
 			<span class="toggle">
 				<span class="chev" class:up={!asking} aria-hidden="true">▾</span>
-				{asking ? 'See the board' : 'Questions'}
+				{asking ? t.end.seeBoard : t.end.questions}
 			</span>
 		</button>
 
@@ -133,7 +129,7 @@
 				     saying what was being asked. As inputs the legend names them for free,
 				     and so do arrow keys. -->
 				<fieldset>
-					<legend>How was that?</legend>
+					<legend>{t.end.howWasThat}</legend>
 					<div class="choices">
 						{#each LEVELS as level (level.value)}
 							<label class="choice" class:picked={difficulty === level.value}>
@@ -151,7 +147,7 @@
 				</fieldset>
 
 				<fieldset>
-					<legend>Was it fair?</legend>
+					<legend>{t.end.wasItFair}</legend>
 					<div class="choices">
 						<label class="choice" class:picked={fair === true}>
 							<input
@@ -160,7 +156,7 @@
 								checked={fair === true}
 								onchange={() => judge(true)}
 							/>
-							Yes
+							{t.end.yes}
 						</label>
 						<label class="choice" class:picked={fair === false}>
 							<input
@@ -169,7 +165,7 @@
 								checked={fair === false}
 								onchange={() => judge(false)}
 							/>
-							No
+							{t.end.no}
 						</label>
 					</div>
 				</fieldset>
@@ -179,8 +175,8 @@
 				<textarea
 					class="comment"
 					rows="2"
-					aria-label="Anything else about this board?"
-					placeholder="Anything else? (optional)"
+					aria-label={t.end.commentLabel}
+					placeholder={t.end.commentPlaceholder}
 					bind:value={comment}
 					onblur={answer}></textarea>
 			</div>
@@ -192,10 +188,8 @@
 		     and the extra line lands only on the card that is already tall because the
 		     questions are open under it. -->
 		{#if standing}
-			<a class="standing" href={resolve('/top')}>
-				{standing.place === 1
-					? `Top of the standings, of ${standing.of}`
-					: `${standing.place}${suffix(standing.place)} of ${standing.of} in the standings`}
+			<a class="standing" href={resolve('/[[lang=locale]]/top', { lang })}>
+				{standing.place === 1 ? t.end.top(standing.of) : t.end.place(standing.place, standing.of)}
 			</a>
 		{/if}
 
@@ -205,8 +199,8 @@
 		     it made the card tall enough to cover the bottom revealed row again, which is
 		     the whole thing the loss card was fixed not to do. -->
 		<div class="ways-out">
-			<a class="boards" href={resolve('/boards')}>Pick a board</a>
-			<button class="next" onclick={onnext}>Next puzzle</button>
+			<a class="boards" href={resolve('/[[lang=locale]]/boards', { lang })}>{t.nav.boards}</a>
+			<button class="next" onclick={onnext}>{t.end.next}</button>
 		</div>
 	</div>
 </Sheet>

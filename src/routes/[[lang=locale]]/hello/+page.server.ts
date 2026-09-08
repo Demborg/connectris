@@ -1,5 +1,5 @@
 import { fail, redirect } from '@sveltejs/kit';
-import { aliasProblem, normalizeAlias } from '$lib/alias';
+import { type AliasProblem, aliasProblem, normalizeAlias } from '$lib/alias';
 import { register, setPlayerCookie } from '$lib/server/identity';
 import { nextFrom } from './next';
 import type { Actions, PageServerLoad } from './$types';
@@ -19,6 +19,13 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	return {};
 };
 
+/**
+ * What a rejected registration sends back: the name as typed, so the field is not cleared
+ * under someone told to change one character of it, and a *code* for what was wrong. The
+ * page turns the code into a sentence in whichever language it is being read in.
+ */
+type Rejected = { alias: string; problem: AliasProblem | 'taken' };
+
 export const actions: Actions = {
 	default: async ({ request, cookies, url, locals }) => {
 		// A second tab that registered while this form sat open. Nothing to do but let
@@ -33,7 +40,7 @@ export const actions: Actions = {
 		const problem = aliasProblem(typed);
 		// `alias` goes back with the failure so the field is not cleared under someone who
 		// has just been told to change one character of it.
-		if (problem) return fail(400, { alias, problem });
+		if (problem) return fail<Rejected>(400, { alias, problem });
 
 		// The id this browser played under before registration existed, offered back by the
 		// page so its history comes with the name. Absent without JavaScript, and absent
@@ -42,7 +49,7 @@ export const actions: Actions = {
 		const claimed = await register(alias, typeof adopt === 'string' ? adopt : null);
 
 		if ('taken' in claimed) {
-			return fail(409, { alias, problem: 'Someone already has that one. Try another.' });
+			return fail<Rejected>(409, { alias, problem: 'taken' });
 		}
 
 		setPlayerCookie(cookies, claimed.player.id);

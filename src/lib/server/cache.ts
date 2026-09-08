@@ -53,7 +53,14 @@ function window(ttlMs: number, now: () => number): Window {
 
 export function cachePuzzles(inner: PuzzleStore, ttlMs = TTL_MS, now = Date.now): PuzzleStore {
 	const held = window(ttlMs, now);
-	return { live: (limit) => held.fresh(`live:${limit}`, () => inner.live(limit)) };
+	// The language is part of the key. Without it the first locale to ask would fill the
+	// window and the other would be served its boards for a minute — the kind of bug that
+	// only shows up when somebody switches language, which is the one thing this release
+	// asks people to do.
+	return {
+		live: (limit, language) =>
+			held.fresh(`live:${language}:${limit}`, () => inner.live(limit, language))
+	};
 }
 
 /**

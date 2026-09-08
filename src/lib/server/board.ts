@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 import { boardOf } from '$lib/game/engine';
 import type { Best } from '$lib/game/log';
+import type { Locale } from '$lib/i18n';
 import { BACKLOG, stores } from './stores';
 
 /**
@@ -12,13 +13,18 @@ import { BACKLOG, stores } from './stores';
  * navigated to, because it is not in here. Nor can tomorrow's board, which by then is
  * written and waiting in the same collection: the store only ever answers with days that
  * have arrived, so `live[0]` is today's and everything after it is a day already played.
+ *
+ * Null means this language has nothing published yet, which is an ordinary state and not a
+ * failure: Swedish starts empty and fills up a board a night. It used to be a 503, so the
+ * first thing anyone following a Swedish link saw was an error page. A named board that
+ * does not exist is still a 404 — that is a wrong URL, not an empty language.
  */
-export async function gameData(wanted?: string) {
-	const live = await stores().puzzles.live(BACKLOG);
+export async function gameData(locale: Locale, wanted?: string) {
+	const live = await stores().puzzles.live(BACKLOG, locale);
 
 	const puzzle = wanted ? live.find((p) => p.id === wanted) : live[0];
 	if (wanted && !puzzle) error(404, 'No such puzzle');
-	if (!puzzle) error(503, 'No puzzles yet');
+	if (!puzzle) return null;
 
 	return {
 		board: boardOf(puzzle),
@@ -52,11 +58,20 @@ export type ListedBoard = {
  * and it is kept off `Puzzle` for that reason — so the list carries its own order and the
  * page says "today" by position.
  */
-export async function boardList(userId: string): Promise<{ boards: ListedBoard[] }> {
+export async function boardList(
+	userId: string,
+	locale: Locale
+): Promise<{ boards: ListedBoard[] }> {
 	const { puzzles, progress } = stores();
-	const [live, played] = await Promise.all([puzzles.live(BACKLOG), progress.forUser(userId)]);
-	if (!live.length) error(503, 'No puzzles yet');
+	const [live, played] = await Promise.all([
+		puzzles.live(BACKLOG, locale),
+		progress.forUser(userId)
+	]);
 
+	// No 503 when a language is simply empty. Swedish starts with nothing published, and a
+	// picker that fails outright would make the language look broken rather than new; the
+	// page says so in words instead. `gameData` still refuses, because a game route with no
+	// board has nothing to render.
 	const mine = new Map(played.map((p) => [p.puzzleId, p]));
 
 	return {

@@ -1,3 +1,4 @@
+import { localeOf } from '$lib/i18n';
 import { boardList } from '$lib/server/board';
 import { requirePlayer } from '$lib/server/identity';
 import type { PageServerLoad } from './$types';
@@ -14,4 +15,5 @@ import type { PageServerLoad } from './$types';
  * unregistered visitor to register. It is here so the load does not have to guess, and so
  * this route would fail loudly rather than anonymously if that gate ever moved.
  */
-export const load: PageServerLoad = async ({ locals }) => boardList(requirePlayer(locals).id);
+export const load: PageServerLoad = async ({ locals, params }) =>
+	boardList(requirePlayer(locals).id, localeOf(params.lang));

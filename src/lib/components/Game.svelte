@@ -8,6 +8,7 @@
 	import Sheet from '$lib/components/Sheet.svelte';
 	import Verdict from '$lib/components/Verdict.svelte';
 	import { httpChecker } from '$lib/game/checker';
+	import { ui } from '$lib/i18n/ui.svelte';
 	import { httpAnswers, httpReporter } from '$lib/game/report';
 	import { Session } from '$lib/game/session.svelte';
 	import type { Board as Dealt } from '$lib/game/types';
@@ -21,6 +22,8 @@
 	let session = $derived.by(() => new Session(board, httpChecker(board.puzzle.id), httpReporter()));
 	let rulesOpen = $state(false);
 
+	const { t, lang } = $derived(ui());
+
 	// Nothing counts up on screen while you play. Time, moves and checks are all still
 	// recorded — see the run log — they just aren't shown, because a visible counter turns
 	// the game into an optimisation problem instead of a grouping one.
@@ -29,7 +32,7 @@
 
 	function open(id: string) {
 		rulesOpen = false;
-		goto(resolve('/p/[id]', { id }));
+		goto(resolve('/[[lang=locale]]/p/[id]', { id, lang }));
 	}
 
 	// The backlog runs newest first, so the next board to play is the one after this in
@@ -38,12 +41,12 @@
 </script>
 
 <svelte:head>
-	<title>Connectris — {session.puzzle.name}</title>
+	<title>{t.title.board(session.puzzle.name)}</title>
 </svelte:head>
 
 <div class="app">
 	<header>
-		<h1>CONNECTRIS</h1>
+		<h1>{t.brand}</h1>
 		<!-- The label stays put and `aria-expanded` carries the state, matching the end
 		     card's toggle. Swapping the label to "Close" made one of the app's two
 		     disclosure buttons behave unlike the other, and read as "close the page". -->
@@ -53,46 +56,45 @@
 			aria-controls="rules"
 			onclick={() => (rulesOpen = !rulesOpen)}
 		>
-			How to play
+			{t.game.howToPlay}
 		</button>
 	</header>
 
 	<!-- Connections keeps its goal on screen permanently, and it earns the space: it is
 	     the one line that says what you are trying to do. The second half carries what
 	     the rank numbers used to. -->
-	<p class="goal">Make five rows of four — surest at the top</p>
+	<p class="goal">{t.game.goal}</p>
 
 	<!-- A sheet, not a section in flow. In flow this was the only panel in the app that
 	     moved the board: opening it grew the document from 667px to 986px on a 375×667
 	     screen and put the Check button 307px below the fold. -->
 	{#if rulesOpen}
 		<Sheet
-			dismissLabel="Close the rules"
+			dismissLabel={t.game.closeRules}
 			labelledBy="rules-title"
 			ondismiss={() => (rulesOpen = false)}
 		>
 			<section class="rules" id="rules">
-				<h2 id="rules-title">How to play</h2>
+				<h2 id="rules-title">{t.game.howToPlay}</h2>
+				<!-- The emphasis is part of the sentence, so each rule arrives as three pieces
+				     rather than as markup inside a translated string. A translator moves the
+				     emphasis by moving words between `before` and `after`. -->
 				<ol>
-					<li>
-						Sort all 20 words into 5 rows of four. Order <em>inside</em> a row doesn't matter.
-					</li>
-					<li>Drag a word onto another to swap them, or tap the two of them in turn.</li>
-					<li>
-						<strong>Check clears from the top down only.</strong> A correct row sitting below a wrong
-						one doesn't clear. Put the row you're surest about first.
-					</li>
-					<li>
-						<strong>Every check costs one.</strong> Clearing several rows in one go is how you keep them
-						— which is what getting the order right buys you.
-					</li>
-					<li>A check tells you how many rows are right — never which ones.</li>
+					{#each t.game.rules as rule (rule.mark)}
+						<li>
+							{rule.before ?? ''}{#if rule.style === 'strong'}<strong>{rule.mark}</strong>{:else}<em
+									>{rule.mark}</em
+								>{/if}{rule.after ?? ''}
+						</li>
+					{/each}
 				</ol>
 				<!-- One link out, not a row of pills. Choosing a board is not part of learning
 				     the rules, and a picker living inside the help panel was navigation nobody
 				     could find. /boards is the room for it, and it says the thing this panel
 				     never could: which boards you have already played. -->
-				<a class="to-boards" href={resolve('/boards')}>All boards &rarr;</a>
+				<a class="to-boards" href={resolve('/[[lang=locale]]/boards', { lang })}>
+					{t.nav.allBoards}
+				</a>
 			</section>
 		</Sheet>
 	{/if}
@@ -138,7 +140,7 @@
 			aria-disabled={session.busy || undefined}
 			onclick={() => session.check()}
 		>
-			Check
+			{t.game.check}
 		</button>
 	</footer>
 

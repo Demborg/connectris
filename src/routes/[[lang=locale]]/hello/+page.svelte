@@ -1,10 +1,27 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { ALIAS_MAX } from '$lib/alias';
+	import { ALIAS_MAX, ALIAS_MIN, type AliasProblem } from '$lib/alias';
+	import { ui } from '$lib/i18n/ui.svelte';
 	import { playedAs } from '$lib/user';
 	import type { ActionData } from './$types';
 
 	let { form }: { form: ActionData } = $props();
+
+	const { t } = $derived(ui());
+
+	/**
+	 * The rejection, in words.
+	 *
+	 * The server sends a code and this turns it into a sentence, because the server has no
+	 * business holding a copy of the words and the page already knows which language it is
+	 * in. The two length messages carry the bound rather than repeating the number.
+	 */
+	function said(problem: AliasProblem | 'taken'): string {
+		if (problem === 'taken') return t.hello.taken;
+		if (problem === 'short') return t.alias.short(ALIAS_MIN);
+		if (problem === 'long') return t.alias.long(ALIAS_MAX);
+		return t.alias[problem];
+	}
 
 	/**
 	 * The id this browser has been playing under, handed back to the server so the name
@@ -24,21 +41,18 @@
 </script>
 
 <svelte:head>
-	<title>Connectris — Pick a name</title>
+	<title>{t.title.hello}</title>
 </svelte:head>
 
 <div class="app">
-	<h1>CONNECTRIS</h1>
+	<h1>{t.brand}</h1>
 
 	<div class="panel">
-		<h2>Pick a name</h2>
+		<h2>{t.hello.heading}</h2>
 		<!-- Says what the name is for, because a name box with no stated purpose reads as a
 		     sign-up wall. It is neither an account nor an email: the whole cost of entry is
 		     one word, and the thing it buys is being on the board. -->
-		<p class="why">
-			It goes on your solves and on the standings. No password, no email — just something for the
-			rest of us to call you.
-		</p>
+		<p class="why">{t.hello.why}</p>
 
 		<!-- `use:enhance` submits without a navigation when JavaScript is up, and the plain
 		     form posts when it is not. This page stands in front of every other one, so it
@@ -56,7 +70,7 @@
 			<input type="hidden" name="adopt" value={adopt} />
 
 			<label class="field">
-				<span class="label">Your name</span>
+				<span class="label">{t.hello.field}</span>
 				<input
 					name="alias"
 					bind:value={alias}
@@ -65,7 +79,7 @@
 					autocapitalize="words"
 					autocorrect="off"
 					spellcheck="false"
-					placeholder="Ada"
+					placeholder={t.hello.placeholder}
 					aria-describedby={form?.problem ? 'problem' : undefined}
 					aria-invalid={form?.problem ? 'true' : undefined}
 					required
@@ -75,18 +89,16 @@
 			<!-- Assertive, not polite: the form has just been submitted and rejected, and
 			     the reason is the only thing that changed on the page. -->
 			<p class="problem" id="problem" role="alert">
-				{#if form?.problem}{form.problem}{/if}
+				{#if form?.problem}{said(form.problem)}{/if}
 			</p>
 
 			<button class="go" type="submit" disabled={submitting || alias.trim().length === 0}>
-				{submitting ? 'Just a moment…' : 'Start playing'}
+				{submitting ? t.hello.submitting : t.hello.submit}
 			</button>
 		</form>
 	</div>
 
-	<p class="note">
-		Kept in this browser. Playing somewhere else means picking a name there too — for now.
-	</p>
+	<p class="note">{t.hello.note}</p>
 </div>
 
 <style>

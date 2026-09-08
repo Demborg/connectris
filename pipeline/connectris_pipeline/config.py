@@ -79,6 +79,13 @@ class Thresholds:
 
 @dataclass(frozen=True)
 class Config:
+    #: What language this batch writes. Per *run*, not per puzzle, and the reason is that
+    #: everything a run shares is language-bound: the category pool, the few-shot examples,
+    #: the device list and the dedupe index. A mixed batch would need all four keyed by
+    #: language and would still propose every board against the wrong pool half the time.
+    #: `Puzzle.language` is stamped from here and stays per-puzzle because the *data* is
+    #: mixed even when no single run is — puzzles.json holds both, and the app reads it.
+    language: str = "en"
     #: One puzzle per call — see README on why not batches. Thinking all the way up:
     #: this is the stage where a night's quality is decided and it runs twenty times.
     proposer: ModelSpec = ModelSpec("gemini-3.8-flash", thinking_level="high")
@@ -151,7 +158,7 @@ def load(path: Path | None) -> Config:
     top = {
         k: v
         for k, v in raw.items()
-        if k in {"attempts", "invent_batch", "concurrency", "max_retries"}
+        if k in {"language", "attempts", "invent_batch", "concurrency", "max_retries"}
     }
 
     return replace(

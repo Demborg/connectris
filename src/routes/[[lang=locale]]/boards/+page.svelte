@@ -1,40 +1,55 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { formatTime } from '$lib/format';
+	import LocaleSwitch from '$lib/components/LocaleSwitch.svelte';
+	import { ui } from '$lib/i18n/ui.svelte';
 	import type { ListedBoard } from '$lib/server/board';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
 
+	const { t, lang } = $derived(ui());
+
 	/**
 	 * Today's board has a home of its own and this is not a second address for it. Every
 	 * other board is reached by id.
 	 */
-	const href = (id: string, today: boolean) => (today ? resolve('/') : resolve('/p/[id]', { id }));
+	const href = (id: string, today: boolean) =>
+		today
+			? resolve('/[[lang=locale]]', { lang })
+			: resolve('/[[lang=locale]]/p/[id]', { id, lang });
 
 	/** Said in words as well as drawn, because a mark alone is not readable. */
 	function statusOf(board: ListedBoard) {
-		if (board.best) return { kind: 'solved' as const, said: 'Solved' };
-		if (board.played) return { kind: 'played' as const, said: 'Played' };
-		return { kind: 'new' as const, said: 'Not played' };
+		if (board.best) return { kind: 'solved' as const, said: t.boards.solved };
+		if (board.played) return { kind: 'played' as const, said: t.boards.played };
+		return { kind: 'new' as const, said: t.boards.notPlayed };
 	}
 </script>
 
 <svelte:head>
-	<title>Connectris — Boards</title>
+	<title>{t.title.boards}</title>
 </svelte:head>
 
 <div class="app">
 	<header>
-		<h1>CONNECTRIS</h1>
-		<a class="back" href={resolve('/top')}>Standings</a>
-		<a class="back" href={resolve('/')}>Today's board</a>
+		<h1>{t.brand}</h1>
+		<a class="back" href={resolve('/[[lang=locale]]/top', { lang })}>{t.nav.standings}</a>
+		<a class="back" href={resolve('/[[lang=locale]]', { lang })}>{t.nav.today}</a>
 	</header>
 
-	<h2>Boards</h2>
+	<h2>{t.boards.heading}</h2>
+
+	<!-- The switcher lives here rather than in a global bar. This is the page about which
+	     boards exist, and language is the sharpest fact about a board: the list under it
+	     changes completely, which is exactly the feedback a switcher should give. -->
+	<LocaleSwitch />
 	<!-- Thirty days is the whole window; a board older than that is not reachable from
 	     anywhere, so there is no "load more" and nothing is being withheld. -->
-	<p class="note">Every board still in play. Yours are marked, on whatever you play them on.</p>
+	<p class="note">{t.boards.note}</p>
+
+	{#if data.boards.length === 0}
+		<p class="note empty">{t.boards.none}</p>
+	{/if}
 
 	<ul class="list">
 		{#each data.boards as board, i (board.id)}
@@ -43,20 +58,18 @@
 				<a
 					class="board"
 					href={href(board.id, i === 0)}
-					aria-label="{board.name}{i === 0 ? ", today's board" : ''}, {s.said}{board.best
-						? `, best ${formatTime(board.best.timeMs)} with ${board.best.checksLeft} checks left`
-						: ''}"
+					aria-label={t.boards.label(board.name, i === 0, s.said, board.best)}
 				>
 					<span class="mark {s.kind}" aria-hidden="true"></span>
 					<span class="name">{board.name}</span>
 					{#if i === 0}
-						<span class="today">Today</span>
+						<span class="today">{t.boards.today}</span>
 					{/if}
 					<span class="record">
 						{#if board.best}
-							{formatTime(board.best.timeMs)} · {board.best.checksLeft} left
+							{t.boards.record(board.best.timeMs, board.best.checksLeft)}
 						{:else if board.played}
-							Played
+							{t.boards.played}
 						{/if}
 					</span>
 				</a>

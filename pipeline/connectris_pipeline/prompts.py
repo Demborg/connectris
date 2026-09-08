@@ -11,15 +11,17 @@ players we are calibrating against.
 
 from __future__ import annotations
 
+from . import prompts_sv
 from .categories import Slot
+from .language import ENGLISH, Language
 from .schema import RedTeamReport
-from .spec import COLS, MAX_WORD_LEN, ROWS, Puzzle
+from .spec import CHECKS, COLS, MAX_WORD_LEN, ROWS, Puzzle
 
 GAME_BRIEF = f"""\
 Connectris is a word-grouping puzzle. The board is {ROWS * COLS} words in {ROWS} rows of \
 {COLS}. Each row is one category. The player rearranges the whole board and commits to a \
 full arrangement, and only the leading run of correct rows from the top clears — so the \
-player must also rank their rows by confidence. They get six checks.
+player must also rank their rows by confidence. They get {CHECKS} checks.
 
 This means a puzzle is judged on two things at once:
 - Each category must have exactly one defensible membership, or a player who is right is \
@@ -33,7 +35,7 @@ Hard constraints — a puzzle breaking any of these is thrown away unread:
 - Exactly {ROWS} categories of exactly {COLS} words. {ROWS * COLS} distinct words, no repeats.
 - Every word at most {MAX_WORD_LEN} characters. The board is four columns on a phone. \
 Shorter is better; most words should be under 8.
-- Plain uppercase English. No punctuation, no digits. Two words are fine if the
+- Plain uppercase. No punctuation, no digits. Two words are fine if the
 entry really is two words and it fits the tile.
 - No word may appear inside another category's label.
 
@@ -52,8 +54,7 @@ told they are wrong. A word must have exactly one home under a precise reading o
 labels.
 - Prefer categories a player can *name*. If someone groups the four correctly but cannot \
 say why, the puzzle is unfair even though it is solvable.
-- Vary the kind of category: things-that-are-X, ___ WORD and WORD ___ compounds, \
-homophones, members of a set, words hiding another word. Do not use five of the same kind.
+- Vary the kind of category: {{kinds}}. Do not use five of the same kind.
 - A category that quietly narrows is the best device you have: "stone fruit" read as
 "fruit", "circus performers" read as "circus things", "birds that cannot fly" read as
 "birds". Reach for one of those before you reach for a collision.
@@ -61,6 +62,28 @@ homophones, members of a set, words hiding another word. Do not use five of the 
 the last thing anyone sees.
 - No proper nouns that need specific regional or generational knowledge.
 """
+
+
+def rules_for(lang: Language) -> str:
+    """The shared construction rules, with the language's own menu and addendum."""
+    return CONSTRUCTION_RULES.format(kinds=lang.kinds) + lang.rules
+
+
+def output_language(lang: Language) -> str:
+    """Stated once, at the top, and repeated at the ask. Empty for English.
+
+    Repeating it is not belt-and-braces. The example boards below it are English — there
+    are no shipped Swedish boards to few-shot from on day one — and a model shown five
+    English boards and asked for a sixth will produce an English one unless told otherwise
+    at the moment of asking. That the examples are in the wrong language at all is the
+    single biggest confound in the first Swedish run; see the report.
+    """
+    if lang.is_default:
+        return ""
+    return (
+        f"\nThe board you write is in {lang.name}. Every word on it and every category "
+        f"label is {lang.name}. The instructions here are in English; your output is not.\n"
+    )
 
 
 def _puzzle_as_example(p: Puzzle) -> str:
@@ -89,24 +112,50 @@ def _sample(items: list[str], cap: int) -> list[str]:
 
 
 def propose(
-    *, slot: Slot, examples: list[Puzzle], avoid_words: list[str], avoid_labels: list[str]
+    *,
+    slot: Slot,
+    examples: list[Puzzle],
+    avoid_words: list[str],
+    avoid_labels: list[str],
+    avoid_concepts: list[str] | None = None,
+    lang: Language = ENGLISH,
 ) -> tuple[str, str]:
-    shown = "\n\n".join(_puzzle_as_example(p) for p in examples)
+    if lang.prompt_native:
+        return prompts_sv.propose(
+            slot=slot,
+            examples=examples,
+            avoid_words=avoid_words,
+            avoid_labels=avoid_labels,
+            avoid_concepts=avoid_concepts,
+            lang=lang,
+        )
+    # The fallback is not decoration: a language with no shipped boards and no seeds hands
+    # this an empty list, and an empty examples block reads as a truncated prompt.
+    shown = "\n\n".join(_puzzle_as_example(p) for p in examples) or "(none shipped yet)"
     words = ", ".join(_sample(avoid_words, 200)) or "(nothing yet)"
     labels = "; ".join(_sample(avoid_labels, 80)) or "(nothing yet)"
+    concepts = "; ".join(_sample(avoid_concepts or [], 80)) or "(nothing yet)"
     system = (
         "You are a puzzle constructor. You write one board at a time and you care more "
         "about whether it has exactly one answer than about whether it is clever.\n\n"
         + GAME_BRIEF
+        + output_language(lang)
         + "\n"
-        + CONSTRUCTION_RULES
+        + rules_for(lang)
+    )
+    standard = (
+        "Hand-written boards that set the standard"
+        if lang.is_default
+        else f"Hand-written boards that set the standard. They are in English because no "
+        f"{lang.name} board has shipped yet — copy their construction, not their vocabulary, "
+        f"and do not translate them"
     )
     prompt = f"""\
-Hand-written boards that set the standard:
+{standard}:
 
 {shown}
 
-Write one new board.
+Write one new board{"" if lang.is_default else f", in {lang.name}"}.
 
 Two of your five categories are assigned. Build the other three yourself, and choose them
 so their words collide with these two.
@@ -116,6 +165,12 @@ so their words collide with these two.
 
 Already shipped, so do not reuse — words: {words}
 Already shipped, so do not repeat the idea — categories: {labels}
+Already shipped in some language, so do not repeat the idea in yours — concepts: {concepts}
+
+Give every category a `concept`: the same idea as a short English noun phrase, whatever \
+language the label is written in. It is an identifier, not a translation for the player. \
+If the concept you are about to write is on the list above, the category is a repeat even \
+though its label is new, and you should replace it.
 
 For each category, state its trap: which word on this board its *obvious* reading would \
 pull in, and what in its precise reading keeps that word out. "Stone fruit — reads as \
@@ -123,22 +178,35 @@ fruit, so it pulls APPLE, but an apple is a pome not a drupe." If a category has
 pull, say so; a board where three categories say "none" is one you should rewrite before \
 answering. And check, before you answer, that no word genuinely satisfies two of your \
 five labels — that is the one defect that makes the board unsolvable rather than hard.
+{"" if lang.is_default else f"Write the words and the labels in {lang.name}."}
 """
     return system, prompt
 
 
-def solve(words: list[str]) -> tuple[str, str]:
-    """Deliberately bare. See the module docstring."""
+def solve(words: list[str], lang: Language = ENGLISH) -> tuple[str, str]:
+    """Deliberately bare. See the module docstring.
+
+    The one addition for a non-English board is naming the language, and it is not
+    optional: the words arrive with no context and a weak model handed HÖNA, PANNA, KAKA
+    will answer in English, which makes every category name score near zero on legibility
+    and turns the fairness proxy into a translation test. Naming the language is the
+    smallest thing that keeps the measurement about grouping.
+    """
     system = (
         "You group words. Given 20 words, split them into 5 groups of 4 that each share "
         "something. Use every word exactly once. Name each group. Answer even if you are "
         "unsure — a guess is more useful than a refusal."
+        + (
+            ""
+            if lang.is_default
+            else f" The words are {lang.name}; name the groups in {lang.name}."
+        )
     )
     prompt = "\n".join(words)
     return system, prompt
 
 
-def red_team(puzzle: Puzzle, traps: dict[str, str]) -> tuple[str, str]:
+def red_team(puzzle: Puzzle, traps: dict[str, str], lang: Language = ENGLISH) -> tuple[str, str]:
     """The critical stage, and not the same job as solving.
 
     A solver that happens to find the intended answer proves nothing about whether a
@@ -168,6 +236,14 @@ def red_team(puzzle: Puzzle, traps: dict[str, str]) -> tuple[str, str]:
         "reading — where a player could file it either way and defend it. Judge the labels "
         "as written, on their own terms, and ignore how many words each row already has: "
         "'the other row is full' is not a resolution, it is the bug."
+        + (
+            ""
+            if lang.is_default
+            else f"\nThis board is in {lang.name}. Judge it as a {lang.name} speaker would: "
+            f"a second reading only counts if it is a real {lang.name} sense of the word, not "
+            f"a sense its English cognate has. Report separately any word that is misspelled, "
+            f"is not current {lang.name}, or is a calque of an English expression."
+        )
     )
     rows = "\n".join(
         f"{g.label}: {', '.join(g.words)}   [intended pull: {traps.get(g.id, 'none stated')}]"
@@ -198,6 +274,7 @@ def grade(
     solver_digest: str,
     red: RedTeamReport | None,
     warnings: list[str],
+    lang: Language = ENGLISH,
 ) -> tuple[str, str]:
     system = (
         "You are the editor. You decide whether a puzzle ships as it stands, goes to a "
@@ -205,7 +282,15 @@ def grade(
         "the board after you — there is no revision step, so do not ask for one.\n\n"
         + GAME_BRIEF
         + "\n"
-        + CONSTRUCTION_RULES
+        + rules_for(lang)
+        + (
+            ""
+            if lang.is_default
+            else f"\nThis board is in {lang.name}. Rate its {lang.name} as well as its "
+            f"construction: a board whose words are misspelled, whose rows mix definite and "
+            f"indefinite forms, or whose categories only work as translations of English ones "
+            f"is not fair, whatever its structure looks like. Say so in `reasons`, in English."
+        )
         + "\nHow to read the red-team report: this board is *meant* to contain categories "
         "that read wider than they are, so a word being tempted by another row is the "
         "puzzle working. What the red team reports is different — a word two labels both "
@@ -260,7 +345,7 @@ def _red_summary(red: RedTeamReport | None) -> str:
     return "\n".join(lines) or "- nothing found"
 
 
-def gloss(puzzle: Puzzle) -> tuple[str, str]:
+def gloss(puzzle: Puzzle, lang: Language = ENGLISH) -> tuple[str, str]:
     """The last stage, and the only one written for the player rather than about them.
 
     Everything else in this file is judgement — is the board fair, is it solvable, is it
@@ -279,6 +364,11 @@ def gloss(puzzle: Puzzle) -> tuple[str, str]:
     just read: "___ BONE" glossed as "names for anatomical structures ending in the word
     bone", which is the one sentence that adds nothing at all. The old prompt banned that
     move for the word notes and forgot to ban it for the summary.
+
+    This is the only stage whose output a *player* reads, which makes it the only one where
+    the board's language is not a detail. A Swedish board glossed in English ships English
+    prose under Swedish rows — and because nothing downstream reads the notes, no check in
+    the pipeline would have said a word about it.
     """
     system = (
         "You write the short reference note that appears under a solved row of a word "
@@ -309,6 +399,14 @@ def gloss(puzzle: Puzzle) -> tuple[str, str]:
         "somebody's name.'\n"
         "  BOYCOTT — 'Charles Boycott, the Irish land agent whose tenants refused to deal "
         "with him in 1880.'"
+        + (
+            ""
+            if lang.is_default
+            else f"\n\nThis board is in {lang.name} and the player reads these notes, so "
+            f"write every summary and every word note in {lang.name}. The two examples above "
+            f"are English because the board they came from was; copy their length and their "
+            f"register, not their language."
+        )
     )
     rows = "\n".join(f"{g.label}: {', '.join(g.words)}" for g in puzzle.groups)
     prompt = f"""\
@@ -321,13 +419,15 @@ Copy each label and each word exactly as written above.
     return system, prompt
 
 
-def invent(*, count: int, known: list[str]) -> tuple[str, str]:
+def invent(*, count: int, known: list[str], lang: Language = ENGLISH) -> tuple[str, str]:
     """Stage 0. Cheap, bulk, and run before any board exists.
 
     Asking for forty categories in one call is fine where asking for ten boards is not: a
     board is a design with five interacting parts and degrades when batched, a category is
     a one-line idea.
     """
+    if lang.prompt_native:
+        return prompts_sv.invent(count=count, known=known, lang=lang)
     system = (
         "You invent categories for a word puzzle. Not boards — just categories, one line "
         "each, to be drawn on later.\n\n" + GAME_BRIEF + "\n"
@@ -337,10 +437,20 @@ def invent(*, count: int, known: list[str]) -> tuple[str, str]:
         "excludes TRAPEZE. That narrowing is what you are being asked for.\n"
         "Avoid categories that need regional or generational knowledge, and avoid ones "
         "whose members are longer than 12 characters."
+        + (
+            ""
+            if lang.is_default
+            else f"\nWrite the labels in {lang.name}, for a board that will be played in "
+            f"{lang.name}. The 12-character limit is the hard one here: {lang.name} compounds "
+            f"run long, so a category whose natural members are all long compounds is not "
+            f"usable however good the idea is. Invent {lang.name} categories rather than "
+            f"translating English ones — a category that is only interesting in English is "
+            f"worse than useless, because it will read as a translation."
+        )
     )
     have = ", ".join(sorted(known)[:300]) or "(the pool is empty)"
     prompt = f"""\
-Invent {count} categories.
+Invent {count} categories{"" if lang.is_default else f", in {lang.name}"}.
 
 For each, give the label as a player would read it, and the wider reading it will be
 mistaken for along with the word that mistake pulls in.

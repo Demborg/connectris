@@ -25,9 +25,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
-from .categories import DEFAULT_POOL, CategorySource, JsonCategorySource
+from .categories import CategorySource, source_for
 from .config import Config
 from .corpus import load as load_corpus
+from .language import get as get_language
 from .llm import LLM, Ledger
 from .record import Candidate, decide
 from .scoring import score
@@ -119,12 +120,23 @@ async def run(
     per-candidate corpus afterwards to catch the siblings it had missed. One at a time,
     the first mechanism simply works and the second is not needed.
     """
+    lang = get_language(cfg.language)
+
+    # Everything a batch shares is language-bound. The dedupe index is narrowed because a
+    # word being taken in English says nothing about Swedish; the pool because a category
+    # is a label in a language; the examples because a board is the standard it sets.
     if corpus is None:
-        corpus = load_corpus()[1]
+        corpus = load_corpus(language=lang.code)[1]
     if examples is None:
-        examples = load_corpus()[0][:2]
+        # Falling back to English boards when none have shipped in this language is a
+        # deliberate, marked compromise, not an oversight: the examples carry the
+        # construction standard, and starting with none costs more quality than starting
+        # with the wrong language does. The proposer is told what they are and told not to
+        # translate them (see `prompts.output_language`). Replace them with three
+        # hand-written Swedish boards and this line goes away.
+        examples = load_corpus(language=lang.code)[0][:2] or load_corpus()[0][:2]
     if source is None:
-        source = JsonCategorySource(DEFAULT_POOL)
+        source = source_for(lang)
 
     stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     directory = None if out_dir is None else (out_dir / stamp)
@@ -138,14 +150,16 @@ async def run(
     # already thought hard about.
     if len(source.known()) < count:
         try:
-            banked = await invent(llm, cfg, source, count=cfg.invent_batch)
+            banked = await invent(
+                llm, cfg, source, count=cfg.invent_batch, taken=set(corpus.concepts)
+            )
             log.info("banked %d new categories", banked)
         except Exception:
             log.exception("category invention failed; allocating from what the pool has")
 
     # Our own copy: `run` must not leave the caller's corpus carrying boards that were
     # proposed and then thrown away.
-    against = Corpus(set(corpus.words), set(corpus.labels))
+    against = corpus.copy()
 
     writer = _Writer(directory)
     candidates: list[Candidate] = []
@@ -157,7 +171,11 @@ async def run(
         # ceiling of five would otherwise burn five themes to ship one board. Two
         # candidates in a night may now draw the same device; that costs nothing, because
         # they are competing drafts of the same day's board rather than a series.
-        (slot,) = source.allocate(1, rng=rng)
+        # The device walk advances only when the batch is a sample. A night proposes
+        # competing drafts of one board and wants them all in the day's own shape; `--all`
+        # exists to compare configurations, and a sample in which every board shares a
+        # device measures that device rather than the configuration.
+        (slot,) = source.allocate(1, rng=rng, offset=0 if stop_on_accept else index)
 
         try:
             candidate = await propose(
@@ -166,12 +184,15 @@ async def run(
                 candidate_id=cid,
                 slot=slot,
                 examples=examples,
-                corpus=Corpus(set(against.words), set(against.labels)),
+                corpus=against.copy(),
+                lang=lang,
             )
         except Exception:
             log.exception("proposal %s failed", cid)
             candidate = Candidate(
-                id=cid, puzzle=Puzzle(id=cid, name="(failed)", groups=[]), error=_last_error()
+                id=cid,
+                puzzle=Puzzle(id=cid, name="(failed)", groups=[], language=lang.code),
+                error=_last_error(),
             )
 
         if not candidate.error:

@@ -9,6 +9,7 @@ it (DESIGN.md, phase 2 sketch).
 from __future__ import annotations
 
 from ..config import Config
+from ..language import get as get_language
 from ..llm import LLM
 from ..prompts import red_team as red_team_prompt
 from ..schema import RedTeamReport
@@ -16,7 +17,7 @@ from ..spec import Puzzle
 
 
 async def red_team(llm: LLM, cfg: Config, puzzle: Puzzle, traps: dict[str, str]) -> RedTeamReport:
-    system, prompt = red_team_prompt(puzzle, traps)
+    system, prompt = red_team_prompt(puzzle, traps, get_language(cfg.language))
     return await llm.generate(
         stage="red_team", model=cfg.red_team, system=system, prompt=prompt, schema=RedTeamReport
     )

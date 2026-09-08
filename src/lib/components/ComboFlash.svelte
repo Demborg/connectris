@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ui } from '$lib/i18n/ui.svelte';
 	import { cubicOut } from 'svelte/easing';
 	import type { TransitionConfig } from 'svelte/transition';
 
@@ -6,7 +7,7 @@
 
 	// Four is unreachable — with five rows, four correct forces the fifth — but name it
 	// anyway rather than fall through to something that reads like a bug.
-	const NAMES: Record<number, string> = { 2: 'DOUBLE', 3: 'TRIPLE', 4: 'QUAD', 5: 'CONNECTRIS' };
+	const NAMES = $derived(ui().t.combo);
 	let label = $derived(NAMES[rows] ?? `${rows} ROWS`);
 
 	/**

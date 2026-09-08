@@ -1,5 +1,6 @@
 import { Firestore, type Settings } from '@google-cloud/firestore';
 import type { Run } from '$lib/game/log';
+import { LOCALES } from '$lib/i18n';
 import type { Puzzle } from '$lib/game/types';
 import { today } from './day';
 import type {
@@ -55,21 +56,42 @@ export function firestorePuzzles(db: Firestore, now: () => string = () => today(
 	const puzzles = db.collection(collections.puzzles);
 
 	return {
-		async live(limit) {
-			// Filtered and ordered on the same single field, which Firestore indexes
-			// automatically — no composite index to declare and none to forget when
-			// deploying. It is also why `liveOn` is a `YYYY-MM-DD` string: it compares as a
-			// date because it sorts as one.
+		async live(limit, language) {
+			// Ordered on the one field that is indexed automatically, and narrowed to a
+			// language in memory. An equality on `language` beside the range on `liveOn` is
+			// exactly the shape that needs a composite index — a thing to declare, deploy
+			// and forget — and the same trade was already made for `finishedRuns`.
 			//
-			// The nightly job writes tomorrow's board tonight, so there is normally one
-			// document ahead of this window. Excluding it here is what stops a board being
-			// playable the evening before it is due, and it costs a range bound.
-			const found = await puzzles
-				.where('liveOn', '<=', now())
-				.orderBy('liveOn', 'desc')
-				.limit(limit)
-				.get();
-			return found.docs.map((d) => puzzleOf(d.id, d.data()));
+			// It pages, rather than over-fetching a fixed multiple of `limit` and hoping.
+			// The two languages are not interleaved: Swedish starts months after English,
+			// so the newest documents can be a run of one language and a single page of
+			// them may hold none of the other. In the steady state of a board a night each,
+			// the first page answers and the loop runs once.
+			const wanted = limit * LOCALES.length;
+			const found: Puzzle[] = [];
+			let after: FirebaseFirestore.QueryDocumentSnapshot | undefined;
+
+			while (found.length < limit) {
+				// The nightly job writes tomorrow's board tonight, so there is normally one
+				// document ahead of this window. Excluding it is what stops a board being
+				// playable the evening before it is due, and it costs a range bound.
+				let query = puzzles.where('liveOn', '<=', now()).orderBy('liveOn', 'desc');
+				// The snapshot, not its `liveOn`: both languages publish on the same day, so
+				// a cursor on the value alone would step over the second board of a date.
+				if (after) query = query.startAfter(after);
+
+				const page = await query.limit(wanted).get();
+				if (page.empty) break;
+
+				for (const doc of page.docs) {
+					const puzzle = puzzleOf(doc.id, doc.data());
+					if (puzzle.language === language) found.push(puzzle);
+				}
+				after = page.docs[page.docs.length - 1];
+				if (page.size < wanted) break;
+			}
+
+			return found.slice(0, limit);
 		}
 	};
 }

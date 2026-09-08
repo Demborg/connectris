@@ -2,6 +2,7 @@ import { expect, it } from 'vitest';
 import puzzles from '$lib/data/puzzles.json';
 import type { Run } from '$lib/game/log';
 import type { Puzzle } from '$lib/game/types';
+import type { Locale } from '$lib/i18n';
 import { handleOf } from '$lib/alias';
 import type {
 	Feedback,
@@ -81,32 +82,60 @@ export function puzzleStoreContract(
 	const store = (upcoming: Puzzle[] = []) =>
 		make(boards.slice(0, boards.length - upcoming.length), upcoming);
 
+	// The fixture is the shipped file and the shipped file is bilingual, so every
+	// expectation below has to name a language rather than assume there is only one. That
+	// this suite broke the day a Swedish board shipped is the suite working.
+	const of = (language: Locale) => boards.filter((p) => p.language === language);
 	const newest = boards[boards.length - 1];
 
 	it('lists published boards newest first, so the head of the list is today', async () => {
 		// The nightly job adds a board a day. A store that answered oldest-first would put
 		// every new board at the far end of a windowed query, where nothing reads it.
-		const listed = await (await store()).live(boards.length);
-		expect(listed.map((p) => p.id)).toEqual([...boards].reverse().map((p) => p.id));
+		const listed = await (await store()).live(boards.length, 'en');
+		expect(listed.map((p) => p.id)).toEqual([...of('en')].reverse().map((p) => p.id));
 	});
 
 	it('hands back whole boards, answer key included', async () => {
 		// A store is the one place that holds the solution. Stripping it is the request
 		// path's job, and it cannot strip what it was never given.
-		expect((await (await store()).live(1))[0]).toEqual(newest);
+		const latest = of(newest.language as Locale).at(-1);
+		expect((await (await store()).live(1, newest.language as Locale))[0]).toEqual(latest);
 	});
 
 	it('honours a limit', async () => {
-		expect(await (await store()).live(1)).toHaveLength(1);
+		expect(await (await store()).live(1, 'en')).toHaveLength(1);
 	});
 
 	it('never lists a board that is not due yet', async () => {
 		// The generator writes tomorrow's board tonight, so at any moment there is a board
 		// in the collection that no player may see. There is no lookup beside this one, so
 		// a board being absent from here is a board that cannot be reached at all.
-		const listed = await (await store([newest])).live(boards.length);
+		const language = newest.language as Locale;
+		const listed = await (await store([newest])).live(boards.length, language);
 		expect(listed.map((p) => p.id)).not.toContain(newest.id);
-		expect(listed).toHaveLength(boards.length - 1);
+		expect(listed).toHaveLength(of(language).length - 1);
+	});
+
+	it('answers with one language and never the other', async () => {
+		// Two languages share one schedule, so this is a filter rather than a second
+		// collection — and it is the whole reason a Swedish player is not handed English
+		// boards. The Firestore adapter narrows in memory to avoid a composite index, which
+		// is exactly the sort of difference this suite exists to catch.
+		const english = of('en');
+		const swedish: Puzzle = { ...english[0], id: 'sv-board', name: 'Ett bräde', language: 'sv' };
+		const mixed = await make([...english, swedish], []);
+
+		expect((await mixed.live(50, 'sv')).map((p) => p.id)).toEqual(['sv-board']);
+		expect((await mixed.live(50, 'en')).map((p) => p.id)).not.toContain('sv-board');
+		expect(await mixed.live(50, 'en')).toHaveLength(english.length);
+	});
+
+	it('says a language is empty rather than falling back to another', async () => {
+		// A language the game speaks but has published nothing in. The picker has to be
+		// able to say so, which it cannot do if an empty language quietly answers with
+		// another one's boards.
+		const onlyEnglish = await make(of('en'), []);
+		expect(await onlyEnglish.live(50, 'sv')).toEqual([]);
 	});
 }
 

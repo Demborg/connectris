@@ -21,6 +21,7 @@ import random
 import zlib
 
 from ..config import Config
+from ..language import get as get_language
 from ..llm import LLM
 from ..prompts import solve as solve_prompt
 from ..schema import SolveAttempt
@@ -48,10 +49,11 @@ def board_order(puzzle: Puzzle, seed: int) -> list[str]:
 
 async def solve(llm: LLM, cfg: Config, puzzle: Puzzle) -> list[Attempt]:
     model = cfg.solver
+    lang = get_language(cfg.language)
 
     async def one(index: int) -> Attempt | None:
         seed = attempt_seed(puzzle.id, model.key, index)
-        system, prompt = solve_prompt(board_order(puzzle, seed))
+        system, prompt = solve_prompt(board_order(puzzle, seed), lang)
         try:
             out = await llm.generate(
                 stage="solve",

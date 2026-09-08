@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ui } from '$lib/i18n/ui.svelte';
 	import { flip } from 'svelte/animate';
 	import CategoryNotes from './CategoryNotes.svelte';
 	import Sheet from './Sheet.svelte';
@@ -239,7 +240,7 @@
      opened from a row behind it. -->
 {#if opened}
 	<Sheet
-		dismissLabel="Close the category"
+		dismissLabel={ui().t.game.closeCategory}
 		labelledBy="category-title"
 		above
 		ondismiss={() => (openedId = null)}

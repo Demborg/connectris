@@ -125,15 +125,47 @@ gcloud run jobs execute connectris-generator --region=europe-north1 --wait
 # `europe-west1`, not the job's own `europe-north1` — Cloud Scheduler is not offered
 # there. It only makes an HTTPS call to the Run Admin API, so where it runs from is
 # independent of where the job runs.
-gcloud scheduler jobs create http connectris-nightly \
-  --location=europe-west1 --schedule="0 22 * * *" --time-zone=UTC \
-  --uri="https://europe-north1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/connectris-507519/jobs/connectris-generator:run" \
-  --http-method=POST \
-  --oauth-service-account-email=connectris-deploy@connectris-507519.iam.gserviceaccount.com
+# One schedule per language, and one board a night from each. Two jobs rather than a loop
+# inside one: a night that fails for Swedish must not take English's board down with it,
+# and two jobs are two lines in the log and two bills that can be read apart. Ten minutes
+# apart so they do not contend for the same quota.
+#
+# The **v2** endpoint, not the v1 `namespaces` one the first job was created against.
+# Container overrides — which is how a schedule says which language it is for — are a v2
+# field; posted to v1 they are ignored, and both jobs would quietly write English.
+for lang in en sv-native; do
+  gcloud scheduler jobs create http connectris-nightly-$lang \
+    --location=europe-west1 --time-zone=UTC \
+    --schedule="$([ $lang = en ] && echo '0 22 * * *' || echo '10 22 * * *')" \
+    --uri="https://run.googleapis.com/v2/projects/connectris-507519/locations/europe-north1/jobs/connectris-generator:run" \
+    --http-method=POST \
+    --headers=Content-Type=application/json \
+    --message-body="{\"overrides\":{\"containerOverrides\":[{\"args\":[\"nightly\",\"--language\",\"$lang\"]}]}}" \
+    --oauth-service-account-email=connectris-deploy@connectris-507519.iam.gserviceaccount.com
+done
 
-# And to stop it, at any time, without deleting anything:
-gcloud scheduler jobs pause connectris-nightly --location=europe-west1
+# `args` replaces the image's CMD and leaves its ENTRYPOINT alone, so the container runs
+# `connectris-pipeline --verbose nightly --language <lang>`.
+
+# The original single job predates the second language and writes English by falling
+# through to the image's own CMD. Delete it once the pair above is in, or it will write a
+# second English board on the same night as the first.
+gcloud scheduler jobs delete connectris-nightly --location=europe-west1
+
+# And to stop either, at any time, without deleting anything:
+gcloud scheduler jobs pause connectris-nightly-sv-native --location=europe-west1
 ```
+
+`sv-native`, not `sv`: the language a _board_ is written in is Swedish either way — the
+difference is that the authoring prompts are themselves in Swedish, which is what
+[../docs/swedish-prompting.md](../docs/swedish-prompting.md) recommends and what keeps the
+category pool from filling up with categories about Sweden rather than categories in
+Swedish. Boards it writes are stamped `sv` and are indistinguishable to the game.
+
+Swedish starts with nothing published, so the first Swedish night has no demand to measure
+and is allowed through unconditionally — the gate is per language, and a language with no
+live board can always start. Until that first night lands, `/sv` says so rather than
+erroring.
 
 `--task-timeout=45m` is sized for the ceiling, not the average. A candidate takes about
 five minutes end to end and `propose` is three and a half of them — the same stage that is

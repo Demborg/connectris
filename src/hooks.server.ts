@@ -1,4 +1,5 @@
 import type { Handle } from '@sveltejs/kit';
+import { LOCALES, localeOf } from '$lib/i18n';
 import { playerOf } from '$lib/server/identity';
 import { BACKLOG, stores } from '$lib/server/stores';
 
@@ -14,12 +15,16 @@ import { BACKLOG, stores } from '$lib/server/stores';
  * Not awaited, deliberately. The server has to start listening either way, and a warm-up
  * that blocks that has made the thing it was meant to fix worse.
  */
-void stores()
-	.puzzles.live(BACKLOG)
-	.catch(() => {
-		// A warm-up that fails is still a warm-up. The cache drops a failed lookup, so the
-		// first real request asks again and reports properly if it is still broken.
-	});
+// One per language, because the cache is keyed by language and warming only one would
+// leave the other locale paying the cold start this exists to avoid.
+for (const locale of LOCALES) {
+	void stores()
+		.puzzles.live(BACKLOG, locale)
+		.catch(() => {
+			// A warm-up that fails is still a warm-up. The cache drops a failed lookup, so
+			// the first real request asks again and reports properly if it is still broken.
+		});
+}
 
 /**
  * Resolve who is asking, once, before anything else does.
@@ -39,5 +44,12 @@ void stores()
  */
 export const handle: Handle = async ({ event, resolve }) => {
 	event.locals.player = await playerOf(event.cookies).catch(() => null);
-	return resolve(event);
+
+	// The document's own language, from the URL prefix. It is not decoration: it is what a
+	// screen reader picks a voice from and what a browser offers to translate against, and
+	// a Swedish page served as `lang="en"` is read aloud in an English accent.
+	const lang = localeOf(event.params.lang);
+	return resolve(event, {
+		transformPageChunk: ({ html }) => html.replace('%lang%', lang)
+	});
 };

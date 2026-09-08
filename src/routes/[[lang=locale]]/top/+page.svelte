@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { formatTime } from '$lib/format';
+	import { ui } from '$lib/i18n/ui.svelte';
 	import type { PageData } from './$types';
 
 	let { data }: { data: PageData } = $props();
+
+	const { t, lang } = $derived(ui());
 
 	/**
 	 * What a row says under the name.
@@ -14,40 +16,39 @@
 	 * of the three is the score.
 	 */
 	const detail = (row: { checksLeft: number; timeMs: number }) =>
-		`${row.checksLeft} checks left · ${formatTime(row.timeMs)}`;
+		t.top.detail(row.checksLeft, row.timeMs);
 
-	const boards = (n: number) => `${n} board${n === 1 ? '' : 's'}`;
+	const boards = (n: number) => t.top.boards(n);
 </script>
 
 <svelte:head>
-	<title>Connectris — Standings</title>
+	<title>{t.title.standings}</title>
 </svelte:head>
 
 <div class="app">
 	<header>
-		<h1>CONNECTRIS</h1>
-		<a class="back" href={resolve('/')}>Today's board</a>
+		<h1>{t.brand}</h1>
+		<a class="back" href={resolve('/[[lang=locale]]', { lang })}>{t.nav.today}</a>
 	</header>
 
-	<h2>Standings</h2>
+	<h2>{t.top.heading}</h2>
 	<!-- Says the rule, because a ranking whose rule is not stated is one people argue
 	     about. Same rule a personal best uses, which is the point of there being one. -->
 	<p class="note">
-		Boards solved, then checks left, then time. {data.of === 1
-			? 'One player so far.'
-			: `${data.of} players.`}
+		{t.top.rule}
+		{t.top.players(data.of)}
 	</p>
 
 	{#if data.listed.length === 0}
-		<p class="empty">Nobody has solved anything yet. That is a gap you could close.</p>
+		<p class="empty">{t.top.empty}</p>
 	{:else}
 		<ol class="list">
 			{#each data.listed as row (row.place)}
 				<li class="row" class:you={row.you}>
 					<span class="place">{row.place}</span>
 					<span class="who">
-						<span class="alias">{row.alias}{row.you ? ' (you)' : ''}</span>
-						<span class="detail">{row.solved > 0 ? detail(row) : 'Not yet'}</span>
+						<span class="alias">{row.alias}{row.you ? t.top.you : ''}</span>
+						<span class="detail">{row.solved > 0 ? detail(row) : t.top.notYet}</span>
 					</span>
 					<span class="solved">{boards(row.solved)}</span>
 				</li>
@@ -61,8 +62,8 @@
 				<li class="row you">
 					<span class="place">{data.mine.place}</span>
 					<span class="who">
-						<span class="alias">{data.mine.alias} (you)</span>
-						<span class="detail">{data.mine.solved > 0 ? detail(data.mine) : 'Not yet'}</span>
+						<span class="alias">{data.mine.alias}{t.top.you}</span>
+						<span class="detail">{data.mine.solved > 0 ? detail(data.mine) : t.top.notYet}</span>
 					</span>
 					<span class="solved">{boards(data.mine.solved)}</span>
 				</li>
@@ -70,7 +71,7 @@
 		{/if}
 	{/if}
 
-	<a class="boards" href={resolve('/boards')}>Pick a board</a>
+	<a class="boards" href={resolve('/[[lang=locale]]/boards', { lang })}>{t.nav.boards}</a>
 </div>
 
 <style>
