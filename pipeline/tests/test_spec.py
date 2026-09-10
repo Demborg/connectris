@@ -291,8 +291,13 @@ def test_a_lure_spread_across_rows_is_safe_once_it_is_too_big_to_submit():
     assert check_lures(p, [spread]) == []
 
 
-def test_a_lure_of_exactly_four_across_rows_is_fatal():
-    """The one way this device breaks a board: the player submits it and is told no."""
+def test_a_lure_of_exactly_four_across_rows_warns_without_killing_the_board():
+    """A coherent foursome the board rejects is the genre's oldest trap, not a defect.
+
+    Five or more is the better build and the prompts ask for it, but a board is only
+    broken when the other sixteen words still partition without the foursome — which
+    needs reading the rows for sense, so the red team decides it, not this.
+    """
     p = board()
     submittable = lure(
         "four of them",
@@ -300,8 +305,8 @@ def test_a_lure_of_exactly_four_across_rows_is_fatal():
         ["Hand tools", "Bad weather", "Rocks", "Fish"],
     )
     problems = check_lures(p, [submittable])
-    assert [x.code for x in problems] == ["lure-is-a-partition"]
-    assert is_fatal(problems)
+    assert [x.code for x in problems] == ["lure-is-submittable"]
+    assert not is_fatal(problems)
 
 
 def test_a_lure_of_four_inside_one_row_is_just_that_row():
@@ -327,4 +332,4 @@ def test_stray_words_do_not_make_a_lure_look_submittable():
         ["HAMMER", "FROST", "SHALE", "SPANNER"],
         ["Hand tools", "Bad weather", "Rocks", "?"],
     )
-    assert "lure-is-a-partition" not in {x.code for x in check_lures(p, [padded])}
+    assert "lure-is-submittable" not in {x.code for x in check_lures(p, [padded])}

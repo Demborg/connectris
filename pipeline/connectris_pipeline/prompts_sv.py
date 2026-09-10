@@ -76,11 +76,15 @@ etiketter. På ett engelskt bräde är ACTINIUM (kemisk beteckning Ac), ATLANTIC
 CONDITIONER, ADULT CONTEMPORARY och ALTERNATING CURRENT allihop "AC" — ett mönster vem som
 helst ser på ett par sekunder, spritt över fyra olika rader, och värt exakt ingenting.
 Spelaren ser något verkligt, och det hjälper inte. Lägg minst en sådan på varje bräde.
-- **En sådan uppsättning får aldrig innehålla exakt {COLS} ord.** Ge den {COLS + 1} eller
-fler, så att en spelare som ser den inte kan bygga en rad utan att godtyckligt välja bort
-en medlem — och varje val är fel. Exakt {COLS} ord som hänger ihop är ett andra rätt svar:
-spelaren lämnar in det, har rätt, och får beskedet att det är fel. Räkna medlemmarna innan
-du svarar.
+- **Ge en sådan uppsättning {COLS + 1} medlemmar eller fler, aldrig exakt {COLS}.** Vid
+{COLS + 1} kan spelaren inte bygga en rad av den utan att godtyckligt välja bort en medlem,
+varje val är fel, och att se den ger ingenting — vilket är hela poängen. Vid exakt {COLS}
+går den att lämna in hel; det fungerar fortfarande som fälla, men ger spelaren en snygg
+grupp och ett felsvar i stället för en återvändsgränd, och är alltså det svagare bygget.
+Räkna medlemmarna innan du svarar.
+- Det som på riktigt förstör ett bräde är snävare: {COLS} ord som hänger ihop *och* lämnar
+de sexton andra sorterbara i fyra vettiga rader utan dem. Då finns det två rätta svar, och
+spelaren som hittade det andra får beskedet att det är fel. Kontrollera det innan du svarar.
 - Ta medlemmarna ur de ord spelaren är *säkrast* på. Vilseledning är värd mest där
 självförtroendet är störst.
 - **Svenskan har sällan initialförkortningar som bär** — AC läses inte som något här. Bygg
@@ -200,8 +204,9 @@ faktiskt är sorterat under.
 
 Två ska du kunna namnge. En av dem måste spänna över tre eller fler rader — det är den \
 uppsättning som passar ingen etikett, och det är den som gör brädet svårt snarare än långt. \
-Räkna dess ord innan du svarar: exakt {COLS} är förödande, {COLS + 1} eller fler är vad du \
-vill ha.
+Räkna dess ord innan du svarar: {COLS + 1} eller fler är vad du vill ha, exakt {COLS} är \
+det svagare bygget, och exakt {COLS} som dessutom lämnar resten av brädet sorterbart utan \
+dem är ett andra rätt svar och förstör brädet.
 
 Och kontrollera, innan du svarar, att inget ord på riktigt uppfyller två av dina fem \
 etiketter. Det är något annat än en lure och det är den enda defekten som gör ett bräde \

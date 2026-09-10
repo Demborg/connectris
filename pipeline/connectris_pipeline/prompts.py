@@ -66,11 +66,16 @@ board, ACTINIUM (its symbol is Ac), ATLANTIC CITY, AIR CONDITIONER, ADULT CONTEM
 ALTERNATING CURRENT are all "AC" — a pattern anyone spots in seconds, spread across four
 different rows, worth precisely nothing. The player sees something real, and it does not
 help. Put at least one of these on every board.
-- **Such a set must never contain exactly {COLS} words.** Give it {COLS + 1} or more, so
-that a player who spots it cannot build a row without arbitrarily dropping a member, and
-every choice is wrong. Exactly {COLS} words that cohere is a second correct answer: the
-player submits it, is right, and is told they are wrong. This is the one way this device
-breaks a board, so count the members before you answer.
+- **Give such a set {COLS + 1} members or more, never exactly {COLS}.** At {COLS + 1} the
+player cannot build a row from it without arbitrarily dropping a member, every choice is
+wrong, and seeing it buys them nothing — which is the whole point. At exactly {COLS} they
+can submit it whole; that still works as a trap, but it hands them a clean-looking group
+and one wrong answer instead of a dead end, so it is the weaker build. Count the members
+before you answer.
+- What genuinely breaks a board is narrower: {COLS} words that cohere *and* leave the
+other sixteen still sorting into four sensible rows without them. Then there are two right
+answers and the player who found the second one is told they are wrong. Check that before
+you answer.
 - Draw its members from the words a player is *most* sure of — the transparent element,
 the obvious window fitting. Misdirection is worth most where confidence is highest.
 - **Do not make all five categories a kind of thing.** "What you might see sticking out of
@@ -204,7 +209,9 @@ words in it, and for each of those words the row it is really filed under.
 
 Two you should be able to name. One of them must span three or more rows — that is the \
 set that matches no label, and it is what makes the board hard rather than long. Count \
-its words before you answer: {COLS} exactly is fatal, {COLS + 1} or more is what you want.
+its words before you answer: {COLS + 1} or more is what you want, exactly {COLS} is the
+weaker build, and exactly {COLS} that still leaves the rest of the board sorting cleanly
+without them is a second right answer and ruins it.
 
 And check, before you answer, that no word genuinely satisfies two of your five labels. \
 That is different from a lure and it is the one defect that makes a board unsolvable \
@@ -288,9 +295,11 @@ def red_team(puzzle: Puzzle, lures: list[dict], lang: Language = ENGLISH) -> tup
         "It is also built to suggest groupings that are not rows at all — a set of words "
         "sharing something real and obvious that matches none of the five labels, spread "
         "across several rows. That is intended too, and it is the board's main defence. "
-        "It is fair exactly when no member satisfies a label it is not filed under, and "
-        "when the set does not have four members. Report such a set only if it has "
-        "exactly four, or if one of its members genuinely satisfies a second label.\n"
+        "It is fair when no member satisfies a label it is not filed under. Four such words "
+        "that cohere are still fair on their own — the player submits them and is simply "
+        "wrong — so report them only if the remaining sixteen would still sort into four "
+        "sensible rows without them, which would make them a second right answer, or if "
+        "one of the members genuinely satisfies a second label.\n"
         "A fault is a word that genuinely satisfies two of the five labels under a precise "
         "reading — where a player could file it either way and defend it. Judge the labels "
         "as written, on their own terms, and ignore how many words each row already has: "
@@ -357,8 +366,11 @@ def grade(
         "match none of the five labels, and are listed for you below. A lure spanning "
         "three or four rows is the strongest thing a board can have and you should mark a "
         "board up for it, not down. A lure of exactly four words drawn from more than one "
-        "row is fatal, because a player can submit it and be told they are wrong — that "
-        "is the one lure fault, and the automatic checks flag it.\n"
+        "row is weaker but not a fault — a coherent foursome the board rejects is the "
+        "oldest trap there is, and the automatic checks flag it as a warning. The board "
+        "is only broken if those four leave the other sixteen still sorting into four "
+        "sensible rows without them, which is a second right answer; that is the red "
+        "team's second question, not something to infer from the count.\n"
         "A row may also disguise its members at different depths on purpose — one entry "
         "ending in a whole word, another hiding the same kind of word inside a longer one. "
         "That is not incoherence and it is not unfairness. It is what stops the row "

@@ -489,12 +489,20 @@ def validate(
 def check_lures(puzzle: Puzzle, lures: list[dict]) -> list[Problem]:
     """The one thing about a lure a machine can decide: how many words are in it.
 
-    A lure is a set the board deliberately tempts a player toward. At 5 or more it is
-    safe by arithmetic — the player cannot make a row of 4 from it without choosing a
-    member to drop, and every choice is wrong, so spotting it yields nothing. At 3 or
-    fewer it is too small to submit. At *exactly* 4 spanning more than one row it is a
-    submittable set that the game will reject, which is the single failure mode this
-    device introduces and the reason it is checked here rather than left to a model.
+    A lure is a set the board deliberately tempts a player toward. At 5 or more the player
+    cannot make a row of 4 from it without choosing a member to drop, and every choice is
+    wrong, so spotting it yields nothing at all. At exactly 4 spanning more than one row
+    they can submit it whole and be told no.
+
+    That is a warning and not a defect, which is the correction from the first run of this
+    check. A coherent foursome that the board rejects is the genre's oldest trap — HEEL,
+    KNEE, SOLE and TONGUE are all body parts on a board with no body-parts row — and
+    calling it fatal threw away sound boards. What is actually fatal is narrower: a
+    foursome whose removal still leaves the other sixteen words partitionable, because
+    then there are two right answers. Deciding that needs to read the remaining rows for
+    sense, so it belongs to the red team's second question and to `decide`, which already
+    rejects on `red.alternatives`. Five or more stays the better build, and the prompts ask
+    for it; this only says so out loud.
 
     A lure inside one row is that row's own narrowing and is fine at any size: its four
     words are the answer.
@@ -525,10 +533,11 @@ def check_lures(puzzle: Puzzle, lures: list[dict]) -> list[Problem]:
         if len(on_board) == COLS and len(homes) > 1:
             problems.append(
                 Problem(
-                    "lure-is-a-partition",
+                    "lure-is-submittable",
                     f"lure {name!r} has exactly {COLS} words on the board "
-                    f"({', '.join(on_board)}) drawn from {len(homes)} rows — a player can "
-                    f"submit it and be told they are wrong",
+                    f"({', '.join(on_board)}) drawn from {len(homes)} rows, so a player can "
+                    f"submit it whole and be told they are wrong. Prefer more members",
+                    "warn",
                 )
             )
     return problems
