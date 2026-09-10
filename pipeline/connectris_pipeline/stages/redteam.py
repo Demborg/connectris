@@ -16,8 +16,8 @@ from ..schema import RedTeamReport
 from ..spec import Puzzle
 
 
-async def red_team(llm: LLM, cfg: Config, puzzle: Puzzle, traps: dict[str, str]) -> RedTeamReport:
-    system, prompt = red_team_prompt(puzzle, traps, get_language(cfg.language))
+async def red_team(llm: LLM, cfg: Config, puzzle: Puzzle, lures: list[dict]) -> RedTeamReport:
+    system, prompt = red_team_prompt(puzzle, lures, get_language(cfg.language))
     return await llm.generate(
         stage="red_team", model=cfg.red_team, system=system, prompt=prompt, schema=RedTeamReport
     )

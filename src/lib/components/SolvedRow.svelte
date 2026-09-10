@@ -134,9 +134,15 @@
 		font-weight: 500;
 		letter-spacing: 0.02em;
 		color: var(--text);
+		/* Two lines, then clip. One line of `nowrap` was right while every entry was a
+		   short single word; multiword entries make four of them overrun, and a row that
+		   ellipsises away its last two words stops being the record of what was solved. */
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
 		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+		white-space: normal;
 	}
 
 	/* Revealed after a loss: same information, visibly not earned. */

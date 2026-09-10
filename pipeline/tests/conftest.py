@@ -25,6 +25,7 @@ from connectris_pipeline.schema import (
     Grade,
     InventedCategories,
     InventedCategory,
+    Lure,
     ProposedGroup,
     ProposedPuzzle,
     PuzzleGloss,
@@ -118,16 +119,22 @@ class ScriptedLLM:
         rows = self._boards[self._proposed % len(self._boards)]
         self._proposed += 1
         self._keys[frozenset(w for _, ws in rows for w in ws)] = rows
+        # One lure, spanning every row and one word too wide to be submittable — the
+        # shape a real proposer is asked for, so the fatal `lure-is-a-partition` check
+        # stays quiet unless a test is deliberately provoking it.
+        first_words = [ws[0] for _, ws in rows]
         return ProposedPuzzle(
             name=f"Board {self._proposed}",
             groups=[
-                ProposedGroup(
-                    label=label,
-                    words=list(ws),
-                    concept=label.lower(),
-                    trap=f"{ws[0]} baits another row",
-                )
+                ProposedGroup(label=label, words=list(ws), concept=label.lower())
                 for label, ws in rows
+            ],
+            lures=[
+                Lure(
+                    name="starts the row",
+                    words=first_words,
+                    where_each_lives=[label for label, _ in rows],
+                )
             ],
         )
 

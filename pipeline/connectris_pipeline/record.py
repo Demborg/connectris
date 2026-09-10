@@ -30,8 +30,11 @@ class Decision:
 class Candidate:
     id: str
     puzzle: Puzzle
-    #: group id -> the decoy the proposer says it planted. Shown to the red team and grader.
-    traps: dict[str, str] = field(default_factory=dict)
+    #: The false groupings the proposer says it built in — each a name, the words in it,
+    #: and the row each of those words really belongs to. Shown to the red team and the
+    #: grader. Plain dicts rather than the `Lure` model so that a stored run rebuilds
+    #: without it; see `from_json`.
+    lures: list[dict] = field(default_factory=list)
     #: The device and theme this board was allocated before it was written.
     slot: dict[str, str] = field(default_factory=dict)
     problems: list[Problem] = field(default_factory=list)
@@ -52,7 +55,7 @@ class Candidate:
             "id": self.id,
             "slot": self.slot,
             "puzzle": self.puzzle.to_game_json(),
-            "traps": self.traps,
+            "lures": self.lures,
             "problems": [asdict(p) for p in self.problems],
             "attempts": [a.to_json() for a in self.attempts],
             "stats": self.stats.to_json() if self.stats else None,
@@ -75,7 +78,7 @@ class Candidate:
         return cls(
             id=raw["id"],
             puzzle=puzzle,
-            traps=raw.get("traps", {}),
+            lures=_lures_from_json(raw),
             slot=raw.get("slot", {}),
             problems=[Problem(**x) for x in raw.get("problems", [])],
             attempts=[Attempt(**a) for a in raw.get("attempts", [])],
@@ -85,6 +88,23 @@ class Candidate:
             decision=decision,
             error=raw.get("error", ""),
         )
+
+
+def _lures_from_json(raw: dict) -> list[dict]:
+    """Read `lures`, falling back to the `traps` dict that preceded it.
+
+    Runs on disk predate this field, and `regrade` re-deciding an old run for free is the
+    whole tuning loop — so an old record has to load rather than raise. A trap was one
+    sentence about one row, which carries no word list, so it comes back as a named lure
+    with no members: enough for the grader to read, not enough to pretend it was measured.
+    """
+    if (lures := raw.get("lures")) is not None:
+        return list(lures)
+    return [
+        {"name": note, "words": [], "where_each_lives": [gid]}
+        for gid, note in (raw.get("traps") or {}).items()
+        if note and note.lower() != "none"
+    ]
 
 
 def decide(candidate: Candidate, t: Thresholds) -> Decision:

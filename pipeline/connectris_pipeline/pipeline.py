@@ -32,7 +32,7 @@ from .language import get as get_language
 from .llm import LLM, Ledger
 from .record import Candidate, decide
 from .scoring import score
-from .spec import Corpus, Puzzle, is_fatal, validate
+from .spec import Corpus, Puzzle, check_lures, is_fatal, validate
 from .stages import grade, invent, propose, red_team, solve
 
 log = logging.getLogger(__name__)
@@ -81,11 +81,13 @@ async def evaluate(llm: LLM, cfg: Config, candidate: Candidate, corpus: Corpus) 
     Since proposing a fresh board is one call and re-evaluating a rewrite is three, a
     grader that wants a revision now just says so and the candidate goes to review.
     """
-    candidate.problems = validate(candidate.puzzle, corpus)
+    candidate.problems = validate(candidate.puzzle, corpus) + check_lures(
+        candidate.puzzle, candidate.lures
+    )
     if not is_fatal(candidate.problems):
         candidate.attempts = await solve(llm, cfg, candidate.puzzle)
         candidate.stats = score(candidate.puzzle, candidate.attempts)
-        candidate.red = await red_team(llm, cfg, candidate.puzzle, candidate.traps)
+        candidate.red = await red_team(llm, cfg, candidate.puzzle, candidate.lures)
         candidate.grade = await grade(llm, cfg, candidate)
 
     candidate.decision = decide(candidate, cfg.thresholds)

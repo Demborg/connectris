@@ -14,6 +14,7 @@ from connectris_pipeline.spec import (
     Corpus,
     Group,
     Puzzle,
+    check_lures,
     concept_key,
     is_fatal,
     label_key,
@@ -58,9 +59,29 @@ def test_repeated_word_is_fatal():
     assert is_fatal(validate(p))
 
 
-def test_word_over_twelve_characters_is_fatal():
+def test_a_single_word_over_the_token_cap_is_fatal():
+    """A tile wraps at spaces and nowhere else, so one long token cannot be drawn."""
     p = board()
     p.groups[0].words[0] = "SLEDGEHAMMERS"
+    assert "token-too-long" in codes(p)
+
+
+def test_a_two_word_entry_is_allowed_past_the_token_cap():
+    """AIR CONDITIONER is 15 characters and draws fine, because it draws on two lines.
+
+    This is the case the old single cap forbade, and with it the phantom categories that
+    need initialisms to work.
+    """
+    p = board()
+    p.groups[0].words[0] = "AIR CONDITIONER"
+    assert not is_fatal(validate(p))
+
+
+def test_an_entry_over_the_entry_cap_is_fatal_however_it_is_split():
+    p = board()
+    p.groups[0].words[0] = "ALTERNATING CURRENTS"  # 20, the last that fits
+    assert not is_fatal(validate(p))
+    p.groups[0].words[0] = "ALTERNATING CURRENTLY"  # 21
     assert "too-long" in codes(p)
 
 
@@ -161,7 +182,7 @@ def test_swedish_letters_are_rejected_on_an_english_board():
 def test_the_cap_counts_swedish_letters_as_one_character_each():
     """A precomposed Å is one char. It would be two if anything here left the string NFD."""
     assert not is_fatal(validate(swedish(["HUND", "KATT", "HÄST", "SOMMARSTUGA"])))
-    assert "too-long" in codes(swedish(["HUND", "KATT", "HÄST", "KAFFEBRYGGARE"]))
+    assert "token-too-long" in codes(swedish(["HUND", "KATT", "HÄST", "KAFFEBRYGGARE"]))
 
 
 def test_label_key_keeps_swedish_labels_apart():
@@ -249,3 +270,61 @@ def test_the_check_budget_matches_the_game():
     """
     engine = (Path(__file__).resolve().parents[2] / "src/lib/game/engine.ts").read_text()
     assert f"export const CHECKS = {CHECKS};" in engine
+
+
+def lure(name: str, words: list[str], homes: list[str]) -> dict:
+    return {"name": name, "words": words, "where_each_lives": homes}
+
+
+def test_a_lure_spread_across_rows_is_safe_once_it_is_too_big_to_submit():
+    """Five words drawn from four rows: nameable, useless, and the point of the device.
+
+    A player who spots it cannot make a row of four without dropping a member, and every
+    choice is wrong — so seeing it costs them time and buys them nothing.
+    """
+    p = board()
+    spread = lure(
+        "starts a row",
+        ["HAMMER", "FROST", "SHALE", "PERCH", "BIRCH"],
+        ["Hand tools", "Bad weather", "Rocks", "Fish", "Trees"],
+    )
+    assert check_lures(p, [spread]) == []
+
+
+def test_a_lure_of_exactly_four_across_rows_is_fatal():
+    """The one way this device breaks a board: the player submits it and is told no."""
+    p = board()
+    submittable = lure(
+        "four of them",
+        ["HAMMER", "FROST", "SHALE", "PERCH"],
+        ["Hand tools", "Bad weather", "Rocks", "Fish"],
+    )
+    problems = check_lures(p, [submittable])
+    assert [x.code for x in problems] == ["lure-is-a-partition"]
+    assert is_fatal(problems)
+
+
+def test_a_lure_of_four_inside_one_row_is_just_that_row():
+    """A category's own narrowing is four words in one row, and is the answer, not a trap."""
+    p = board()
+    inside = lure("hand tools", ["HAMMER", "CHISEL", "PLANE", "WRENCH"], ["Hand tools"] * 4)
+    assert check_lures(p, [inside]) == []
+
+
+def test_a_lure_naming_a_word_that_is_not_on_the_board_warns_without_killing():
+    p = board()
+    stray = lure("off board", ["HAMMER", "SPANNER"], ["Hand tools", "?"])
+    problems = check_lures(p, [stray])
+    assert [x.code for x in problems] == ["lure-off-board"]
+    assert not is_fatal(problems)
+
+
+def test_stray_words_do_not_make_a_lure_look_submittable():
+    """Only words actually on the board can be submitted, so only those are counted."""
+    p = board()
+    padded = lure(
+        "three real, one imaginary",
+        ["HAMMER", "FROST", "SHALE", "SPANNER"],
+        ["Hand tools", "Bad weather", "Rocks", "?"],
+    )
+    assert "lure-is-a-partition" not in {x.code for x in check_lures(p, [padded])}

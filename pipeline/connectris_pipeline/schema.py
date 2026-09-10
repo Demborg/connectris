@@ -54,18 +54,53 @@ class ProposedGroup(BaseModel):
         "already shipped in another language."
     )
     words: list[str] = Field(
-        description="Exactly 4 words, uppercase, at most 12 characters each, no spaces "
-        "unless the entry genuinely has one."
+        description="Exactly 4 entries, uppercase, at most 20 characters each including "
+        "spaces, and no single word within an entry longer than 12 characters. Two-word "
+        "entries are fine and are often what a good board needs."
     )
-    trap: str = Field(
-        description="Which word in this group is the decoy, and which other category on "
-        "this board it is baiting. Say 'none' only if this group has no decoy at all."
+
+
+class Lure(BaseModel):
+    """A set of words a player could defensibly group, and where those words really live.
+
+    This replaced a per-category `trap` field that asked which *one* word a row baited and
+    which *other row* it baited. That shape could only describe a decoy running between
+    two rows, so that is the only kind of decoy the proposer ever built — the data model
+    was generating the monoculture. Every trap this game has is really one shape: a
+    tempting set, plus the true home of each member. A narrowing category is a lure of 5
+    whose members sit 4-and-1; a phantom is a lure of 5 or more spread across 3 or 4 rows.
+    The difference is data, so there is no `kind` field here and a new device needs no
+    schema change.
+    """
+
+    name: str = Field(
+        description="What a player would call this set on sight: 'fruit', 'AC', "
+        "'things in space'. If you cannot name it in three words a player will not see "
+        "it, and it is not doing any work."
+    )
+    words: list[str] = Field(
+        description="Every entry on this board a player could defensibly put in this set. "
+        "Must be 3 or fewer, or 5 or more. EXACTLY 4 is fatal: 4 words that cohere are a "
+        "second correct answer to this board, and a player who submits them is right and "
+        "will be told they are wrong. If your set has exactly 4, either find a fifth "
+        "member on the board or change a word until it has 3."
+    )
+    where_each_lives: list[str] = Field(
+        description="For each word above in the same order, the label of the row it is "
+        "really filed under. When these are all the same label the lure is that row's own "
+        "narrowing; when they span three or more rows it is a phantom, which is the "
+        "stronger device."
     )
 
 
 class ProposedPuzzle(BaseModel):
     name: str = Field(description="A two or three word title for the puzzle.")
     groups: list[ProposedGroup] = Field(description="Exactly 5 groups of 4 words.")
+    lures: list[Lure] = Field(
+        description="The false groupings this board is built to suggest. At least two, "
+        "and at least one of them spanning three or more rows. A board with no lure is a "
+        "board of five unrelated lists and is not worth playing."
+    )
 
 
 class SolvedGroup(BaseModel):

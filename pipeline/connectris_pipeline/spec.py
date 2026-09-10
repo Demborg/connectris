@@ -20,8 +20,22 @@ from typing import Literal, Self
 COLS = 4
 #: Rows on a full board, i.e. categories per puzzle. `ROWS` in engine.ts.
 ROWS = 5
-#: Four columns on a 375px screen is ~70px a tile. Hard data constraint, not a style note.
-MAX_WORD_LEN = 12
+#: The longest single token a tile can render. Four columns on a 375px screen is ~70px a
+#: tile, and `Tile.svelte` sizes its font from the longest token, so this is a hard data
+#: constraint and not a style note. It is deliberately unchanged from when it was the only
+#: cap: 12 is what the tile can draw, and CONDITIONER (11) and CONTEMPORARY (12) are the
+#: entries the multiword work exists to allow. Lowering it forbids them again.
+MAX_TOKEN_LEN = 12
+#: The longest whole entry, spaces included. A tile wraps at its spaces, so a two-word
+#: entry costs height rather than width and can run past `MAX_TOKEN_LEN`. This is what
+#: actually limits an entry; the token cap only limits how wide one line of it gets.
+#:
+#: Multiword entries are not a cosmetic loosening. A phantom category — a false grouping
+#: that matches no row, which is the board's strongest trap — usually needs them: the
+#: shared thing is an initialism (AIR CONDITIONER, ADULT CONTEMPORARY, ALTERNATING
+#: CURRENT) or a shared word, and neither fits in one token. The old single 12-char cap
+#: ruled the device out before any prompt got a say.
+MAX_ENTRY_LEN = 20
 #: How many checks a player gets. `CHECKS` in engine.ts, and mirrored here for the same
 #: reason `ROWS` is: it is the whole difficulty budget a board is designed against, and the
 #: prompt said six while the game gave four for as long as both existed separately.
@@ -39,7 +53,7 @@ ALPHABETS: dict[str, str] = {
 }
 
 #: Uppercase, and space/hyphen/apostrophe only where an entry really needs one.
-WORD_RE = re.compile(rf"[A-Z][A-Z'\- ]{{0,{MAX_WORD_LEN - 1}}}")
+WORD_RE = re.compile(rf"[A-Z][A-Z'\- ]{{0,{MAX_ENTRY_LEN - 1}}}")
 
 Severity = Literal["fatal", "warn"]
 
@@ -47,7 +61,7 @@ Severity = Literal["fatal", "warn"]
 def word_re(language: str) -> re.Pattern[str]:
     """The charset gate for one language. Unknown languages get the English one."""
     letters = ALPHABETS.get(language, ALPHABETS["en"])
-    return re.compile(rf"[{letters}][{letters}'\- ]{{0,{MAX_WORD_LEN - 1}}}")
+    return re.compile(rf"[{letters}][{letters}'\- ]{{0,{MAX_ENTRY_LEN - 1}}}")
 
 
 @dataclass(frozen=True)
@@ -379,8 +393,17 @@ def validate(
 
     charset = word_re(puzzle.language)
     for w in words:
-        if len(w) > MAX_WORD_LEN:
-            problems.append(Problem("too-long", f"{w!r} is {len(w)} chars, cap is {MAX_WORD_LEN}"))
+        if len(w) > MAX_ENTRY_LEN:
+            problems.append(Problem("too-long", f"{w!r} is {len(w)} chars, cap is {MAX_ENTRY_LEN}"))
+        elif longest := max((t for t in w.split() if len(t) > MAX_TOKEN_LEN), key=len, default=""):
+            # A tile wraps at spaces and nowhere else, so it is the longest *token* that
+            # decides whether the text fits the column.
+            problems.append(
+                Problem(
+                    "token-too-long",
+                    f"{w!r} has the {len(longest)}-char token {longest!r}, cap is {MAX_TOKEN_LEN}",
+                )
+            )
         elif not charset.fullmatch(w):
             problems.append(Problem("charset", f"{w!r} is not plain uppercase {puzzle.language!r}"))
 
@@ -460,6 +483,54 @@ def validate(
             if label_key(g.label) not in corpus.labels and corpus.matches_concept(g.concept)
         )
 
+    return problems
+
+
+def check_lures(puzzle: Puzzle, lures: list[dict]) -> list[Problem]:
+    """The one thing about a lure a machine can decide: how many words are in it.
+
+    A lure is a set the board deliberately tempts a player toward. At 5 or more it is
+    safe by arithmetic — the player cannot make a row of 4 from it without choosing a
+    member to drop, and every choice is wrong, so spotting it yields nothing. At 3 or
+    fewer it is too small to submit. At *exactly* 4 spanning more than one row it is a
+    submittable set that the game will reject, which is the single failure mode this
+    device introduces and the reason it is checked here rather than left to a model.
+
+    A lure inside one row is that row's own narrowing and is fine at any size: its four
+    words are the answer.
+
+    `lures` arrives as plain dicts because it is read back from a stored run as often as
+    it is taken from a proposer, and `regrade` must not need the pydantic model.
+    """
+    problems: list[Problem] = []
+    board = {normalise_word(w) for w in puzzle.words}
+    for lure in lures:
+        name = str(lure.get("name", "")).strip() or "(unnamed)"
+        words = [normalise_word(w) for w in lure.get("words", [])]
+        on_board = [w for w in words if w in board]
+        if stray := [w for w in words if w not in board]:
+            problems.append(
+                Problem(
+                    "lure-off-board",
+                    f"lure {name!r} names {stray!r}, not on the board",
+                    "warn",
+                )
+            )
+        homes = {
+            g.id
+            for g in puzzle.groups
+            for w in on_board
+            if normalise_word(w) in {normalise_word(x) for x in g.words}
+        }
+        if len(on_board) == COLS and len(homes) > 1:
+            problems.append(
+                Problem(
+                    "lure-is-a-partition",
+                    f"lure {name!r} has exactly {COLS} words on the board "
+                    f"({', '.join(on_board)}) drawn from {len(homes)} rows — a player can "
+                    f"submit it and be told they are wrong",
+                )
+            )
     return problems
 
 

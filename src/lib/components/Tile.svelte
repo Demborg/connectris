@@ -55,6 +55,13 @@
 		onpointercancel,
 		onpick
 	}: Props = $props();
+
+	/* A tile wraps at its spaces and nowhere else, so what has to fit the column is the
+	   longest token, not the whole entry. AIR CONDITIONER sets its type at the size of
+	   CONDITIONER over two lines, rather than shrinking to fit 15 characters on one. */
+	const longest = $derived(
+		tile.word.split(' ').reduce((most, token) => Math.max(most, token.length), 0)
+	);
 </script>
 
 <button
@@ -67,7 +74,7 @@
 	class:impact={impact && crash > 0}
 	data-row={row}
 	data-col={col}
-	style:--len={tile.word.length}
+	style:--len={longest}
 	style:--dx="{offset.x}px"
 	style:--dy="{offset.y}px"
 	style:--crash-delay="{crashDelay}ms"
@@ -101,13 +108,22 @@
 		outline: 1px solid var(--tile-edge);
 		outline-offset: -1px;
 		/* One size for every word that fits, shrinking only when the column demands it.
-		   0.62em is about the advance of a bold uppercase glyph plus its letter-spacing. */
+		   0.62em is about the advance of a bold uppercase glyph plus its letter-spacing.
+		   `--len` is the longest token, so a multiword entry is sized by the line it will
+		   actually draw rather than by its total length. */
 		font-size: min(var(--fs-md), calc((100cqw - 12px) / (var(--len) * 0.62)));
 		font-weight: 600;
 		letter-spacing: 0.02em;
 		line-height: 1.05;
 		text-align: center;
-		white-space: nowrap;
+		/* Wrap between words, never inside one: a hyphenated ORANG-UTAN or a mid-word
+		   break reads as a different word, which on a word board is a bug and not a
+		   cosmetic one. `overflow-wrap: normal` is the default and is restated because
+		   this is the line that would be wrong if someone reached for `anywhere`. */
+		white-space: normal;
+		overflow-wrap: normal;
+		word-break: normal;
+		hyphens: none;
 		/* The board owns vertical gestures — dragging a tile must not scroll the page. */
 		touch-action: none;
 		transition:
