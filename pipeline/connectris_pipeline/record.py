@@ -9,8 +9,20 @@ instinct as pin 10 in DESIGN.md — log everything, score it later.
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field
-from typing import Literal, Self
+from dataclasses import MISSING, asdict, dataclass, field, fields
+from types import UnionType
+from typing import (
+    Any,
+    Literal,
+    Self,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
+
+from pydantic import BaseModel
 
 from .config import Thresholds
 from .schema import Grade, RedTeamReport
@@ -67,27 +79,113 @@ class Candidate:
 
     @classmethod
     def from_json(cls, raw: dict) -> Self:
-        """Rebuild a record written by a previous run, so `regrade` needs no model."""
-        puzzle = Puzzle.from_game_json(raw["puzzle"])
+        """Rebuild a record written by a previous run, so `regrade` needs no model.
+
+        Written to survive its own schema moving underneath it. Two runs out of nine on
+        disk could not be loaded at all before this: one carried `SolveStats.min_recovery`
+        from before that field was cut, the other predated `RedTeamReport.loose_labels`
+        being added. Both raised, and a `regrade` that raises is a tuning loop that
+        quietly stops covering its oldest and most interesting evidence.
+
+        So every stored sub-object goes through `_rebuild`, which drops fields this
+        version no longer has and fills in ones it has gained. See there for where that
+        stops, because it does stop.
+        """
         stats = None
-        if raw.get("stats"):
-            fields = dict(raw["stats"])
-            fields["groups"] = [GroupStat(**g) for g in fields["groups"]]
-            stats = SolveStats(**fields)
-        decision = Decision(**raw["decision"]) if raw.get("decision") else None
+        if stored := raw.get("stats"):
+            stored = dict(stored)
+            stored["groups"] = [_rebuild(GroupStat, g) for g in stored.get("groups", [])]
+            stats = _rebuild(SolveStats, stored)
         return cls(
             id=raw["id"],
-            puzzle=puzzle,
+            puzzle=Puzzle.from_game_json(raw["puzzle"]),
             lures=_lures_from_json(raw),
             slot=raw.get("slot", {}),
-            problems=[Problem(**x) for x in raw.get("problems", [])],
-            attempts=[Attempt(**a) for a in raw.get("attempts", [])],
+            problems=[_rebuild(Problem, x) for x in raw.get("problems", [])],
+            attempts=[_rebuild(Attempt, a) for a in raw.get("attempts", [])],
             stats=stats,
-            red=RedTeamReport.model_validate(raw["red_team"]) if raw.get("red_team") else None,
-            grade=Grade.model_validate(raw["grade"]) if raw.get("grade") else None,
-            decision=decision,
+            red=_rebuild(RedTeamReport, raw["red_team"]) if raw.get("red_team") else None,
+            grade=_rebuild(Grade, _retired_verdicts(raw["grade"])) if raw.get("grade") else None,
+            decision=_rebuild(Decision, raw["decision"]) if raw.get("decision") else None,
             error=raw.get("error", ""),
         )
+
+
+#: Grader verdicts that no longer exist, and what they mean now. `revise` came with a
+#: rewritten board and a second pass; the revision loop was deleted in 6ff93df because
+#: re-evaluating a rewrite costs three calls where proposing a fresh board costs one. A
+#: board the old grader wanted rewritten is exactly a board a human should look at, so it
+#: reads as `review` — which is what `decide` would have made of it anyway.
+RETIRED_VERDICTS = {"revise": "review"}
+
+
+def _retired_verdicts(grade: dict) -> dict:
+    if (v := grade.get("verdict")) in RETIRED_VERDICTS:
+        return grade | {"verdict": RETIRED_VERDICTS[v]}
+    return grade
+
+
+class StaleRecordError(Exception):
+    """A stored record this version cannot honestly rebuild. Names the field and why."""
+
+
+def _empty_for(annotation: object) -> object:
+    """The value a field should take when the record predates it existing.
+
+    Containers and optionals only. An absent list means "nothing was recorded", which is
+    true and harmless — an old red-team report genuinely listed no loose labels, because
+    nothing was looking for them.
+
+    A missing number has no such honest answer. Filling `mean_recovery` with 0.0 would
+    read as "the solver found nothing", which is the signal `decide` treats as *hard or
+    broken* — so a schema change could silently move old boards toward review and the
+    tuning loop would be measuring its own migration. That raises instead.
+    """
+    origin = get_origin(annotation) or annotation
+    if origin in (list, dict, set, tuple):
+        return origin()
+    if origin in (Union, UnionType) and type(None) in get_args(annotation):
+        return None
+    raise StaleRecordError(f"no honest empty value for a missing {annotation!r}")
+
+
+def _rebuild[T](cls: type[T], raw: dict) -> T:
+    """One stored dict, fitted to whatever `cls` looks like now.
+
+    Fields the record has and the class no longer does are dropped: they were removed on
+    purpose and nothing reads them. Fields the class has and the record does not are
+    filled from `_empty_for`, or left to their own default where they have one.
+
+    The line is drawn at required scalars. If a new field is load-bearing and has no
+    default, an old record genuinely does not contain the information and there is no way
+    to invent it — `StaleRecordError` says which field, rather than a `TypeError` from three
+    frames down saying only that something was unexpected.
+    """
+    if issubclass(cls, BaseModel):
+        data = {k: v for k, v in raw.items() if k in cls.model_fields}
+        for name, spec in cls.model_fields.items():
+            if name not in data and spec.is_required():
+                data[name] = _fill(cls, name, spec.annotation)
+        return cast(T, cls.model_validate(data))
+
+    hints = get_type_hints(cls)
+    args = {}
+    for spec in fields(cast(Any, cls)):
+        if spec.name in raw:
+            args[spec.name] = raw[spec.name]
+        elif spec.default is MISSING and spec.default_factory is MISSING:
+            args[spec.name] = _fill(cls, spec.name, hints[spec.name])
+    return cls(**args)
+
+
+def _fill(cls: type, name: str, annotation: object) -> object:
+    try:
+        return _empty_for(annotation)
+    except StaleRecordError as exc:
+        raise StaleRecordError(
+            f"{cls.__name__}.{name} is required and this record predates it: {exc}. "
+            f"Give the field a default, or re-run rather than regrade."
+        ) from exc
 
 
 def _lures_from_json(raw: dict) -> list[dict]:
