@@ -142,8 +142,14 @@ def _empty_for(annotation: object) -> object:
     tuning loop would be measuring its own migration. That raises instead.
     """
     origin = get_origin(annotation) or annotation
-    if origin in (list, dict, set, tuple):
-        return origin()
+    if origin is list:
+        return []
+    if origin is dict:
+        return {}
+    if origin is set:
+        return set()
+    if origin is tuple:
+        return ()
     if origin in (Union, UnionType) and type(None) in get_args(annotation):
         return None
     raise StaleRecordError(f"no honest empty value for a missing {annotation!r}")

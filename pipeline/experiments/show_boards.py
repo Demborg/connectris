@@ -1,4 +1,4 @@
-"""Print every board an arm produced, with its slot, verdict and stated traps."""
+"""Print every board an arm produced, with its slot, verdict and declared lures."""
 
 from __future__ import annotations
 
@@ -23,7 +23,11 @@ def main() -> None:
             for g in c.puzzle.groups:
                 print(f"    {g.label[:38]:40} {' '.join(g.words)}")
                 print(f"      concept: {g.concept}")
-                print(f"      trap:    {c.traps.get(g.id, '')[:150]}")
+            # Lures belong to the board rather than to any row — a phantom spans several —
+            # so they print once, under the rows they cut across.
+            for lure in c.lures:
+                words = ", ".join(lure.get("words", []))
+                print(f"    lure: {lure.get('name', '')} ({len(lure.get('words', []))}) {words}")
             for p in c.problems:
                 print(f"    ! {p}")
             if c.grade:
