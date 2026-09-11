@@ -2,11 +2,12 @@
 
 from .config import Config, ModelSpec, Thresholds
 from .pipeline import Run, run
-from .spec import COLS, MAX_WORD_LEN, ROWS, Group, Puzzle, validate
+from .spec import COLS, MAX_ENTRY_LEN, MAX_TOKEN_LEN, ROWS, Group, Puzzle, validate
 
 __all__ = [
     "COLS",
-    "MAX_WORD_LEN",
+    "MAX_ENTRY_LEN",
+    "MAX_TOKEN_LEN",
     "ROWS",
     "Config",
     "Group",

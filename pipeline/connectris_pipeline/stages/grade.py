@@ -1,6 +1,6 @@
 """Stage 5 — grade.
 
-The only stage that sees everything at once: the board, the intended traps, what the weak
+The only stage that sees everything at once: the board, the lures it declares, what the weak
 ensemble did with it, and what the red team found. It rates, and where one word is doing
 the damage it names it. Nothing rewrites the board after this: the grader's verdict is
 the last word a model gets, and anything short of `accept` goes to a human.
@@ -19,7 +19,7 @@ from ..schema import Grade
 async def grade(llm: LLM, cfg: Config, candidate: Candidate) -> Grade:
     system, prompt = grade_prompt(
         puzzle=candidate.puzzle,
-        traps=candidate.traps,
+        lures=candidate.lures,
         solver_digest=candidate.stats.digest() if candidate.stats else "no solver data",
         red=candidate.red,
         warnings=candidate.warnings,

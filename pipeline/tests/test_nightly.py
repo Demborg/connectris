@@ -270,14 +270,18 @@ def test_a_week_of_nights_gets_a_week_of_shapes():
     A batch of twenty took the whole shuffled list. A night that proposes one or two takes
     only its front, and a fresh shuffle each night landed on about four distinct shapes a
     week — sometimes one, when the seed did not move. Walking the cycle from the date's
-    ordinal gives all seven, in some order, every week.
+    ordinal gives a different shape every night.
+
+    Seven distinct, not `len(DEVICES)`: the list has outgrown the week, so a week now
+    takes a seven-long window of the cycle rather than the whole of it. What matters is
+    still that no shape repeats inside one week.
     """
     pool = [Category(label=x) for x in ("Stone fruit", "Chess tactics", "Bed linen")]
     week = [
         draw(pool, 1, rng=random.Random(0), cooldown=60, day=shift(TODAY, i))[0][0].device
         for i in range(7)
     ]
-    assert len(set(week)) == len(DEVICES)
+    assert len(set(week)) == 7 <= len(DEVICES)
 
 
 def test_two_boards_in_one_night_are_not_the_same_shape_either():

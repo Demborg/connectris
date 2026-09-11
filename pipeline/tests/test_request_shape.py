@@ -146,12 +146,12 @@ def test_both_implementations_satisfy_the_seam() -> None:
 
 def test_a_red_team_that_never_ran_reads_as_absent_not_as_clean() -> None:
     """A stage that fell over must not be indistinguishable from one that found nothing."""
-    _, absent = prompts.grade(puzzle=PUZZLE, traps={}, solver_digest="", red=None, warnings=[])
+    _, absent = prompts.grade(puzzle=PUZZLE, lures=[], solver_digest="", red=None, warnings=[])
     assert "did not run" in absent
 
     _, clean = prompts.grade(
         puzzle=PUZZLE,
-        traps={},
+        lures=[],
         solver_digest="",
         red=RedTeamReport(ambiguous_words=[], loose_labels=[], alternatives=[], verdict="clean"),
         warnings=[],

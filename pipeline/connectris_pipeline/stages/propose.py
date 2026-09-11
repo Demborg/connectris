@@ -24,14 +24,13 @@ from ..spec import Corpus, Group, Puzzle, normalise_word, slugify
 
 def to_puzzle(
     proposed: ProposedPuzzle, puzzle_id: str, language: str = "en"
-) -> tuple[Puzzle, dict[str, str]]:
-    """Model output -> board, plus the trap notes keyed by the ids we just assigned.
+) -> tuple[Puzzle, list[dict]]:
+    """Model output -> board, plus the lures the proposer says it built in.
 
     Ids are ours, not the model's: they end up in the shipped JSON and in the play log,
     and a model asked for one will eventually produce a duplicate.
     """
     groups: list[Group] = []
-    traps: dict[str, str] = {}
     used: set[str] = set()
     for g in proposed.groups:
         gid = slugify(g.label)
@@ -46,10 +45,17 @@ def to_puzzle(
                 concept=g.concept.strip(),
             )
         )
-        traps[gid] = g.trap.strip()
 
     puzzle = Puzzle(id=puzzle_id, name=proposed.name.strip(), groups=groups, language=language)
-    return puzzle, traps
+    lures = [
+        {
+            "name": lure.name.strip(),
+            "words": [normalise_word(w) for w in lure.words],
+            "where_each_lives": [x.strip() for x in lure.where_each_lives],
+        }
+        for lure in proposed.lures
+    ]
+    return puzzle, lures
 
 
 async def propose(
@@ -73,10 +79,10 @@ async def propose(
     out = await llm.generate(
         stage="propose", model=cfg.proposer, system=system, prompt=prompt, schema=ProposedPuzzle
     )
-    puzzle, traps = to_puzzle(out, candidate_id, lang.code)
+    puzzle, lures = to_puzzle(out, candidate_id, lang.code)
     return Candidate(
         id=candidate_id,
         puzzle=puzzle,
-        traps=traps,
+        lures=lures,
         slot={"device": slot.device, "theme": slot.theme},
     )

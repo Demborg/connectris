@@ -15,7 +15,7 @@ from . import prompts_sv
 from .categories import Slot
 from .language import ENGLISH, Language
 from .schema import RedTeamReport
-from .spec import CHECKS, COLS, MAX_WORD_LEN, ROWS, Puzzle
+from .spec import CHECKS, COLS, MAX_ENTRY_LEN, MAX_TOKEN_LEN, ROWS, Puzzle
 
 GAME_BRIEF = f"""\
 Connectris is a word-grouping puzzle. The board is {ROWS * COLS} words in {ROWS} rows of \
@@ -33,15 +33,16 @@ categories gives the player nothing to rank, and the ranking is the game.
 CONSTRUCTION_RULES = f"""\
 Hard constraints — a puzzle breaking any of these is thrown away unread:
 - Exactly {ROWS} categories of exactly {COLS} words. {ROWS * COLS} distinct words, no repeats.
-- Every word at most {MAX_WORD_LEN} characters. The board is four columns on a phone. \
-Shorter is better; most words should be under 8.
-- Plain uppercase. No punctuation, no digits. Two words are fine if the
-entry really is two words and it fits the tile.
+- Every entry at most {MAX_ENTRY_LEN} characters including spaces, and no single word \
+inside an entry longer than {MAX_TOKEN_LEN}. A tile wraps between words and never inside \
+one, so AIR CONDITIONER fits on two lines and TRANSUBSTANTIATE does not fit at all.
+- Plain uppercase. No punctuation, no digits. Two-word entries are fine and are often \
+what a board needs — do not avoid them, but do not pad a one-word entry into two either.
 - No word may appear inside another category's label.
 
 What makes one good — and this is the distinction the whole thing turns on:
 
-- **The misdirection belongs in the category, not in the word.** Write a category whose
+- **Misdirection is never a word that two categories both admit.** Write a category whose
 obvious reading is wider than its real one, so a word looks like it belongs until you read
 the category precisely and see that it does not. APPLE, PEACH, PLUM, MANGO and OLIVE on a
 board: the row is not "fruit", it is "stone fruit" — PEACH, PLUM, MANGO and OLIVE are all
@@ -55,9 +56,39 @@ labels.
 - Prefer categories a player can *name*. If someone groups the four correctly but cannot \
 say why, the puzzle is unfair even though it is solvable.
 - Vary the kind of category: {{kinds}}. Do not use five of the same kind.
-- A category that quietly narrows is the best device you have: "stone fruit" read as
-"fruit", "circus performers" read as "circus things", "birds that cannot fly" read as
-"birds". Reach for one of those before you reach for a collision.
+- **There are two kinds of misdirection and a good board has both.** The first lives in a
+category that reads wider than it is: "stone fruit" read as "fruit", "circus performers"
+read as "circus things", "birds that cannot fly" read as "birds". It resolves the moment
+the label is read precisely.
+- **The second lives in no category at all, and it is the stronger one.** Build a set of
+words a player can see and name that matches *none* of your five labels. On one real
+board, ACTINIUM (its symbol is Ac), ATLANTIC CITY, AIR CONDITIONER, ADULT CONTEMPORARY and
+ALTERNATING CURRENT are all "AC" — a pattern anyone spots in seconds, spread across four
+different rows, worth precisely nothing. The player sees something real, and it does not
+help. Put at least one of these on every board.
+- **Give such a set {COLS + 1} members or more, never exactly {COLS}.** At {COLS + 1} the
+player cannot build a row from it without arbitrarily dropping a member, every choice is
+wrong, and seeing it buys them nothing — which is the whole point. At exactly {COLS} they
+can submit it whole; that still works as a trap, but it hands them a clean-looking group
+and one wrong answer instead of a dead end, so it is the weaker build. Count the members
+before you answer.
+- What genuinely breaks a board is narrower: {COLS} words that cohere *and* leave the
+other sixteen still sorting into four sensible rows without them. Then there are two right
+answers and the player who found the second one is told they are wrong. Check that before
+you answer.
+- Draw its members from the words a player is *most* sure of — the transparent element,
+the obvious window fitting. Misdirection is worth most where confidence is highest.
+- **Do not make all five categories a kind of thing.** "What you might see sticking out of
+a window" is a situation, not a taxonomy, and no amount of asking "what sort of word is
+this?" will crack it. A board of five taxonomies is solved by sorting words into subject
+areas, which is filing, not puzzling. At most three of your five may be taxonomies; build
+the rest from situations, properties, what someone does, how something is said, or where a
+word came from.
+- **Vary the surface within a wordplay row too.** If four entries hide a word, do not hide
+it the same way four times — one as the whole second word of a two-word entry, one buried
+across a syllable boundary inside a single word. REPRESENT hides PRESENT and SEXTANT hides
+EXTANT at a different depth than ADULT CONTEMPORARY hides CONTEMPORARY. When every member
+is disguised identically, finding one member hands over the other three.
 - Vary difficulty deliberately. One category should be gettable at a glance, one should be \
 the last thing anyone sees.
 - No proper nouns that need specific regional or generational knowledge.
@@ -172,12 +203,20 @@ language the label is written in. It is an identifier, not a translation for the
 If the concept you are about to write is on the list above, the category is a repeat even \
 though its label is new, and you should replace it.
 
-For each category, state its trap: which word on this board its *obvious* reading would \
-pull in, and what in its precise reading keeps that word out. "Stone fruit — reads as \
-fruit, so it pulls APPLE, but an apple is a pome not a drupe." If a category has no such \
-pull, say so; a board where three categories say "none" is one you should rewrite before \
-answering. And check, before you answer, that no word genuinely satisfies two of your \
-five labels — that is the one defect that makes the board unsolvable rather than hard.
+Then list this board's `lures`: the sets of words a player could look at and defensibly \
+group, whether or not they are rows. For each, give the name a player would put on it, the \
+words in it, and for each of those words the row it is really filed under.
+
+Two you should be able to name. One of them must span three or more rows — that is the \
+set that matches no label, and it is what makes the board hard rather than long. Count \
+its words before you answer: {COLS + 1} or more is what you want, exactly {COLS} is the
+weaker build, and exactly {COLS} that still leaves the rest of the board sorting cleanly
+without them is a second right answer and ruins it.
+
+And check, before you answer, that no word genuinely satisfies two of your five labels. \
+That is different from a lure and it is the one defect that makes a board unsolvable \
+rather than hard: a lure is a set the labels all *exclude*, and an ambiguous word is one \
+two labels both admit.
 {"" if lang.is_default else f"Write the words and the labels in {lang.name}."}
 """
     return system, prompt
@@ -206,7 +245,28 @@ def solve(words: list[str], lang: Language = ENGLISH) -> tuple[str, str]:
     return system, prompt
 
 
-def red_team(puzzle: Puzzle, traps: dict[str, str], lang: Language = ENGLISH) -> tuple[str, str]:
+def _lures_as_prompt(lures: list[dict]) -> str:
+    """The proposer's declared lures, for the two stages that judge the board.
+
+    Plain dicts rather than the pydantic model: `regrade` rebuilds a candidate from stored
+    JSON and must not need the schema that wrote it.
+    """
+    if not lures:
+        return "Lures the proposer declared: none stated."
+    lines = []
+    for lure in lures:
+        words = list(lure.get("words", []))
+        homes = list(lure.get("where_each_lives", []))
+        # A model can return fewer homes than words, or more; neither should raise here.
+        homes = (homes + [""] * len(words))[: len(words)]
+        spread = ", ".join(f"{w} (filed under {h})" for w, h in zip(words, homes, strict=True))
+        lines.append(f"- {lure.get('name', '(unnamed)')}: {len(words)} words — {spread or words}")
+    return "Lures the proposer declared — sets that look like groups and are not:\n" + "\n".join(
+        lines
+    )
+
+
+def red_team(puzzle: Puzzle, lures: list[dict], lang: Language = ENGLISH) -> tuple[str, str]:
     """The critical stage, and not the same job as solving.
 
     A solver that happens to find the intended answer proves nothing about whether a
@@ -232,6 +292,14 @@ def red_team(puzzle: Puzzle, traps: dict[str, str], lang: Language = ENGLISH) ->
         "category like 'stone fruit' looks like 'fruit' and tempts APPLE, but an apple is "
         "not a drupe, so the temptation resolves the moment you read the label precisely. "
         "That is the intended difficulty and it is not a fault.\n"
+        "It is also built to suggest groupings that are not rows at all — a set of words "
+        "sharing something real and obvious that matches none of the five labels, spread "
+        "across several rows. That is intended too, and it is the board's main defence. "
+        "It is fair when no member satisfies a label it is not filed under. Four such words "
+        "that cohere are still fair on their own — the player submits them and is simply "
+        "wrong — so report them only if the remaining sixteen would still sort into four "
+        "sensible rows without them, which would make them a second right answer, or if "
+        "one of the members genuinely satisfies a second label.\n"
         "A fault is a word that genuinely satisfies two of the five labels under a precise "
         "reading — where a player could file it either way and defend it. Judge the labels "
         "as written, on their own terms, and ignore how many words each row already has: "
@@ -245,12 +313,11 @@ def red_team(puzzle: Puzzle, traps: dict[str, str], lang: Language = ENGLISH) ->
             f"is not current {lang.name}, or is a calque of an English expression."
         )
     )
-    rows = "\n".join(
-        f"{g.label}: {', '.join(g.words)}   [intended pull: {traps.get(g.id, 'none stated')}]"
-        for g in puzzle.groups
-    )
+    rows = "\n".join(f"{g.label}: {', '.join(g.words)}" for g in puzzle.groups)
     prompt = f"""\
 Board (all 20 words): {", ".join(puzzle.words)}
+
+{_lures_as_prompt(lures)}
 
 Intended answer:
 {rows}
@@ -270,7 +337,7 @@ tightening would fix it.
 def grade(
     *,
     puzzle: Puzzle,
-    traps: dict[str, str],
+    lures: list[dict],
     solver_digest: str,
     red: RedTeamReport | None,
     warnings: list[str],
@@ -295,22 +362,38 @@ def grade(
         "that read wider than they are, so a word being tempted by another row is the "
         "puzzle working. What the red team reports is different — a word two labels both "
         "genuinely admit — and that is a defect, not difficulty.\n"
+        "The board is also meant to contain lures: sets of words that look like a group, "
+        "match none of the five labels, and are listed for you below. A lure spanning "
+        "three or four rows is the strongest thing a board can have and you should mark a "
+        "board up for it, not down. A lure of exactly four words drawn from more than one "
+        "row is weaker but not a fault — a coherent foursome the board rejects is the "
+        "oldest trap there is, and the automatic checks flag it as a warning. The board "
+        "is only broken if those four leave the other sixteen still sorting into four "
+        "sensible rows without them, which is a second right answer; that is the red "
+        "team's second question, not something to infer from the count.\n"
+        "A row may also disguise its members at different depths on purpose — one entry "
+        "ending in a whole word, another hiding the same kind of word inside a longer one. "
+        "That is not incoherence and it is not unfairness. It is what stops the row "
+        "falling the instant a player sees one member, and a row built that way is doing "
+        "its job.\n"
         "How to read the solver evidence: the solvers are deliberately weak models. "
         "A low recovery rate means hard OR broken, and it is your job to say which — the "
-        "red-team report is the tiebreaker. A category the solvers found but could not "
-        "name is the specific shape of unfair that nothing else in this pipeline catches.\n"
+        "red-team report is the tiebreaker, and a clean red team plus low recovery means "
+        "hard. Do not treat 0% recovery on one row as proof it is unfair; the hardest row "
+        "on a good board is often the one no weak solver finds. A category the solvers "
+        "found but could not name is the specific shape of unfair that nothing else in "
+        "this pipeline catches.\n"
         "Use 'review' when the board is sound but something specific is wrong — name it "
         "in your reasons, precisely enough that a human can check the claim in seconds. "
         "Use 'reject' when the board is not worth a human's time."
     )
-    rows = "\n".join(
-        f"{g.label}: {', '.join(g.words)}   [intended trap: {traps.get(g.id, 'none stated')}]"
-        for g in puzzle.groups
-    )
+    rows = "\n".join(f"{g.label}: {', '.join(g.words)}" for g in puzzle.groups)
     flags = "\n".join(f"- {w}" for w in warnings) or "- none"
     prompt = f"""\
 Puzzle: {puzzle.name}
 {rows}
+
+{_lures_as_prompt(lures)}
 
 Automatic checks flagged:
 {flags}
@@ -435,15 +518,22 @@ def invent(*, count: int, known: list[str], lang: Language = ENGLISH) -> tuple[s
         "tempts APPLE, but an apple is a pome, so the temptation resolves the moment the "
         "label is read precisely. 'Circus performers' looks like 'circus things' and "
         "excludes TRAPEZE. That narrowing is what you are being asked for.\n"
-        "Avoid categories that need regional or generational knowledge, and avoid ones "
-        "whose members are longer than 12 characters."
+        "Not every category should be a kind of thing. A situation ('what you might see "
+        "sticking out of a window'), a property ('things with a hole in the middle'), an "
+        "action ('what a barber does to you') or an origin ('words from people's names') "
+        "all make better rows than another taxonomy, because they cannot be cracked by "
+        "asking what sort of word something is.\n"
+        "Avoid categories that need regional or generational knowledge. Members may be up "
+        "to 20 characters and may be two words, but no single word in one may pass 12."
         + (
             ""
             if lang.is_default
             else f"\nWrite the labels in {lang.name}, for a board that will be played in "
-            f"{lang.name}. The 12-character limit is the hard one here: {lang.name} compounds "
-            f"run long, so a category whose natural members are all long compounds is not "
-            f"usable however good the idea is. Invent {lang.name} categories rather than "
+            f"{lang.name}. The 12-character limit on a single word is the hard one here: "
+            f"{lang.name} compounds are written closed and run long, and the allowance for "
+            f"two-word entries does not help a language that joins its words, so a category "
+            f"whose natural members are all long compounds is not usable however good the "
+            f"idea is. Invent {lang.name} categories rather than "
             f"translating English ones — a category that is only interesting in English is "
             f"worse than useless, because it will read as a translation."
         )

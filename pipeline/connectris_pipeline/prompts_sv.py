@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from .categories import Slot
 from .language import Language
-from .spec import CHECKS, COLS, MAX_WORD_LEN, ROWS, Puzzle
+from .spec import CHECKS, COLS, MAX_ENTRY_LEN, MAX_TOKEN_LEN, ROWS, Puzzle
 
 GAME_BRIEF = f"""\
 Connectris är ett ordgrupperingspussel. Brädet är {ROWS * COLS} ord i {ROWS} rader om \
@@ -41,10 +41,13 @@ kategorier ger spelaren ingenting att rangordna, och rangordningen är själva s
 CONSTRUCTION_RULES = f"""\
 Hårda krav — ett pussel som bryter mot något av dem slängs oläst:
 - Exakt {ROWS} kategorier om exakt {COLS} ord. {ROWS * COLS} olika ord, inga upprepningar.
-- Varje ord högst {MAX_WORD_LEN} tecken. Brädet är fyra kolumner på en telefon. Kortare är \
-bättre; de flesta orden bör vara under 8.
-- Enbart versaler. Inga skiljetecken, inga siffror. Två ord går bra om uppslagsordet
-verkligen är två ord och det får plats på brickan.
+- Varje uppslagsord högst {MAX_ENTRY_LEN} tecken inklusive mellanslag, och inget enskilt \
+ord inuti ett uppslagsord längre än {MAX_TOKEN_LEN}. En bricka bryter rad vid mellanslag \
+och aldrig inuti ett ord, så GÅ BÄRSÄRK får plats på två rader medan KAFFEBRYGGARE inte \
+får plats alls.
+- Enbart versaler. Inga skiljetecken, inga siffror. Uppslagsord om två ord går bra och är \
+ofta vad ett bräde behöver — undvik dem inte, men blås inte heller upp ett enordigt \
+uppslagsord till två.
 - Inget ord får stå skrivet i en annan kategoris etikett.
 
 Vad som gör ett bra pussel — och det är den här skillnaden allt hänger på:
@@ -63,9 +66,42 @@ rätt men får fel. Ett ord ska ha exakt ett hem när etiketterna läses noga.
 - Föredra kategorier som spelaren kan *sätta namn på*. Om någon grupperar de fyra rätt men \
 inte kan säga varför är pusslet orättvist, även om det gick att lösa.
 - Variera sorten av kategori: {{kinds}}. Använd inte fem av samma sort.
-- En kategori som tyst smalnar av är det bästa greppet du har: "stone fruit" läst som
-"fruit", "cirkusartister" läst som "cirkussaker", "fåglar som inte kan flyga" läst som
-"fåglar". Sträck dig efter en sådan innan du sträcker dig efter en krock.
+- **Det finns två sorters vilseledning och ett bra bräde har båda.** Den första ligger i
+en kategori som läses vidare än den är: "stone fruit" läst som "fruit", "cirkusartister"
+läst som "cirkussaker", "fåglar som inte kan flyga" läst som "fåglar". Den löser upp sig i
+samma stund som etiketten läses noga.
+- **Den andra ligger inte i någon kategori alls, och den är den starkare.** Bygg en
+uppsättning ord som spelaren kan se och sätta namn på men som passar *ingen* av dina fem
+etiketter. På ett engelskt bräde är ACTINIUM (kemisk beteckning Ac), ATLANTIC CITY, AIR
+CONDITIONER, ADULT CONTEMPORARY och ALTERNATING CURRENT allihop "AC" — ett mönster vem som
+helst ser på ett par sekunder, spritt över fyra olika rader, och värt exakt ingenting.
+Spelaren ser något verkligt, och det hjälper inte. Lägg minst en sådan på varje bräde.
+- **Ge en sådan uppsättning {COLS + 1} medlemmar eller fler, aldrig exakt {COLS}.** Vid
+{COLS + 1} kan spelaren inte bygga en rad av den utan att godtyckligt välja bort en medlem,
+varje val är fel, och att se den ger ingenting — vilket är hela poängen. Vid exakt {COLS}
+går den att lämna in hel; det fungerar fortfarande som fälla, men ger spelaren en snygg
+grupp och ett felsvar i stället för en återvändsgränd, och är alltså det svagare bygget.
+Räkna medlemmarna innan du svarar.
+- Det som på riktigt förstör ett bräde är snävare: {COLS} ord som hänger ihop *och* lämnar
+de sexton andra sorterbara i fyra vettiga rader utan dem. Då finns det två rätta svar, och
+spelaren som hittade det andra får beskedet att det är fel. Kontrollera det innan du svarar.
+- Ta medlemmarna ur de ord spelaren är *säkrast* på. Vilseledning är värd mest där
+självförtroendet är störst.
+- **Svenskan har sällan initialförkortningar som bär** — AC läses inte som något här. Bygg
+uppsättningen av det svenskan faktiskt har i stället: ett gemensamt förled som flera
+obesläktade ord tar, en bokstavsföljd som göms i ord från fyra olika rader, eller ett
+kulturellt fält (jul, midsommar, allemansrätten) som flera ord för tankarna till utan att
+någon rad handlar om det.
+- **Låt inte alla fem kategorier vara ett slags sak.** "Vad man kan se sticka ut genom ett
+fönster" är en situation, inte en taxonomi, och ingen kommer åt den genom att fråga vad
+för sorts ord något är. Ett bräde med fem taxonomier löses genom att sortera ord i
+ämnesområden, vilket är arkivering och inte pusslande. Högst tre av dina fem får vara
+taxonomier; bygg resten av situationer, egenskaper, vad någon gör, hur något sägs, eller
+var ett ord kommer ifrån.
+- **Variera ytan även inom en ordlekrad.** Om fyra uppslagsord gömmer ett ord, göm det inte
+på samma sätt fyra gånger — ett som hela efterledet i en sammansättning, ett begravt inuti
+ett osammansatt ord. När alla medlemmar är förklädda likadant räcker det att hitta en för
+att få de tre andra gratis.
 - Variera svårighetsgraden medvetet. En kategori ska gå att se direkt, en ska vara det \
 sista någon får syn på.
 - Inga egennamn som kräver särskild regional kunskap eller kunskap om en viss generation.
@@ -77,12 +113,17 @@ SV_RULES = """\
 Och specifikt för att det du skriver är svenska:
 - Svensk stavning, med Å, Ä och Ö där ordet har dem. Skriv aldrig A för Å eller O för Ö — \
 RÅTTA och RATTA är olika ord, och brädet är fel om du blandar ihop dem.
-- Tolvteckensgränsen är den bindande begränsningen på svenska, inte en formalitet. Svenska \
-sammansättningar skrivs ihop och blir långa: SOMMARSTUGA är 11, KAFFEBRYGGARE är 14 och \
-får inte plats. Föredra osammansatta ord och korta sammansättningar. Om en kategoris \
-naturliga medlemmar alla är långa sammansättningar är den kategorin fel för det här brädet \
-— välj en annan i stället för att förkorta, och hitta aldrig på en stympad form som ingen \
-skriver.
+- Tolvteckensgränsen för ett *enskilt ord* är den bindande begränsningen på svenska, inte \
+en formalitet. Svenska sammansättningar skrivs ihop och blir långa: SOMMARSTUGA är 11, \
+KAFFEBRYGGARE är 14 och får inte plats. Tjugoteckensutrymmet för ett helt uppslagsord ger \
+svenskan mycket mindre än det ger engelskan, eftersom en bricka bara bryter rad vid ett \
+mellanslag och svenskan inte sätter något mellanslag i en sammansättning — KAFFEBRYGGARE \
+är alltså för långt hur generös uppslagsordsgränsen än är. Föredra osammansatta ord och \
+korta sammansättningar. Om en kategoris naturliga medlemmar alla är långa sammansättningar \
+är den kategorin fel för det här brädet — välj en annan i stället för att förkorta, och \
+hitta aldrig på en stympad form som ingen skriver.
+- Där svenskan *ändå* ger två ord, ta dem: partikelverb, fasta uttryck och öppna \
+nominalfraser (GÅ BÄRSÄRK, RÖD TRÅD) är på riktigt två ord och får plats på brickan.
 - Bestämd och obestämd form är olika ord på en bricka. Välj en form per rad och håll den: \
 en rad som lyder HUND, KATTEN, HÄST, RÄVEN ser ut som ett misstag och läses som ett.
 - Blanda inte en-ord och ett-ord eller singular och plural inom en rad heller, av samma \
@@ -156,13 +197,21 @@ språk etiketten är skriven på. Det är en identifierare, inte en översättni
 att läsa. Om det koncept du står i begrepp att skriva redan står i listan ovan är \
 kategorin en upprepning fastän etiketten är ny, och då ska du byta ut den.
 
-Ange för varje kategori dess fälla: vilket ord på det här brädet som dess *uppenbara* \
-läsning skulle dra till sig, och vad i den noggranna läsningen som håller det ordet ute. \
-"Stenfrukt — läses som frukt, så den drar till sig APPLE, men ett äpple har kärnhus och \
-ingen kärna." Om en kategori inte har något sådant drag, säg det; ett bräde där tre \
-kategorier svarar "inget" är ett bräde du bör skriva om innan du svarar. Och kontrollera, \
-innan du svarar, att inget ord på riktigt uppfyller två av dina fem etiketter — det är den \
-enda defekten som gör ett bräde olösligt i stället för svårt.
+Räkna sedan upp brädets `lures`: de uppsättningar ord som en spelare kan titta på och \
+försvarbart gruppera, oavsett om de är rader eller inte. Ge för var och en det namn en \
+spelare skulle sätta på den, orden i den, och för vart och ett av de orden den rad det \
+faktiskt är sorterat under.
+
+Två ska du kunna namnge. En av dem måste spänna över tre eller fler rader — det är den \
+uppsättning som passar ingen etikett, och det är den som gör brädet svårt snarare än långt. \
+Räkna dess ord innan du svarar: {COLS + 1} eller fler är vad du vill ha, exakt {COLS} är \
+det svagare bygget, och exakt {COLS} som dessutom lämnar resten av brädet sorterbart utan \
+dem är ett andra rätt svar och förstör brädet.
+
+Och kontrollera, innan du svarar, att inget ord på riktigt uppfyller två av dina fem \
+etiketter. Det är något annat än en lure och det är den enda defekten som gör ett bräde \
+olösligt i stället för svårt: en lure är en uppsättning som alla etiketter *utesluter*, ett \
+tvetydigt ord är ett som två etiketter båda släpper in.
 
 Skriv orden och etiketterna på svenska.
 """
@@ -177,12 +226,20 @@ def invent(*, count: int, known: list[str], lang: Language) -> tuple[str, str]:
         "'fruit' och lockar in APPLE, men ett äpple har kärnhus, så frestelsen löser upp "
         "sig i samma stund som etiketten läses noga. 'Cirkusartister' ser ut som "
         "'cirkussaker' och utesluter TRAPETS. Det är den avsmalningen du ombeds leverera.\n"
+        "Alla kategorier ska inte vara ett slags sak. En situation ('vad man kan se sticka "
+        "ut genom ett fönster'), en egenskap ('saker med ett hål i mitten'), en handling "
+        "('vad en frisör gör med en') eller ett ursprung ('ord som kommer från personnamn') "
+        "ger bättre rader än ännu en taxonomi, eftersom de inte går att knäcka genom att "
+        "fråga vad för sorts ord något är.\n"
         "Undvik kategorier som kräver regional kunskap eller kunskap om en viss "
-        "generation, och undvik sådana vars medlemmar är längre än 12 tecken.\n"
+        "generation. Medlemmar får vara upp till 20 tecken och får vara två ord, men "
+        "inget enskilt ord i en medlem får passera 12.\n"
         "Skriv etiketterna på svenska, för ett bräde som kommer att spelas på svenska. "
-        "Tolvteckensgränsen är den hårda gränsen här: svenska sammansättningar blir långa, "
-        "så en kategori vars naturliga medlemmar alla är långa sammansättningar är "
-        "oanvändbar hur god idén än är. Hitta på svenska kategorier i stället för att "
+        "Tolvteckensgränsen för ett enskilt ord är den hårda gränsen här: svenska "
+        "sammansättningar skrivs ihop och blir långa, och utrymmet för tvåordiga "
+        "uppslagsord hjälper inte ett språk som skriver ihop sina ord, så en kategori vars "
+        "naturliga medlemmar alla är långa sammansättningar är oanvändbar hur god idén än "
+        "är. Hitta på svenska kategorier i stället för att "
         "översätta engelska — en kategori som bara är intressant på engelska är sämre än "
         "värdelös, eftersom den kommer att läsas som en översättning."
     )

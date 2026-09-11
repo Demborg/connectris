@@ -36,6 +36,12 @@ EN_DEVICES: list[str] = [
     "four members of an ordered set (ranks, sizes, stages)",
     "four words that all mean roughly the same thing",
     "four words that are all a specific kind of noun with an everyday second meaning",
+    "four entries that each end in a shorter word of the same kind, hidden at different "
+    "depths — one as the whole second word of a two-word entry, one buried across a "
+    "syllable boundary inside a single word (REPRESENT hides PRESENT, SEXTANT hides "
+    "EXTANT). Do not disguise all four the same way",
+    "four things joined by a situation rather than a category — what you would see in one "
+    "place, or what someone would be holding at one moment. Not a kind of thing",
 ]
 
 #: Swedish. Four of the seven English devices survive translation unchanged (hidden words,
@@ -59,6 +65,11 @@ SV_DEVICES: list[str] = [
     "four words that all mean roughly the same thing",
     "four words that are each the load-bearing noun of a fixed Swedish expression",
     "four words that are all a specific kind of noun with an everyday second meaning",
+    "four words that each hide a shorter word of the same kind, but at different depths — "
+    "one as the whole efterled of a closed compound, one buried inside a simplex word. Do "
+    "not hide them the same way all four times",
+    "four things joined by a situation rather than a category — what you would see in one "
+    "place, or what someone would be holding at one moment. Not a kind of thing",
 ]
 
 #: The same eight devices, written in Swedish. Only used by the `sv-native` arm, where the
@@ -77,11 +88,17 @@ SV_DEVICES_NATIVE: list[str] = [
     "fyra ord som alla betyder ungefär samma sak",
     "fyra ord som vart och ett är det bärande substantivet i ett fast svenskt uttryck",
     "fyra ord som alla är ett bestämt slags substantiv med en vardaglig andrabetydelse",
+    "fyra ord som var och ett gömmer ett kortare ord av samma slag, men på olika djup — "
+    "ett som hela efterledet i en sammansättning, ett begravt inuti ett osammansatt ord. "
+    "Göm dem inte på samma sätt alla fyra",
+    "fyra saker som hålls ihop av en situation snarare än av en kategori — vad man ser på "
+    "ett visst ställe, eller vad någon håller i vid ett visst tillfälle. Inte ett slags sak",
 ]
 
 SV_KINDS_NATIVE = (
     "sådant-som-är-X, förled eller efterled i en gemensam sammansättning, minimala par på "
-    "Å/Ä/Ö, substantiv ur fasta uttryck, medlemmar av en följd, ord som gömmer ett annat ord"
+    "Å/Ä/Ö, substantiv ur fasta uttryck, medlemmar av en följd, ord som gömmer ett annat "
+    "ord, situationer snarare än slags saker, egenskaper, vad någon gör"
 )
 
 #: Extra construction rules, appended to the shared ones. Empty for English, because the
@@ -90,11 +107,21 @@ SV_RULES = """\
 Writing in Swedish, specifically:
 - Swedish spelling, including Å, Ä and Ö where the word has them. Never write A for Å or O \
 for Ö — RÅTTA and RATTA are different words and the board is wrong if you confuse them.
-- The 12-character cap is the binding constraint in Swedish, not a formality. Swedish \
-compounds are written closed and run long: SOMMARSTUGA is 11, KAFFEBRYGGARE is 14 and does \
-not fit. Prefer simplex words and short compounds. If a category's natural members are all \
-long compounds, that category is wrong for this board — pick a different one rather than \
-abbreviating, and never invent a clipped form nobody writes.
+- The 12-character cap on a single word is the binding constraint in Swedish, not a \
+formality. Swedish compounds are written closed and run long: SOMMARSTUGA is 11, \
+KAFFEBRYGGARE is 14 and does not fit. The 20-character allowance for a whole entry buys \
+Swedish much less than it buys English, because a tile only wraps at a space and Swedish \
+puts no space in a compound — so KAFFEBRYGGARE is still too long however generous the \
+entry cap is. Prefer simplex words and short compounds. If a category's natural members \
+are all long compounds, that category is wrong for this board — pick a different one \
+rather than abbreviating, and never invent a clipped form nobody writes.
+- Where Swedish *does* get two words, take them: particle verbs, fixed expressions and \
+open noun phrases (GÅ BÄRSÄRK, RÖD TRÅD) are genuinely two words and fit the tile.
+- The set that matches no label is harder to build in Swedish, because initialisms are \
+less idiomatic here than in English — AC does not read as anything. Build it from what \
+Swedish does have instead: a shared förled that several unrelated words all take, a string \
+of letters hiding in words from four different rows, or one cultural domain (jul, \
+midsommar, allemansrätten) that several words evoke without any row being about it.
 - Definite and indefinite are different words on a tile. Pick one form per row and keep it: \
 a row reading HUND, KATTEN, HÄST, RÄVEN looks like a mistake and reads as one.
 - No en/ett or singular/plural mixture inside a row either, for the same reason.
@@ -136,7 +163,8 @@ ENGLISH = Language(
     name="English",
     devices=EN_DEVICES,
     kinds="things-that-are-X, ___ WORD and WORD ___ compounds, homophones, members of a "
-    "set, words hiding another word",
+    "set, words hiding another word, situations rather than kinds, properties, what "
+    "someone does, where a word came from",
 )
 SWEDISH = Language(
     code="sv",
@@ -144,7 +172,7 @@ SWEDISH = Language(
     devices=SV_DEVICES,
     kinds="things-that-are-X, förled or efterled of a shared closed compound, minimal "
     "pairs on Å/Ä/Ö, nouns from fixed expressions, members of a set, words hiding another "
-    "word",
+    "word, situations rather than kinds, properties, what someone does",
     rules=SV_RULES,
 )
 
